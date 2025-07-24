@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: sales_daily_db
+    environment:
+      POSTGRES_USER: salesuser
+      POSTGRES_PASSWORD: salespass
+      POSTGRES_DB: sales_daily
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: ./server
+    container_name: sales_daily_api
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_USER=salesuser
+      - DB_PASSWORD=salespass
+      - DB_NAME=sales_daily
+      - DB_PORT=5432
+      - JWT_SECRET=your-jwt-secret-key
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+
+  frontend:
+    build: ./client
+    container_name: sales_daily_frontend
+    environment:
+      - VITE_API_URL=http://localhost:3001
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
