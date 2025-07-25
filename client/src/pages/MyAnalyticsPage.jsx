@@ -127,13 +127,30 @@ const LoadingSpinner = styled.div`
   color: ${colors.neutral[500]};
 `;
 
+// 業界ごとの固定色（紫系のグラデーション）
+const INDUSTRY_COLORS = {
+  '建設': '#8B5CF6', // 紫
+  '製造': '#A78BFA', // 明るい紫
+  'IT': '#C084FC', // ラベンダー
+  '小売': '#DDD6FE', // 薄紫
+  'サービス': '#7C3AED', // 濃い紫
+  '不動産': '#6D28D9', // ダークパープル
+  '金融': '#5B21B6', // より濃い紫
+  '医療': '#E9D5FF', // とても薄い紫
+  '教育': '#EDE9FE', // ペールラベンダー
+  'その他': '#9CA3AF'  // グレー
+};
+
+// デフォルトのカラーパレット（紫系グラデーション）
 const COLORS = [
-  colors.primary[500],
-  colors.secondary[500], 
-  colors.success[500],
-  colors.warning[500],
-  colors.error[500],
-  colors.info[500]
+  '#8B5CF6', // 紫
+  '#A78BFA', // 明るい紫
+  '#C084FC', // ラベンダー
+  '#7C3AED', // 濃い紫
+  '#6D28D9', // ダークパープル
+  '#DDD6FE', // 薄紫
+  '#5B21B6', // より濃い紫
+  '#E9D5FF', // とても薄い紫
 ];
 
 const ActionsList = styled.div`
@@ -551,7 +568,10 @@ const MyAnalyticsPage = () => {
                 dataKey="count"
               >
                 {industryAnalysis.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={INDUSTRY_COLORS[entry.industry] || COLORS[index % COLORS.length]} 
+                  />
                 ))}
               </Pie>
               <Tooltip />
@@ -559,6 +579,9 @@ const MyAnalyticsPage = () => {
                 verticalAlign="bottom" 
                 height={36}
                 formatter={(value, entry) => `${entry.payload.industry} (${entry.payload.count})`}
+                wrapperStyle={{
+                  paddingTop: '10px'
+                }}
               />
             </PieChart>
           </ResponsiveContainer>

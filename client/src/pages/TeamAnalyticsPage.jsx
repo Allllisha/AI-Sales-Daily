@@ -166,10 +166,49 @@ const ChartTitle = styled.h3`
   font-family: ${typography.fontFamily.sans};
 `;
 
+const TableContainer = styled.div`
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: ${spacing[4]};
+  border-radius: ${borderRadius.md};
+  border: 1px solid ${colors.neutral[200]};
+  
+  /* スクロールバーのスタイリング */
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: ${colors.neutral[100]};
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: ${colors.neutral[400]};
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb:hover {
+    background: ${colors.neutral[500]};
+  }
+  
+  @media (max-width: 768px) {
+    margin: ${spacing[3]} -${spacing[4]};
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+`;
+
 const MemberStatsTable = styled.table`
   width: 100%;
+  min-width: 800px; /* 最小幅を設定してスクロールを有効化 */
   border-collapse: collapse;
-  margin-top: ${spacing[4]};
+  background: white;
+  
+  @media (max-width: 768px) {
+    min-width: 900px; /* モバイルではより広い最小幅 */
+  }
 `;
 
 const TableHeader = styled.th`
@@ -178,12 +217,27 @@ const TableHeader = styled.th`
   border-bottom: 2px solid ${colors.neutral[200]};
   font-weight: ${typography.fontWeight.semibold};
   color: ${colors.neutral[700]};
+  white-space: nowrap;
+  background: ${colors.neutral[50]};
+  font-size: ${typography.fontSize.sm};
+  
+  @media (max-width: 768px) {
+    padding: ${spacing[2]} ${spacing[3]};
+    font-size: ${typography.fontSize.xs};
+  }
 `;
 
 const TableCell = styled.td`
   padding: ${spacing[3]};
   border-bottom: 1px solid ${colors.neutral[200]};
   color: ${colors.neutral[600]};
+  white-space: nowrap;
+  font-size: ${typography.fontSize.sm};
+  
+  @media (max-width: 768px) {
+    padding: ${spacing[2]} ${spacing[3]};
+    font-size: ${typography.fontSize.xs};
+  }
 `;
 
 const LoadingSpinner = styled.div`
@@ -195,18 +249,36 @@ const LoadingSpinner = styled.div`
   color: ${colors.neutral[500]};
 `;
 
+// 業界ごとの固定色（紫系のグラデーション）
+const INDUSTRY_COLORS = {
+  '建設': '#8B5CF6', // 紫
+  '製造': '#A78BFA', // 明るい紫
+  'IT': '#C084FC', // ラベンダー
+  '小売': '#DDD6FE', // 薄紫
+  'サービス': '#7C3AED', // 濃い紫
+  '不動産': '#6D28D9', // ダークパープル
+  '金融': '#5B21B6', // より濃い紫
+  '医療': '#E9D5FF', // とても薄い紫
+  '教育': '#EDE9FE', // ペールラベンダー
+  'その他': '#9CA3AF'  // グレー
+};
+
+// デフォルトのカラーパレット（紫系グラデーション）
 const COLORS = [
-  colors.primary[500],
-  colors.secondary[500], 
-  colors.success[500],
-  colors.warning[500],
-  colors.error[500],
-  colors.info[500]
+  '#8B5CF6', // 紫
+  '#A78BFA', // 明るい紫
+  '#C084FC', // ラベンダー
+  '#7C3AED', // 濃い紫
+  '#6D28D9', // ダークパープル
+  '#DDD6FE', // 薄紫
+  '#5B21B6', // より濃い紫
+  '#E9D5FF', // とても薄い紫
 ];
 
 const TeamAnalyticsPage = () => {
   const [analyticsData, setAnalyticsData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionGroupBy, setActionGroupBy] = useState('date'); // 追加: アクショングループ化の状態
   const [selectedPeriod, setSelectedPeriod] = useState(30);
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -464,7 +536,8 @@ const TeamAnalyticsPage = () => {
       <ChartCard style={{ marginBottom: spacing[8] }}>
         <ChartTitle>メンバー別パフォーマンス</ChartTitle>
         {memberStats && memberStats.length > 0 ? (
-          <MemberStatsTable>
+          <TableContainer>
+            <MemberStatsTable>
             <thead>
               <tr>
                 <TableHeader>メンバー</TableHeader>
@@ -515,7 +588,8 @@ const TeamAnalyticsPage = () => {
                 );
               })}
             </tbody>
-          </MemberStatsTable>
+            </MemberStatsTable>
+          </TableContainer>
         ) : (
           <div style={{ padding: '20px', textAlign: 'center', color: colors.neutral[500] }}>
             データがありません
@@ -583,7 +657,10 @@ const TeamAnalyticsPage = () => {
                   dataKey="count"
                 >
                   {industryAnalysis.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={INDUSTRY_COLORS[entry.industry] || COLORS[index % COLORS.length]} 
+                    />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -591,6 +668,9 @@ const TeamAnalyticsPage = () => {
                   verticalAlign="bottom" 
                   height={36}
                   formatter={(_, entry) => `${entry.payload.industry} (${entry.payload.count})`}
+                  wrapperStyle={{
+                    paddingTop: '10px'
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -703,26 +783,123 @@ const TeamAnalyticsPage = () => {
       {/* チームアクション一覧 */}
       {teamActionsList && teamActionsList.length > 0 && (
         <ChartCard style={{ marginTop: spacing[8] }}>
-          <ChartTitle>チーム全体のアクション一覧</ChartTitle>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[3], maxHeight: '500px', overflowY: 'auto' }}>
-            {teamActionsList.map((action, index) => {
-              const actionKey = `${action.reportId}_${action.text}`;
-              const isCompleted = individualActionStates[actionKey] || false;
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[4] }}>
+            <ChartTitle style={{ marginBottom: 0 }}>チーム全体のアクション一覧</ChartTitle>
+            <div style={{ display: 'flex', gap: spacing[2] }}>
+              <select
+                value={actionGroupBy}
+                onChange={(e) => setActionGroupBy(e.target.value)}
+                style={{
+                  padding: `${spacing[2]} ${spacing[3]}`,
+                  borderRadius: borderRadius.md,
+                  border: `1px solid ${colors.neutral[300]}`,
+                  backgroundColor: 'white',
+                  fontSize: typography.fontSize.sm,
+                  fontWeight: typography.fontWeight.medium,
+                  color: colors.neutral[700],
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="date">日付別</option>
+                <option value="customer">顧客別</option>
+                <option value="member">メンバー別</option>
+                <option value="status">ステータス別</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[4], maxHeight: '600px', overflowY: 'auto', padding: spacing[1] }}>
+            {(() => {
+              // グループ化のロジック
+              const groupedActions = {};
               
-              return (
-                <div 
-                  key={index} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'flex-start',
-                    padding: spacing[4], 
-                    background: isCompleted ? colors.success[50] : colors.warning[50],
-                    border: `1px solid ${isCompleted ? colors.success[200] : colors.warning[200]}`,
-                    borderRadius: borderRadius.md,
-                    gap: spacing[3],
-                    transition: 'all 0.2s'
-                  }}
-                >
+              teamActionsList.forEach(action => {
+                let groupKey;
+                switch (actionGroupBy) {
+                  case 'date':
+                    groupKey = new Date(action.reportDate).toLocaleDateString('ja-JP');
+                    break;
+                  case 'customer':
+                    groupKey = action.customer;
+                    break;
+                  case 'member':
+                    groupKey = action.userName;
+                    break;
+                  case 'status':
+                    const actionKey = `${action.reportId}_${action.text}`;
+                    groupKey = individualActionStates[actionKey] ? '完了済み' : '未完了';
+                    break;
+                  default:
+                    groupKey = 'その他';
+                }
+                
+                if (!groupedActions[groupKey]) {
+                  groupedActions[groupKey] = [];
+                }
+                groupedActions[groupKey].push(action);
+              });
+              
+              // ソート
+              const sortedGroups = Object.entries(groupedActions).sort((a, b) => {
+                if (actionGroupBy === 'date') {
+                  return new Date(b[0]) - new Date(a[0]);
+                } else if (actionGroupBy === 'status') {
+                  return a[0] === '未完了' ? -1 : 1;
+                }
+                return a[0].localeCompare(b[0]);
+              });
+              
+              return sortedGroups.map(([groupKey, actions], groupIndex) => (
+                <div key={groupIndex} style={{
+                  background: colors.neutral[50],
+                  borderRadius: borderRadius.lg,
+                  padding: spacing[4],
+                  border: `1px solid ${colors.neutral[200]}`
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: spacing[3],
+                    gap: spacing[2]
+                  }}>
+                    <h4 style={{
+                      fontSize: typography.fontSize.md,
+                      fontWeight: typography.fontWeight.semibold,
+                      color: colors.neutral[800],
+                      margin: 0
+                    }}>
+                      {groupKey}
+                    </h4>
+                    <span style={{
+                      backgroundColor: colors.primary[100],
+                      color: colors.primary[700],
+                      padding: `${spacing[1]} ${spacing[2]}`,
+                      borderRadius: borderRadius.full,
+                      fontSize: typography.fontSize.xs,
+                      fontWeight: typography.fontWeight.bold
+                    }}>
+                      {actions.length}件
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[2] }}>
+                    {actions.map((action, index) => {
+                      const actionKey = `${action.reportId}_${action.text}`;
+                      const isCompleted = individualActionStates[actionKey] || false;
+                      
+                      return (
+                        <div 
+                          key={index} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'flex-start',
+                            padding: spacing[3], 
+                            background: 'white',
+                            border: `1px solid ${isCompleted ? colors.success[300] : colors.neutral[300]}`,
+                            borderRadius: borderRadius.md,
+                            gap: spacing[3],
+                            transition: 'all 0.2s',
+                            boxShadow: isCompleted ? 'none' : '0 1px 3px rgba(0,0,0,0.1)'
+                          }}
+                        >
                   <div style={{
                     width: '24px',
                     height: '24px',
@@ -797,10 +974,14 @@ const TeamAnalyticsPage = () => {
                         {isCompleted ? '✅ 完了済み' : '⏳ 未完了'}
                       </span>
                     </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
+              ));
+            })()}
           </div>
         </ChartCard>
       )}

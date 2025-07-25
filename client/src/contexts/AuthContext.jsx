@@ -57,8 +57,65 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('AuthContext: Login error:', error);
       const message = error.response?.data?.error || 'ログインに失敗しました';
-      toast.error(message);
-      return { success: false, error: message };
+      
+      // 401エラー（認証失敗）の場合、新規登録を促す
+      const isAuthError = error.response?.status === 401;
+      
+      if (isAuthError) {
+        // カスタムトーストで新規登録を提案
+        toast((t) => (
+          <div>
+            <p style={{ marginBottom: '8px', fontWeight: '600' }}>ログインに失敗しました</p>
+            <p style={{ fontSize: '14px', marginBottom: '12px' }}>アカウントが存在しない可能性があります</p>
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                window.location.href = '/register';
+              }}
+              style={{
+                backgroundColor: '#8B5CF6',
+                color: 'white',
+                padding: '6px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                marginRight: '8px'
+              }}
+            >
+              新規登録へ
+            </button>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              style={{
+                backgroundColor: '#E5E7EB',
+                color: '#4B5563',
+                padding: '6px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                fontSize: '14px',
+                cursor: 'pointer'
+              }}
+            >
+              閉じる
+            </button>
+          </div>
+        ), {
+          duration: 8000,
+          style: {
+            maxWidth: '400px'
+          }
+        });
+      } else {
+        toast.error(message);
+      }
+      
+      return { 
+        success: false, 
+        error: message,
+        isAuthError
+      };
     }
   };
 

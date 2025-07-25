@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../contexts/AuthContext';
 import styled from '@emotion/styled';
+import { colors, typography, spacing, borderRadius, shadows } from '../styles/designSystem';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -378,6 +379,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
+  const [showSignupPrompt, setShowSignupPrompt] = React.useState(false);
 
   const onSubmit = async (data) => {
     try {
@@ -389,6 +391,12 @@ const LoginPage = () => {
         navigate('/', { replace: true });
       } else {
         console.error('Login failed:', result.error);
+        // 認証エラーの場合、新規登録を促す
+        if (result.isAuthError) {
+          setShowSignupPrompt(true);
+          // 5秒後に自動的に非表示
+          setTimeout(() => setShowSignupPrompt(false), 5000);
+        }
       }
     } catch (error) {
       console.error('Login error caught:', error);
@@ -454,6 +462,70 @@ const LoginPage = () => {
             {isSubmitting ? 'ログイン中...' : 'ログイン'}
           </Button>
         </Form>
+
+        {/* 新規登録を促すメッセージ */}
+        {showSignupPrompt && (
+          <div style={{
+            marginTop: spacing[4],
+            padding: spacing[4],
+            backgroundColor: colors.info[50],
+            border: `1px solid ${colors.info[200]}`,
+            borderRadius: borderRadius.md,
+            textAlign: 'center',
+            animation: 'fadeIn 0.3s ease-in'
+          }}>
+            <style>
+              {`
+                @keyframes fadeIn {
+                  from { opacity: 0; transform: translateY(-10px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+              `}
+            </style>
+            <p style={{
+              color: colors.info[800],
+              fontSize: typography.fontSize.sm,
+              marginBottom: spacing[2],
+              fontWeight: typography.fontWeight.medium
+            }}>
+              アカウントが見つかりませんでした
+            </p>
+            <p style={{
+              color: colors.info[700],
+              fontSize: typography.fontSize.sm,
+              marginBottom: spacing[3]
+            }}>
+              新規登録してSales Dailyを始めましょう！
+            </p>
+            <button
+              onClick={handleSignupClick}
+              style={{
+                backgroundColor: colors.info[600],
+                color: 'white',
+                padding: `${spacing[2]} ${spacing[4]}`,
+                borderRadius: borderRadius.md,
+                border: 'none',
+                fontSize: typography.fontSize.sm,
+                fontWeight: typography.fontWeight.semibold,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: shadows.sm
+              }}
+              onMouseOver={(e) => {
+                e.target.style.backgroundColor = colors.info[700];
+                e.target.style.transform = 'translateY(-1px)';
+                e.target.style.boxShadow = shadows.md;
+              }}
+              onMouseOut={(e) => {
+                e.target.style.backgroundColor = colors.info[600];
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = shadows.sm;
+              }}
+            >
+              新規登録ページへ →
+            </button>
+          </div>
+        )}
 
         <DemoInfo>
           <DemoTitle>デモアカウント</DemoTitle>
