@@ -2,6 +2,69 @@ const express = require('express');
 const { authMiddleware, managerOnly } = require('../middleware/auth');
 const pool = require('../db/pool');
 
+// スロットデータをクリーンアップする関数
+// 全体の会話から業界を推測する関数
+function inferIndustryFromText(text) {
+  const industryKeywords = [
+    { industry: '建設業', keywords: ['建設', '工務', '施工', '建築', '土木', 'ゼネコン', '現場', '着工', '竣工', 'BIM', 'CAD', '建設会社', '工事', '設計', '施工管理', '図面'] },
+    { industry: '保険業', keywords: ['保険', '損保', '生保', '共済', '契約者', '被保険者', '保険料', '保険金', '査定', '保険会社', 'アクサ', '東京海上', '三井住友海上', '損害保険'] },
+    { industry: '金融業', keywords: ['銀行', '信金', '証券', '投資', '融資', '資金', '金利', '債券', '株式', 'ファンド', '銀行', 'みずほ', 'UFJ', '三菱', '金融機関', 'リース'] },
+    { industry: '製造業', keywords: ['製造', '工場', '生産', '品質', '検査', '組立', '製品', '部品', '設備', '機械', '製造業', '生産管理', '品質管理', '工場長', '製造ライン'] },
+    { industry: 'IT業', keywords: ['IT', 'システム', 'ソフト', 'アプリ', 'データ', 'クラウド', 'AI', 'DX', 'SaaS', 'AWS', 'Azure', 'サーバー', 'ネットワーク', 'プログラム', 'エンジニア', 'SE'] },
+    { industry: '医療・介護', keywords: ['病院', '医療', '看護', '介護', '患者', '診療', '薬剤', 'カルテ', 'レセプト', '医師', '看護師', 'クリニック', '薬局', '介護施設', '老人ホーム'] },
+    { industry: '教育', keywords: ['学校', '大学', '教育', '学生', '生徒', '授業', '講義', '研修', 'e-learning', '教師', '先生', '教授', '学習', '教育機関', '専門学校'] },
+    { industry: '小売業', keywords: ['店舗', '販売', '商品', '在庫', 'POS', 'レジ', 'EC', '顧客管理', '売上', '小売', '百貨店', 'スーパー', 'コンビニ', '店長', '販売員'] },
+    { industry: '不動産業', keywords: ['不動産', '賃貸', '売買', '物件', 'マンション', 'オフィス', '仲介', '管理', '不動産会社', '賃貸管理', '売買仲介', '大家', 'テナント'] },
+    { industry: '公共・自治体', keywords: ['自治体', '市役所', '県庁', '公共', '行政', '住民', '公務員', '入札', '市町村', '都道府県', '役所', '官公庁'] }
+  ];
+  
+  // スコアベースで最適な業界を選択
+  let bestMatch = null;
+  let bestScore = 0;
+  
+  for (const { industry, keywords } of industryKeywords) {
+    let score = 0;
+    for (const keyword of keywords) {
+      const count = (text.match(new RegExp(keyword, 'g')) || []).length;
+      score += count;
+    }
+    
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = industry;
+    }
+  }
+  
+  // 最低1つのキーワードがマッチした場合のみ返す
+  return bestScore > 0 ? bestMatch : null;
+}
+
+function cleanSlotData(slots) {
+  if (!slots || typeof slots !== 'object') return slots;
+  
+  const cleaned = {};
+  Object.keys(slots).forEach(key => {
+    const value = slots[key];
+    if (value !== null && value !== undefined) {
+      if (typeof value === 'string') {
+        // {}[]"を除去
+        cleaned[key] = value.replace(/[{}[\]"]/g, '');
+      } else if (Array.isArray(value)) {
+        // 配列の場合はカンマ区切り文字列に変換し、{}[]"を除去
+        cleaned[key] = value.map(item => 
+          typeof item === 'string' ? item.replace(/[{}[\]"]/g, '') : item
+        ).join(', ');
+      } else {
+        cleaned[key] = value;
+      }
+    } else {
+      cleaned[key] = value;
+    }
+  });
+  
+  return cleaned;
+}
+
 const router = express.Router();
 
 // 日報一覧取得
@@ -51,22 +114,8 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const result = await pool.query(query, params);
     
-    // 各行のスロットデータの配列フィールドを適切に処理
-    const processedRows = result.rows.map(row => {
-      ['participants', 'issues', 'next_action', 'project', 'personal_info', 'relationship_notes'].forEach(field => {
-        if (row[field]) {
-          // PostgreSQL配列が文字列として返される場合の処理
-          if (typeof row[field] === 'string' && row[field].startsWith('{')) {
-            // PostgreSQL配列形式 "{item1,item2}" を配列に変換
-            row[field] = row[field]
-              .replace(/^\{|\}$/g, '') // 前後の{}を削除
-              .split(',') // カンマで分割
-              .map(item => item.trim().replace(/^"|"$/g, '')); // 前後の引用符を削除
-          }
-        }
-      });
-      return row;
-    });
+    // データはすでに文字列形式なので、特別な処理は不要
+    const processedRows = result.rows;
     
     res.json(processedRows);
   } catch (error) {
@@ -115,31 +164,8 @@ router.get('/team', authMiddleware, managerOnly, async (req, res) => {
       LIMIT $${queryParams.length + 1}
     `, [...queryParams, limit]);
 
-    // データを処理してPostgreSQLのセット記法を適切に変換
-    const processedRows = result.rows.map(row => {
-      const processedRow = { ...row };
-      
-      // 配列フィールドの処理
-      ['customer', 'project'].forEach(field => {
-        if (processedRow[field]) {
-          if (typeof processedRow[field] === 'string') {
-            // PostgreSQLのセット記法 {item1,item2} を配列に変換
-            if (processedRow[field].startsWith('{') && processedRow[field].endsWith('}')) {
-              try {
-                const arrayStr = processedRow[field].replace(/^{/, '[').replace(/}$/, ']');
-                const parsed = JSON.parse(arrayStr);
-                processedRow[field] = Array.isArray(parsed) ? parsed[0] : parsed;
-              } catch (e) {
-                // パースに失敗した場合は元の文字列から{}を除去
-                processedRow[field] = processedRow[field].replace(/[{}]/g, '');
-              }
-            }
-          }
-        }
-      });
-      
-      return processedRow;
-    });
+    // データはすでにクリーンな文字列形式なので、特別な処理は不要
+    const processedRows = result.rows;
 
     res.json(processedRows);
   } catch (error) {
@@ -184,23 +210,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
       [id]
     );
 
-    // スロットデータの配列フィールドを適切に処理
+    // スロットデータはすでにクリーンな文字列形式
     const slots = slotsResult.rows[0] || {};
-    if (slots) {
-      // PostgreSQL配列データを適切なJavaScript配列に変換
-      ['participants', 'issues', 'next_action', 'project', 'personal_info', 'relationship_notes'].forEach(field => {
-        if (slots[field]) {
-          // PostgreSQL配列が文字列として返される場合の処理
-          if (typeof slots[field] === 'string' && slots[field].startsWith('{')) {
-            // PostgreSQL配列形式 "{item1,item2}" を配列に変換
-            slots[field] = slots[field]
-              .replace(/^\{|\}$/g, '') // 前後の{}を削除
-              .split(',') // カンマで分割
-              .map(item => item.trim().replace(/^"|"$/g, '')); // 前後の引用符を削除
-          }
-        }
-      });
-    }
 
     res.json({
       ...report,
@@ -243,7 +254,12 @@ router.post('/', authMiddleware, async (req, res) => {
     await client.query('BEGIN');
 
     const { report_date, mode, questions_answers, slots } = req.body;
-    const reportDate = report_date || new Date();
+    // If no report_date provided, use current JST date
+    const reportDate = report_date || (() => {
+      const now = new Date();
+      const jstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+      return jstDate.toISOString().split('T')[0];
+    })();
 
     // 既存の日報をチェック
     const existingReport = await client.query(
@@ -287,23 +303,35 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // スロット情報保存
     if (slots) {
+      let cleanedSlots = cleanSlotData(slots);
+      
+      // 業界が設定されていない場合、全体の会話から推測
+      if (!cleanedSlots.industry && questions_answers && questions_answers.length > 0) {
+        const allAnswers = questions_answers.map(qa => qa.answer).join(' ');
+        const inferredIndustry = inferIndustryFromText(allAnswers);
+        if (inferredIndustry) {
+          cleanedSlots.industry = inferredIndustry;
+        }
+      }
+      
       await client.query(`
         INSERT INTO report_slots (
           report_id, customer, project, next_action, budget, 
-          schedule, participants, location, issues, personal_info, relationship_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          schedule, participants, location, issues, personal_info, relationship_notes, industry
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       `, [
         reportId,
-        slots.customer,
-        slots.project,
-        slots.next_action,
-        slots.budget,
-        slots.schedule,
-        slots.participants,
-        slots.location,
-        slots.issues,
-        slots.personal_info,
-        slots.relationship_notes
+        cleanedSlots.customer,
+        cleanedSlots.project,
+        cleanedSlots.next_action,
+        cleanedSlots.budget,
+        cleanedSlots.schedule,
+        cleanedSlots.participants,
+        cleanedSlots.location,
+        cleanedSlots.issues,
+        cleanedSlots.personal_info,
+        cleanedSlots.relationship_notes,
+        cleanedSlots.industry
       ]);
     }
 
@@ -369,27 +397,39 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     // スロット情報更新
     if (slots) {
+      let cleanedSlots = cleanSlotData(slots);
+      
+      // 業界が設定されていない場合、全体の会話から推測
+      if (!cleanedSlots.industry && questions_answers && questions_answers.length > 0) {
+        const allAnswers = questions_answers.map(qa => qa.answer).join(' ');
+        const inferredIndustry = inferIndustryFromText(allAnswers);
+        if (inferredIndustry) {
+          cleanedSlots.industry = inferredIndustry;
+        }
+      }
+      
       await client.query(`
         INSERT INTO report_slots (
           report_id, customer, project, next_action, budget, 
-          schedule, participants, location, issues, personal_info, relationship_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          schedule, participants, location, issues, personal_info, relationship_notes, industry
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT (report_id) DO UPDATE SET
           customer = $2, project = $3, next_action = $4, budget = $5,
           schedule = $6, participants = $7, location = $8, issues = $9,
-          personal_info = $10, relationship_notes = $11
+          personal_info = $10, relationship_notes = $11, industry = $12
       `, [
         id,
-        slots.customer,
-        slots.project,
-        slots.next_action,
-        slots.budget,
-        slots.schedule,
-        slots.participants,
-        slots.location,
-        slots.issues,
-        slots.personal_info,
-        slots.relationship_notes
+        cleanedSlots.customer,
+        cleanedSlots.project,
+        cleanedSlots.next_action,
+        cleanedSlots.budget,
+        cleanedSlots.schedule,
+        cleanedSlots.participants,
+        cleanedSlots.location,
+        cleanedSlots.issues,
+        cleanedSlots.personal_info,
+        cleanedSlots.relationship_notes,
+        cleanedSlots.industry
       ]);
     }
 

@@ -28,8 +28,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      // Don't redirect if we're already on the login page
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/register') {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -38,7 +42,9 @@ api.interceptors.response.use(
 // 認証API
 export const authAPI = {
   login: async (email, password) => {
+    console.log('API: Sending login request...');
     const response = await api.post('/api/auth/login', { email, password });
+    console.log('API: Login response:', response.data);
     return response.data;
   },
   register: async (userData) => {
@@ -59,6 +65,10 @@ export const userAPI = {
   },
   getTeamMembers: async () => {
     const response = await api.get('/api/users/team');
+    return response.data;
+  },
+  getManagers: async () => {
+    const response = await api.get('/api/users/managers');
     return response.data;
   }
 };
@@ -113,12 +123,27 @@ export const analyticsAPI = {
     const response = await api.get(`/api/analytics/personal?period=${period}`);
     return response.data;
   },
+  
+  getPersonalIssues: async (period = 30) => {
+    const response = await api.get(`/api/analytics/personal/issues?period=${period}`);
+    return response.data;
+  },
+  
   getTeamAnalytics: async (period = 30, userIds = []) => {
     const params = new URLSearchParams({ period });
     if (userIds.length > 0) {
       userIds.forEach(id => params.append('userIds', id));
     }
     const response = await api.get(`/api/analytics/team?${params}`);
+    return response.data;
+  },
+  
+  getTeamIssues: async (period = 30, userIds = []) => {
+    const params = new URLSearchParams({ period });
+    if (userIds.length > 0) {
+      userIds.forEach(id => params.append('userIds', id));
+    }
+    const response = await api.get(`/api/analytics/team/issues?${params}`);
     return response.data;
   }
 };

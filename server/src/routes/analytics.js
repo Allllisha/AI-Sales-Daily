@@ -1,6 +1,7 @@
 const express = require('express');
 const { authMiddleware, managerOnly } = require('../middleware/auth');
 const pool = require('../db/pool');
+const axios = require('axios');
 
 const router = express.Router();
 
@@ -11,18 +12,12 @@ router.get('/personal', authMiddleware, async (req, res) => {
     const userId = req.userId;
     console.log('Analytics request - userId:', userId, 'period:', period);
     
-    // 期間の計算（日本時間で計算）
-    const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
-    const nowUTC = new Date();
-    const nowJST = new Date(nowUTC.getTime() + jstOffset);
-    
-    // JST での今日の終了時間（23:59:59.999）
-    const endDateJST = new Date(nowJST.getFullYear(), nowJST.getMonth(), nowJST.getDate(), 23, 59, 59, 999);
-    const endDate = new Date(endDateJST.getTime() - jstOffset); // UTC に変換
-    
-    // JST での開始日の開始時間（00:00:00.000）
-    const startDateJST = new Date(nowJST.getFullYear(), nowJST.getMonth(), nowJST.getDate() - parseInt(period), 0, 0, 0, 0);
-    const startDate = new Date(startDateJST.getTime() - jstOffset); // UTC に変換
+    // 期間の計算（日本時間基準で修正）
+    const now = new Date();
+    // 今日の日付を含める（明日の00:00:00まで）
+    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    // 開始日（period日前の00:00:00から）
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - parseInt(period) + 1, 0, 0, 0, 0);
     
     console.log('Date range - startDate:', startDate, 'endDate:', endDate);
     
@@ -41,15 +36,13 @@ router.get('/personal', authMiddleware, async (req, res) => {
     const customerAnalysis = await getCustomerAnalysis(userId, startDate, endDate);
     console.log('Customer analysis:', customerAnalysis.length);
     
-    // 案件カテゴリ分析
-    console.log('Fetching project categories...');
-    const projectCategories = await getProjectCategories(userId, startDate, endDate);
-    console.log('Project categories:', projectCategories.length);
+    // 業界分析
+    console.log('Fetching industry analysis...');
+    const industryAnalysis = await getIndustryAnalysis(userId, startDate, endDate);
+    console.log('Industry analysis:', industryAnalysis.length);
     
-    // 課題・リスク分析
-    console.log('Fetching issues analysis...');
-    const issuesAnalysis = await getIssuesAnalysis(userId, startDate, endDate);
-    console.log('Issues analysis:', issuesAnalysis.length);
+    // 課題・リスク分析は後から非同期で取得
+    const issuesAnalysis = [];
     
     // 関係構築情報の分析
     console.log('Fetching relationship analysis...');
@@ -71,20 +64,49 @@ router.get('/personal', authMiddleware, async (req, res) => {
     basicStats.completed_actions = completedActions;
     basicStats.pending_actions = pendingActions;
     
+    // まず基本データを返す
     res.json({
       period: parseInt(period),
       basicStats,
       dailyReports,
       customerAnalysis,
-      projectCategories,
+      industryAnalysis,
       issuesAnalysis,
       relationshipAnalysis,
       actionsList
     });
     
+    // 課題分析は非同期でバックグラウンド処理（結果は別エンドポイントで取得）
+    getIssuesAnalysis(userId, startDate, endDate)
+      .then(result => {
+        console.log('Issues analysis completed:', result.length);
+      })
+      .catch(error => {
+        console.error('Issues analysis background error:', error);
+      });
+    
   } catch (error) {
     console.error('Personal analytics error:', error);
     res.status(500).json({ error: '分析データの取得に失敗しました' });
+  }
+});
+
+// 課題キーワード分析を別エンドポイントで取得
+router.get('/personal/issues', authMiddleware, async (req, res) => {
+  try {
+    const { period = '30' } = req.query;
+    const userId = req.userId;
+    
+    const now = new Date();
+    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - parseInt(period) + 1, 0, 0, 0, 0);
+    
+    const issuesAnalysis = await getIssuesAnalysis(userId, startDate, endDate);
+    
+    res.json({ issuesAnalysis });
+  } catch (error) {
+    console.error('Issues analysis error:', error);
+    res.status(500).json({ error: '課題分析の取得に失敗しました' });
   }
 });
 
@@ -105,7 +127,7 @@ async function getBasicStats(userId, startDate, endDate) {
         COUNT(CASE WHEN r.status = 'completed' THEN 1 END) as completed_reports,
         COUNT(DISTINCT rs.customer) FILTER (WHERE rs.customer IS NOT NULL AND rs.customer != '') as unique_customers,
         COUNT(CASE WHEN rs.next_action IS NOT NULL AND rs.next_action != '' THEN 1 END) as reports_with_actions,
-        COUNT(CASE WHEN rs.issues IS NOT NULL AND array_length(rs.issues, 1) > 0 THEN 1 END) as reports_with_issues
+        COUNT(CASE WHEN rs.issues IS NOT NULL AND rs.issues != '' THEN 1 END) as reports_with_issues
       FROM reports r
       LEFT JOIN report_slots rs ON r.id = rs.report_id
       WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3
@@ -198,34 +220,28 @@ async function getDailyReports(userId, startDate, endDate) {
       ORDER BY DATE(r.report_date)
     `, [userId, startDate, endDate]);
     
-    // 日付範囲を埋める（データがない日は0に）- JST対応
+    // 日付範囲を埋める（データがない日は0に）
     const dailyData = [];
-    const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
-    const startJST = new Date(startDate.getTime() + jstOffset);
-    const endJST = new Date(endDate.getTime() + jstOffset);
-    const currentDate = new Date(startJST.getFullYear(), startJST.getMonth(), startJST.getDate());
+    const currentDate = new Date(startDate);
     
-    while (currentDate <= endJST) {
+    while (currentDate <= endDate) {
       const dateStr = currentDate.toISOString().split('T')[0];
       
       // 日報数を検索
       const foundReport = reportsResult.rows.find(row => {
-        const rowDateJST = new Date(row.date.getTime() + jstOffset);
-        const dbDateStr = rowDateJST.toISOString().split('T')[0];
+        const dbDateStr = new Date(row.date).toISOString().split('T')[0];
         return dbDateStr === dateStr;
       });
       
       // アクション数を検索
       const foundAction = actionsResult.rows.find(row => {
-        const rowDateJST = new Date(row.date.getTime() + jstOffset);
-        const dbDateStr = rowDateJST.toISOString().split('T')[0];
+        const dbDateStr = new Date(row.date).toISOString().split('T')[0];
         return dbDateStr === dateStr;
       });
 
       // 取引先数を検索
       const foundCustomer = customersResult.rows.find(row => {
-        const rowDateJST = new Date(row.date.getTime() + jstOffset);
-        const dbDateStr = rowDateJST.toISOString().split('T')[0];
+        const dbDateStr = new Date(row.date).toISOString().split('T')[0];
         return dbDateStr === dateStr;
       });
       
@@ -280,89 +296,189 @@ async function getCustomerAnalysis(userId, startDate, endDate) {
   }
 }
 
-// 案件カテゴリ分析
-async function getProjectCategories(userId, startDate, endDate) {
+// 業界分析
+async function getIndustryAnalysis(userId, startDate, endDate) {
   try {
     const result = await pool.query(`
       SELECT 
-        CASE 
-          WHEN rs.project ILIKE '%新規%' OR rs.project ILIKE '%立ち上げ%' OR rs.project ILIKE '%開始%' THEN '新規案件'
-          WHEN rs.project ILIKE '%システム%' OR rs.project ILIKE '%IT%' OR rs.project ILIKE '%デジタル%' OR rs.project ILIKE '%アプリ%' OR rs.project ILIKE '%ソフト%' THEN 'IT・システム'
-          WHEN rs.project ILIKE '%改善%' OR rs.project ILIKE '%効率%' OR rs.project ILIKE '%最適%' OR rs.project ILIKE '%自動化%' OR rs.project ILIKE '%DX%' THEN '業務改善'
-          WHEN rs.project ILIKE '%導入%' OR rs.project ILIKE '%実装%' OR rs.project ILIKE '%採用%' THEN 'ツール・サービス導入'
-          WHEN rs.project ILIKE '%拡大%' OR rs.project ILIKE '%展開%' OR rs.project ILIKE '%拡張%' OR rs.project ILIKE '%増設%' THEN '事業拡大'
-          WHEN rs.project ILIKE '%更新%' OR rs.project ILIKE '%リニューアル%' OR rs.project ILIKE '%刷新%' OR rs.project ILIKE '%再構築%' THEN 'リニューアル・更新'
-          WHEN rs.project ILIKE '%研修%' OR rs.project ILIKE '%教育%' OR rs.project ILIKE '%トレーニング%' OR rs.project ILIKE '%支援%' THEN '教育・支援'
-          WHEN rs.project ILIKE '%保守%' OR rs.project ILIKE '%メンテナンス%' OR rs.project ILIKE '%運用%' THEN '保守・運用'
-          ELSE 'その他'
-        END as category,
+        rs.industry,
         COUNT(r.id) as count
       FROM reports r
       JOIN report_slots rs ON r.id = rs.report_id
       WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3 
-      AND rs.project IS NOT NULL AND rs.project != ''
-      GROUP BY category
+      AND rs.industry IS NOT NULL AND rs.industry != ''
+      GROUP BY rs.industry
       ORDER BY count DESC
     `, [userId, startDate, endDate]);
     
     return result.rows.map(row => ({
-      category: row.category,
+      industry: row.industry,
       count: parseInt(row.count)
     }));
   } catch (error) {
-    console.error('Error in getProjectCategories:', error);
+    console.error('Error in getIndustryAnalysis:', error);
     return [];
   }
 }
 
-// 課題・リスク分析
+// 課題・リスク分析（AI動的キーワード抽出）
 async function getIssuesAnalysis(userId, startDate, endDate) {
   try {
+    // 全ての課題テキストを取得（テキスト型）
     const result = await pool.query(`
-      WITH issue_items AS (
-        SELECT 
-          r.id,
-          unnest(rs.issues) as issue_text
-        FROM reports r
-        JOIN report_slots rs ON r.id = rs.report_id
-        WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3 
-        AND rs.issues IS NOT NULL AND array_length(rs.issues, 1) > 0
-      ),
-      issue_categories AS (
-        SELECT '人手不足' as category, issue_text FROM issue_items WHERE issue_text ILIKE '%人手不足%' OR issue_text ILIKE '%人材不足%'
-        UNION ALL
-        SELECT '知識・スキル不足' as category, issue_text FROM issue_items WHERE issue_text ILIKE '%知見%' OR issue_text ILIKE '%知識%' OR issue_text ILIKE '%スキル%'
-        UNION ALL
-        SELECT '理解・把握困難' as category, issue_text FROM issue_items WHERE issue_text ILIKE '%把握%' OR issue_text ILIKE '%理解%' OR issue_text ILIKE '%分からない%'
-        UNION ALL
-        SELECT 'ボトルネック・制約' as category, issue_text FROM issue_items WHERE issue_text ILIKE '%ボトルネック%' OR issue_text ILIKE '%障害%' OR issue_text ILIKE '%制約%'
-        UNION ALL
-        SELECT 'コスト・予算' as category, issue_text FROM issue_items WHERE issue_text ILIKE '%コスト%' OR issue_text ILIKE '%費用%' OR issue_text ILIKE '%予算%'
-        UNION ALL
-        SELECT '時間・スケジュール' as category, issue_text FROM issue_items WHERE 
-          issue_text ILIKE '%時間%' OR issue_text ILIKE '%期間%' OR issue_text ILIKE '%スケジュール%' OR 
-          issue_text ILIKE '%間に合う%' OR issue_text ILIKE '%間に合わ%' OR issue_text ILIKE '%終わる%' OR 
-          issue_text ILIKE '%リリース%' OR issue_text ILIKE '%納期%' OR issue_text ILIKE '%期限%' OR
-          issue_text ILIKE '%心配%' OR issue_text ILIKE '%不安%'
-        UNION ALL
-        SELECT '効率・生産性' as category, issue_text FROM issue_items WHERE issue_text ILIKE '%効率%' OR issue_text ILIKE '%生産性%'
-      )
-      SELECT 
-        category as issue_type,
-        COUNT(DISTINCT issue_text) as count
-      FROM issue_categories
-      GROUP BY category
-      ORDER BY count DESC
+      SELECT rs.issues as issues_text
+      FROM reports r
+      JOIN report_slots rs ON r.id = rs.report_id
+      WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3 
+      AND rs.issues IS NOT NULL AND rs.issues != ''
     `, [userId, startDate, endDate]);
     
-    return result.rows.map(row => ({
-      issueType: row.issue_type,
-      count: parseInt(row.count)
-    }));
+    if (result.rows.length === 0) {
+      return [];
+    }
+    
+    // 全課題テキストを結合
+    const allIssuesText = result.rows
+      .map(row => row.issues_text)
+      .filter(issues => issues && issues.trim())
+      .join(', ');
+    
+    if (!allIssuesText.trim()) {
+      return [];
+    }
+    
+    // AIを使ってキーワードを動的に抽出
+    const keywords = await extractKeywordsWithAI(allIssuesText);
+    
+    if (!keywords || keywords.length === 0) {
+      return [];
+    }
+    
+    // 抽出されたキーワードの出現頻度をカウント
+    const keywordCounts = {};
+    
+    for (const keyword of keywords) {
+      // 全体のテキストからキーワードの出現回数をカウント
+      const regex = new RegExp(keyword, 'gi');
+      const matches = allIssuesText.match(regex);
+      const count = matches ? matches.length : 0;
+      
+      if (count > 0) {
+        keywordCounts[keyword] = count;
+      }
+    }
+    
+    // 頻度順にソートして上位8個まで取得
+    const sortedKeywords = Object.entries(keywordCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 8)
+      .map(([keyword, count]) => ({ keyword, count }));
+    
+    return sortedKeywords;
+    
   } catch (error) {
     console.error('Error in getIssuesAnalysis:', error);
     return [];
   }
+}
+
+// AIを使って課題テキストから重要なキーワードを動的に抽出
+async function extractKeywordsWithAI(issuesText) {
+  try {
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const apiKey = process.env.AZURE_OPENAI_API_KEY;
+    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    const apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
+    
+    if (!endpoint || !apiKey || !deploymentName) {
+      console.log('Azure OpenAI not configured, using fallback keyword extraction');
+      return extractKeywordsFallback(issuesText);
+    }
+
+    const url = `${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
+    
+    const response = await axios.post(
+      url,
+      {
+        messages: [
+          {
+            role: 'system',
+            content: `あなたは営業日報の課題分析の専門家です。与えられた課題テキストから、重要なキーワードを抽出してください。
+
+抽出ルール：
+1. 課題の核心となる重要な名詞・技術用語を抽出
+2. 一般的すぎる単語（「こと」「もの」「場合」など）は除外
+3. 具体的で意味のあるキーワードのみを選択
+4. 最大10個までのキーワードを抽出（最終的に上位8個を使用）
+5. 頻度が高く、ビジネス上重要なキーワードを優先
+
+回答形式：
+["キーワード1", "キーワード2", "キーワード3", ...]
+
+例：
+入力: "AIシステムの精度が低い、図面の読み取り性能が悪い、コストが高い"
+出力: ["AI", "システム", "精度", "図面", "読み取り", "性能", "コスト"]`
+          },
+          {
+            role: 'user',
+            content: `以下の課題テキストからキーワードを抽出してください：\n\n${issuesText}`
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.1
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': apiKey
+        }
+      }
+    );
+
+    const extractedText = response.data.choices[0].message.content.trim();
+    console.log('AI keyword extraction result:', extractedText);
+    
+    // JSONとしてパース
+    try {
+      const jsonMatch = extractedText.match(/\[(.*)\]/) || extractedText.match(/(\[[\s\S]*?\])/);
+      const jsonText = jsonMatch ? jsonMatch[0] : extractedText;
+      const keywords = JSON.parse(jsonText);
+      
+      // 配列であることを確認し、文字列のみをフィルタ
+      if (Array.isArray(keywords)) {
+        return keywords.filter(k => typeof k === 'string' && k.trim().length > 0);
+      }
+      
+      return [];
+    } catch (parseError) {
+      console.error('Failed to parse AI keyword extraction result:', parseError);
+      return extractKeywordsFallback(issuesText);
+    }
+    
+  } catch (error) {
+    console.error('Error in AI keyword extraction:', error.message);
+    return extractKeywordsFallback(issuesText);
+  }
+}
+
+// フォールバック：シンプルなキーワード抽出
+function extractKeywordsFallback(text) {
+  // 基本的な名詞・技術用語を抽出
+  const commonKeywords = [
+    'AI', 'システム', '技術', 'コスト', '費用', '予算', '時間', '期間', '納期',
+    '人手', '人材', 'スタッフ', '知識', 'スキル', '性能', '精度', '品質', '効率',
+    '図面', '読み取り', '処理', '作業', '改善', '最適化', '自動化', '選定', '判断',
+    '課題', '問題', '懸念', 'リスク', '導入', '活用', '検討', '理解', '把握'
+  ];
+  
+  const foundKeywords = [];
+  for (const keyword of commonKeywords) {
+    if (text.includes(keyword)) {
+      foundKeywords.push(keyword);
+    }
+  }
+  
+  return foundKeywords;
 }
 
 // 関係構築情報の分析
@@ -370,8 +486,8 @@ async function getRelationshipAnalysis(userId, startDate, endDate) {
   try {
     const result = await pool.query(`
       SELECT 
-        COUNT(DISTINCT CASE WHEN rs.personal_info IS NOT NULL AND array_length(rs.personal_info, 1) > 0 THEN r.id END) as reports_with_personal_info,
-        COUNT(DISTINCT CASE WHEN rs.relationship_notes IS NOT NULL AND array_length(rs.relationship_notes, 1) > 0 THEN r.id END) as reports_with_relationship_notes
+        COUNT(DISTINCT CASE WHEN rs.personal_info IS NOT NULL AND rs.personal_info != '' THEN r.id END) as reports_with_personal_info,
+        COUNT(DISTINCT CASE WHEN rs.relationship_notes IS NOT NULL AND rs.relationship_notes != '' THEN r.id END) as reports_with_relationship_notes
       FROM reports r
       LEFT JOIN report_slots rs ON r.id = rs.report_id
       WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3
@@ -380,12 +496,12 @@ async function getRelationshipAnalysis(userId, startDate, endDate) {
     // 趣味・興味の分析
     const hobbiesResult = await pool.query(`
       SELECT 
-        unnest(rs.personal_info) as hobby,
+        trim(unnest(string_to_array(rs.personal_info, ','))) as hobby,
         COUNT(*) as count
       FROM reports r
       JOIN report_slots rs ON r.id = rs.report_id
       WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3 
-      AND rs.personal_info IS NOT NULL AND array_length(rs.personal_info, 1) > 0
+      AND rs.personal_info IS NOT NULL AND rs.personal_info != ''
       GROUP BY hobby
       ORDER BY count DESC
       LIMIT 10
@@ -415,18 +531,12 @@ router.get('/team', authMiddleware, managerOnly, async (req, res) => {
     const { period = '30', userIds } = req.query;
     const managerId = req.userId;
     
-    // 期間の計算（日本時間で計算）
-    const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
-    const nowUTC = new Date();
-    const nowJST = new Date(nowUTC.getTime() + jstOffset);
-    
-    // JST での今日の終了時間（23:59:59.999）
-    const endDateJST = new Date(nowJST.getFullYear(), nowJST.getMonth(), nowJST.getDate(), 23, 59, 59, 999);
-    const endDate = new Date(endDateJST.getTime() - jstOffset); // UTC に変換
-    
-    // JST での開始日の開始時間（00:00:00.000）
-    const startDateJST = new Date(nowJST.getFullYear(), nowJST.getMonth(), nowJST.getDate() - parseInt(period), 0, 0, 0, 0);
-    const startDate = new Date(startDateJST.getTime() - jstOffset); // UTC に変換
+    // 期間の計算（日本時間基準で修正）
+    const now = new Date();
+    // 今日の日付を含める（明日の00:00:00まで）
+    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    // 開始日（period日前の00:00:00から）
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - parseInt(period) + 1, 0, 0, 0, 0);
     
     console.log('Team analytics request - managerId:', managerId, 'period:', period, 'userIds:', userIds);
     console.log('Date range - startDate:', startDate, 'endDate:', endDate);
@@ -475,7 +585,7 @@ router.get('/team', authMiddleware, managerOnly, async (req, res) => {
     const customerAnalysis = await getTeamCustomerAnalysis(targetUserIds, startDate, endDate);
     
     // 案件カテゴリ分析（チーム全体）
-    const projectCategories = await getTeamProjectCategories(targetUserIds, startDate, endDate);
+    const industryAnalysis = await getTeamIndustryAnalysis(targetUserIds, startDate, endDate);
     
     // チーム全体のアクション一覧取得
     const teamActionsList = await getTeamActionsList(targetUserIds, startDate, endDate);
@@ -490,19 +600,60 @@ router.get('/team', authMiddleware, managerOnly, async (req, res) => {
     teamStats.completed_actions = completedTeamActions;
     teamStats.pending_actions = pendingTeamActions;
     
+    // チーム課題・リスク分析は後から非同期で取得
+    const issuesAnalysis = [];
+    
     res.json({
       period: parseInt(period),
       teamStats,
       memberStats,
       dailyReports,
       customerAnalysis,
-      projectCategories,
-      teamActionsList
+      industryAnalysis,
+      teamActionsList,
+      issuesAnalysis
     });
+    
+    // 課題分析は非同期でバックグラウンド処理
+    getTeamIssuesAnalysis(targetUserIds, startDate, endDate)
+      .then(result => {
+        console.log('Team issues analysis completed:', result.length);
+      })
+      .catch(error => {
+        console.error('Team issues analysis background error:', error);
+      });
     
   } catch (error) {
     console.error('Team analytics error:', error);
     res.status(500).json({ error: 'チーム分析データの取得に失敗しました' });
+  }
+});
+
+// チーム向け課題キーワード分析を別エンドポイントで取得
+router.get('/team/issues', authMiddleware, managerOnly, async (req, res) => {
+  try {
+    const { period = '30', userIds } = req.query;
+    const managerId = req.userId;
+    
+    const now = new Date();
+    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - parseInt(period) + 1, 0, 0, 0, 0);
+    
+    // 対象ユーザーを決定
+    let targetUserIds = [];
+    if (userIds && userIds.length > 0) {
+      targetUserIds = Array.isArray(userIds) ? userIds.map(id => parseInt(id)) : [parseInt(userIds)];
+    } else {
+      const teamResult = await pool.query('SELECT id FROM users WHERE manager_id = $1', [managerId]);
+      targetUserIds = teamResult.rows.map(row => row.id);
+    }
+    
+    const issuesAnalysis = await getTeamIssuesAnalysis(targetUserIds, startDate, endDate);
+    
+    res.json({ issuesAnalysis });
+  } catch (error) {
+    console.error('Team issues analysis error:', error);
+    res.status(500).json({ error: 'チーム課題分析の取得に失敗しました' });
   }
 });
 
@@ -706,39 +857,29 @@ async function getTeamCustomerAnalysis(userIds, startDate, endDate) {
   }
 }
 
-// チーム案件カテゴリ分析
-async function getTeamProjectCategories(userIds, startDate, endDate) {
+// チーム業界分析
+async function getTeamIndustryAnalysis(userIds, startDate, endDate) {
   try {
     const placeholders = userIds.map((_, i) => `$${i + 3}`).join(',');
     
     const result = await pool.query(`
       SELECT 
-        CASE 
-          WHEN rs.project ILIKE '%新規%' OR rs.project ILIKE '%立ち上げ%' OR rs.project ILIKE '%開始%' THEN '新規案件'
-          WHEN rs.project ILIKE '%システム%' OR rs.project ILIKE '%IT%' OR rs.project ILIKE '%デジタル%' OR rs.project ILIKE '%アプリ%' OR rs.project ILIKE '%ソフト%' THEN 'IT・システム'
-          WHEN rs.project ILIKE '%改善%' OR rs.project ILIKE '%効率%' OR rs.project ILIKE '%最適%' OR rs.project ILIKE '%自動化%' OR rs.project ILIKE '%DX%' THEN '業務改善'
-          WHEN rs.project ILIKE '%導入%' OR rs.project ILIKE '%実装%' OR rs.project ILIKE '%採用%' THEN 'ツール・サービス導入'
-          WHEN rs.project ILIKE '%拡大%' OR rs.project ILIKE '%展開%' OR rs.project ILIKE '%拡張%' OR rs.project ILIKE '%増設%' THEN '事業拡大'
-          WHEN rs.project ILIKE '%更新%' OR rs.project ILIKE '%リニューアル%' OR rs.project ILIKE '%刷新%' OR rs.project ILIKE '%再構築%' THEN 'リニューアル・更新'
-          WHEN rs.project ILIKE '%研修%' OR rs.project ILIKE '%教育%' OR rs.project ILIKE '%トレーニング%' OR rs.project ILIKE '%支援%' THEN '教育・支援'
-          WHEN rs.project ILIKE '%保守%' OR rs.project ILIKE '%メンテナンス%' OR rs.project ILIKE '%運用%' THEN '保守・運用'
-          ELSE 'その他'
-        END as category,
+        rs.industry,
         COUNT(r.id) as count
       FROM reports r
       JOIN report_slots rs ON r.id = rs.report_id
       WHERE r.user_id IN (${placeholders}) AND r.report_date BETWEEN $1 AND $2
-      AND rs.project IS NOT NULL AND rs.project != ''
-      GROUP BY category
+      AND rs.industry IS NOT NULL AND rs.industry != ''
+      GROUP BY rs.industry
       ORDER BY count DESC
     `, [startDate, endDate, ...userIds]);
     
     return result.rows.map(row => ({
-      category: row.category,
+      industry: row.industry,
       count: parseInt(row.count)
     }));
   } catch (error) {
-    console.error('Error in getTeamProjectCategories:', error);
+    console.error('Error in getTeamIndustryAnalysis:', error);
     return [];
   }
 }
@@ -769,61 +910,16 @@ async function getTeamActionsList(userIds, startDate, endDate) {
     
     const actions = [];
     result.rows.forEach(row => {
-      try {
-        let nextActions = [];
+      // next_actionは現在文字列型（カンマ区切り）
+      if (row.next_action && typeof row.next_action === 'string') {
+        const actionStr = row.next_action.trim();
         
-        // データベースの値を正しく解析
-        if (Array.isArray(row.next_action)) {
-          nextActions = row.next_action;
-        } else if (typeof row.next_action === 'string') {
-          const actionStr = row.next_action.trim();
-          
-          // JSON配列形式の文字列かどうかをチェック
-          if (actionStr.startsWith('[') && actionStr.endsWith(']')) {
-            try {
-              nextActions = JSON.parse(actionStr);
-            } catch (e) {
-              nextActions = [actionStr];
-            }
-          } else if (actionStr.startsWith('{') && actionStr.endsWith('}')) {
-            // セット記法形式の場合（{"item1","item2"}）
-            try {
-              const arrayStr = actionStr.replace(/^{/, '[').replace(/}$/, ']');
-              nextActions = JSON.parse(arrayStr);
-            } catch (e) {
-              nextActions = [actionStr];
-            }
-          } else {
-            nextActions = [actionStr];
-          }
-        }
+        // カンマ区切りで分割してアクションを個別に追加
+        const nextActions = actionStr.split(',').map(item => item.trim()).filter(item => item.length > 0);
         
-        // 配列でない場合は配列に変換
-        if (!Array.isArray(nextActions)) {
-          nextActions = [nextActions];
-        }
-        
-        // 各アクションを個別に追加
-        nextActions.forEach(action => {
-          if (action && typeof action === 'string' && action.trim()) {
-            const actionText = action.trim();
-            actions.push({
-              text: actionText,
-              customer: row.customer || '未設定',
-              reportDate: row.report_date,
-              reportId: row.report_id,
-              userId: row.user_id,
-              userName: row.user_name,
-              completed: false,
-              dueDate: null
-            });
-          }
-        });
-      } catch (parseError) {
-        console.error('Error parsing team action:', parseError, 'Value:', row.next_action);
-        if (row.next_action && typeof row.next_action === 'string' && row.next_action.trim()) {
+        nextActions.forEach(actionText => {
           actions.push({
-            text: row.next_action.trim(),
+            text: actionText,
             customer: row.customer || '未設定',
             reportDate: row.report_date,
             reportId: row.report_id,
@@ -832,7 +928,7 @@ async function getTeamActionsList(userIds, startDate, endDate) {
             completed: false,
             dueDate: null
           });
-        }
+        });
       }
     });
     
@@ -858,62 +954,32 @@ async function getActionsList(userId, startDate, endDate) {
       WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3
       AND rs.next_action IS NOT NULL 
       AND rs.next_action != ''
-      AND rs.next_action != '[]'
       ORDER BY r.report_date DESC
     `, [userId, startDate, endDate]);
     
     const actions = [];
     result.rows.forEach(row => {
       try {
-        let nextActions = [];
-        
-        // データベースの値を正しく解析
-        if (Array.isArray(row.next_action)) {
-          nextActions = row.next_action;
-        } else if (typeof row.next_action === 'string') {
+        // next_actionは現在文字列型（カンマ区切り）
+        if (row.next_action && typeof row.next_action === 'string') {
           const actionStr = row.next_action.trim();
           
-          // JSON配列形式の文字列かどうかをチェック
-          if (actionStr.startsWith('[') && actionStr.endsWith(']')) {
-            try {
-              nextActions = JSON.parse(actionStr);
-            } catch (e) {
-              nextActions = [actionStr];
+          // カンマ区切りで分割してアクションを個別に追加
+          const nextActions = actionStr.split(',').map(item => item.trim()).filter(item => item.length > 0);
+          
+          nextActions.forEach(action => {
+            if (action) {
+              actions.push({
+                text: action,
+                customer: row.customer || '未設定',
+                reportDate: row.report_date,
+                reportId: row.report_id,
+                completed: false,
+                dueDate: null
+              });
             }
-          } else if (actionStr.startsWith('{') && actionStr.endsWith('}')) {
-            // セット記法形式の場合（{"item1","item2"}）
-            try {
-              // セット記法をJSON配列に変換
-              const arrayStr = actionStr.replace(/^{/, '[').replace(/}$/, ']');
-              nextActions = JSON.parse(arrayStr);
-            } catch (e) {
-              nextActions = [actionStr];
-            }
-          } else {
-            // 普通の文字列
-            nextActions = [actionStr];
-          }
+          });
         }
-        
-        // 配列でない場合は配列に変換
-        if (!Array.isArray(nextActions)) {
-          nextActions = [nextActions];
-        }
-        
-        // 各アクションを個別に追加
-        nextActions.forEach(action => {
-          if (action && typeof action === 'string' && action.trim()) {
-            const actionText = action.trim();
-            actions.push({
-              text: actionText,
-              customer: row.customer || '未設定',
-              reportDate: row.report_date,
-              reportId: row.report_id,
-              completed: false,
-              dueDate: null // 将来的には期限設定機能を追加
-            });
-          }
-        });
       } catch (parseError) {
         console.error('Error parsing next_action:', parseError, 'Value:', row.next_action);
         // エラーの場合も文字列として扱う
@@ -933,6 +999,76 @@ async function getActionsList(userId, startDate, endDate) {
     return actions;
   } catch (error) {
     console.error('Error in getActionsList:', error);
+    return [];
+  }
+}
+
+// チーム課題・リスク分析
+async function getTeamIssuesAnalysis(userIds, startDate, endDate) {
+  try {
+    console.log('getTeamIssuesAnalysis called with userIds:', userIds);
+    
+    // チームメンバーの全ての課題データを取得（テキスト型）
+    const placeholders = userIds.map((_, i) => `$${i + 3}`).join(',');
+    const result = await pool.query(`
+      SELECT rs.issues as issues_text
+      FROM reports r
+      JOIN report_slots rs ON r.id = rs.report_id
+      WHERE r.user_id IN (${placeholders})
+      AND r.report_date BETWEEN $1 AND $2
+      AND rs.issues IS NOT NULL 
+      AND rs.issues != ''
+    `, [startDate, endDate, ...userIds]);
+    
+    console.log(`Found ${result.rows.length} reports with issues for team analysis`);
+    
+    // 全ての課題テキストを結合
+    const allIssuesText = result.rows
+      .map(row => row.issues_text)
+      .filter(issues => issues && issues.trim())
+      .join(', ');
+    
+    console.log('Combined issues text length:', allIssuesText.length);
+    
+    if (!allIssuesText.trim()) {
+      console.log('No issues text found for team analysis');
+      return [];
+    }
+    
+    // AIを使って動的にキーワードを抽出
+    const keywords = await extractKeywordsWithAI(allIssuesText);
+    console.log('Extracted keywords for team:', keywords);
+    
+    // キーワードごとの出現回数をカウント
+    const keywordCounts = {};
+    keywords.forEach(keyword => {
+      // 全体のテキストからキーワードの出現回数をカウント
+      const regex = new RegExp(keyword, 'gi');
+      const matches = allIssuesText.match(regex);
+      const count = matches ? matches.length : 0;
+      
+      if (count > 0) {
+        keywordCounts[keyword] = count;
+      }
+    });
+    
+    // 出現回数でソートして上位8個まで取得
+    const sortedKeywords = Object.entries(keywordCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 8)
+      .map(([keyword, count]) => ({ keyword, count }));
+    
+    console.log('Final team issues analysis result:', sortedKeywords);
+    return sortedKeywords;
+    
+  } catch (error) {
+    console.error('Error in getTeamIssuesAnalysis:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', { 
+      userIds, 
+      startDate: startDate?.toISOString(), 
+      endDate: endDate?.toISOString() 
+    });
     return [];
   }
 }

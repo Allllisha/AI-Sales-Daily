@@ -20,10 +20,16 @@ app.use(helmet());
 app.use(compression());
 
 // CORS configuration
+const corsOrigins = process.env.NODE_ENV === 'production' 
+  ? (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : [])
+  : 'http://localhost:5173';
+
+console.log('CORS origins:', corsOrigins);
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Database URL exists:', !!process.env.DATABASE_URL);
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL 
-    : 'http://localhost:5173',
+  origin: corsOrigins,
   credentials: true
 }));
 

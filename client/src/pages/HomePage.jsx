@@ -23,12 +23,18 @@ const Container = styled.div`
 const WelcomeSection = styled(Card)`
   padding: ${spacing[8]};
   margin-bottom: ${spacing[8]};
-  background-color: white;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   
   @media (max-width: 768px) {
     padding: ${spacing[6]};
     border-radius: ${borderRadius.lg};
     margin-bottom: ${spacing[4]};
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.3);
   }
 `;
 
@@ -81,10 +87,17 @@ const StyledSecondaryButton = styled(SecondaryButton)`
 const ReportsSection = styled(Card)`
   padding: ${spacing[8]};
   margin-top: ${spacing[8]};
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 
   @media (max-width: 768px) {
     padding: ${spacing[6]};
-    border-radius: 0;
+    border-radius: ${borderRadius.lg};
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.3);
   }
 `;
 

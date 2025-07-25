@@ -6,17 +6,40 @@ import { colors, typography, spacing, borderRadius, shadows, transitions, media 
 
 const Container = styled.div`
   min-height: 100vh;
-  background-color: ${colors.neutral[50]};
+  min-height: 100dvh;
+  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+  position: relative;
+  overflow-x: hidden;
+
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="80" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="60" r="1" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
+    animation: float 20s infinite linear;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0px) translateX(0px); }
+    50% { transform: translateY(-10px) translateX(5px); }
+    100% { transform: translateY(0px) translateX(0px); }
+  }
 `;
 
 const Header = styled.header`
-  background-color: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid ${colors.neutral[200]};
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
   position: sticky;
   top: 0;
   z-index: 1000;
+  box-shadow: 0 1px 20px rgba(0, 0, 0, 0.05);
 `;
 
 const Nav = styled.nav`
@@ -25,85 +48,161 @@ const Nav = styled.nav`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: ${spacing[3]} ${spacing[6]};
-  height: 64px;
+  padding: ${spacing[4]} ${spacing[6]};
+  height: 72px;
 
   ${media.md} {
-    padding: ${spacing[3]} ${spacing[4]};
+    padding: ${spacing[4]} ${spacing[4]};
   }
 
   @media (max-width: 768px) {
     padding: ${spacing[3]} ${spacing[4]};
+    height: 64px;
+  }
+`;
+
+const LogoContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${spacing[3]};
+`;
+
+const LogoIcon = styled.div`
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  
+  &::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid white;
+    border-radius: 2px;
+    background: transparent;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 1px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+  }
+
+  @media (max-width: 768px) {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    
+    &::after {
+      width: 12px;
+      height: 12px;
+    }
+
+    &::before {
+      width: 6px;
+      height: 6px;
+    }
   }
 `;
 
 const Logo = styled(Link)`
-  font-size: ${typography.fontSize.lg};
-  font-weight: ${typography.fontWeight.semibold};
+  font-size: ${typography.fontSize.xl};
+  font-weight: ${typography.fontWeight.bold};
   color: ${colors.neutral[900]};
   text-decoration: none;
   letter-spacing: ${typography.letterSpacing.tight};
-  transition: color ${transitions.fast};
+  transition: all ${transitions.fast};
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   &:hover {
-    color: ${colors.neutral[700]};
+    color: #8B5CF6;
   }
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.base};
+    font-size: ${typography.fontSize.lg};
   }
 `;
 
 const NavLinks = styled.div`
   display: flex;
   align-items: center;
-  gap: ${spacing[2]};
+  gap: ${spacing[1]};
 
   @media (max-width: 768px) {
-    gap: ${spacing[1]};
+    display: none;
   }
 `;
 
 const NavLink = styled(Link)`
   color: ${colors.neutral[600]};
   text-decoration: none;
-  padding: ${spacing[2]} ${spacing[3]};
-  border-radius: ${borderRadius.md};
+  padding: ${spacing[2.5]} ${spacing[4]};
+  border-radius: ${borderRadius.lg};
   font-size: ${typography.fontSize.sm};
   font-weight: ${typography.fontWeight.medium};
-  transition: all ${transitions.fast};
+  transition: all ${transitions.base};
+  position: relative;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   
   &:hover {
-    color: ${colors.neutral[900]};
-    background-color: ${colors.neutral[100]};
+    color: #8B5CF6;
+    background: rgba(139, 92, 246, 0.08);
+    transform: translateY(-1px);
   }
 
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const UserSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${spacing[4]};
+
   @media (max-width: 768px) {
-    padding: ${spacing[1.5]} ${spacing[2]};
-    font-size: ${typography.fontSize.xs};
+    gap: ${spacing[2]};
   }
 `;
 
 const LogoutButton = styled.button`
-  background-color: transparent;
-  color: ${colors.neutral[600]};
-  border: 1px solid ${colors.neutral[200]};
-  padding: ${spacing[2]} ${spacing[3]};
-  border-radius: ${borderRadius.md};
+  background: transparent;
+  color: ${colors.neutral[500]};
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  padding: ${spacing[2]} ${spacing[4]};
+  border-radius: ${borderRadius.lg};
   cursor: pointer;
   font-size: ${typography.fontSize.sm};
   font-weight: ${typography.fontWeight.medium};
-  font-family: ${typography.fontFamily.sans};
-  transition: all ${transitions.fast};
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  transition: all ${transitions.base};
 
   &:hover {
-    color: ${colors.error.main};
-    border-color: ${colors.error.light};
-    background-color: rgba(239, 68, 68, 0.05);
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.3);
+    background: rgba(220, 38, 38, 0.05);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 
   @media (max-width: 768px) {
-    padding: ${spacing[1.5]} ${spacing[2]};
+    padding: ${spacing[1.5]} ${spacing[2.5]};
     font-size: ${typography.fontSize.xs};
   }
 `;
@@ -112,6 +211,8 @@ const Main = styled.main`
   max-width: 1200px;
   margin: 0 auto;
   padding: ${spacing[8]} ${spacing[6]};
+  position: relative;
+  z-index: 1;
 
   ${media.md} {
     padding: ${spacing[6]} ${spacing[4]};
@@ -129,6 +230,11 @@ const OnlineIndicator = styled.div`
   font-size: ${typography.fontSize.xs};
   color: ${colors.neutral[500]};
   font-weight: ${typography.fontWeight.medium};
+  padding: ${spacing[1.5]} ${spacing[3]};
+  background: rgba(139, 92, 246, 0.05);
+  border-radius: ${borderRadius.full};
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   @media (max-width: 768px) {
     display: none;
@@ -139,32 +245,75 @@ const StatusDot = styled.span`
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: ${props => props.online ? colors.success.main : colors.warning.main};
+  background-color: ${props => props.online ? '#10b981' : '#f59e0b'};
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+  position: relative;
+
+  ${props => props.online && `
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background-color: #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
+    }
+  `}
 `;
 
-const UserName = styled.span`
-  color: ${colors.neutral[700]};
-  font-size: ${typography.fontSize.sm};
-  font-weight: ${typography.fontWeight.medium};
+const UserInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${spacing[0.5]};
+  padding: ${spacing[2]} ${spacing[3]};
+  background: rgba(139, 92, 246, 0.05);
+  border-radius: ${borderRadius.lg};
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  min-width: 120px;
 
   @media (max-width: 768px) {
     display: none;
   }
 `;
 
+const UserName = styled.span`
+  color: ${colors.neutral[700]};
+  font-size: ${typography.fontSize.sm};
+  font-weight: ${typography.fontWeight.semibold};
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+`;
+
+const UserRole = styled.span`
+  color: ${colors.neutral[500]};
+  font-size: ${typography.fontSize.xs};
+  font-weight: ${typography.fontWeight.medium};
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+`;
+
 const MobileMenu = styled.button`
   display: none;
-  background: none;
-  border: none;
-  color: ${colors.neutral[700]};
-  font-size: 1.25rem;
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  color: #8B5CF6;
+  width: 40px;
+  height: 40px;
   cursor: pointer;
-  padding: ${spacing[1]};
-  border-radius: ${borderRadius.md};
-  transition: all ${transitions.fast};
+  border-radius: ${borderRadius.lg};
+  transition: all ${transitions.base};
+  font-size: 1.1rem;
 
   &:hover {
-    background-color: ${colors.neutral[100]};
+    background: rgba(139, 92, 246, 0.1);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 
   @media (max-width: 768px) {
@@ -321,21 +470,29 @@ const Layout = () => {
     <Container>
       <Header>
         <Nav>
-          <Logo to="/">Sales Daily</Logo>
+          <LogoContainer>
+            <LogoIcon />
+            <Logo to="/">Sales Daily</Logo>
+          </LogoContainer>
           <NavLinks>
-            <OnlineIndicator>
-              <StatusDot online={isOnline} />
-              {isOnline ? 'オンライン' : 'オフライン'}
-            </OnlineIndicator>
             <NavLink to="/">ホーム</NavLink>
             <NavLink to="/my-analytics">マイ分析</NavLink>
             {isManager && (
               <NavLink to="/team-analytics">チーム分析</NavLink>
             )}
-            <UserName>{user?.name}さん</UserName>
-            <LogoutButton onClick={handleLogout}>ログアウト</LogoutButton>
           </NavLinks>
-          <MobileMenu onClick={() => setMobileMenuOpen(true)}>☰</MobileMenu>
+          <UserSection>
+            <OnlineIndicator>
+              <StatusDot online={isOnline} />
+              {isOnline ? 'オンライン' : 'オフライン'}
+            </OnlineIndicator>
+            <UserInfo>
+              <UserName>{user?.name}さん</UserName>
+              <UserRole>{isManager ? 'マネージャー' : '営業担当'}</UserRole>
+            </UserInfo>
+            <LogoutButton onClick={handleLogout}>ログアウト</LogoutButton>
+            <MobileMenu onClick={() => setMobileMenuOpen(true)}>☰</MobileMenu>
+          </UserSection>
         </Nav>
       </Header>
       

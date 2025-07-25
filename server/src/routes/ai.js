@@ -55,8 +55,9 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
     // 回答からスロット情報を動的に抽出
     const updatedSlots = { ...currentSlots };
     
-    // AIを使ってスロット情報を抽出
-    const extractedInfo = await extractInformationWithAI(answer, updatedSlots);
+    // AIを使ってスロット情報を抽出（質問コンテキストも渡す）
+    const lastQuestion = askedQuestions.length > 0 ? askedQuestions[askedQuestions.length - 1] : '';
+    const extractedInfo = await extractInformationWithAI(answer, updatedSlots, lastQuestion);
     
     // 抽出された情報をスロットに追加
     Object.keys(extractedInfo).forEach(key => {
@@ -101,8 +102,8 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
   }
 });
 
-// 回答から情報を抽出
-function extractInformationFromAnswer(answer) {
+// 回答から情報を抽出（質問コンテキストも考慮）
+function extractInformationFromAnswer(answer, lastQuestion = '') {
   const extracted = {};
   
   // 顧客名の抽出（「建設」「コーポレーション」「株式会社」などが含まれる場合）
@@ -115,7 +116,7 @@ function extractInformationFromAnswer(answer) {
   for (const pattern of customerPatterns) {
     const match = answer.match(pattern);
     if (match) {
-      extracted.customer = match[0];
+      extracted.customer = match[0].replace(/[{}[\]"]/g, '');
       break;
     }
   }
@@ -139,7 +140,8 @@ function extractInformationFromAnswer(answer) {
   }
   
   if (projects.length > 0) {
-    extracted.project = projects;
+    // {}を除去してカンマ区切りの文字列として保存
+    extracted.project = projects.map(p => p.replace(/[{}[\]"]/g, '')).join(', ');
   }
   
   // 予算情報の抽出
@@ -154,7 +156,7 @@ function extractInformationFromAnswer(answer) {
   for (const pattern of budgetPatterns) {
     const match = answer.match(pattern);
     if (match) {
-      extracted.budget = match[1] || match[0];
+      extracted.budget = (match[1] || match[0]).replace(/[{}[\]"]/g, '');
       break;
     }
   }
@@ -171,7 +173,7 @@ function extractInformationFromAnswer(answer) {
   for (const pattern of schedulePatterns) {
     const match = answer.match(pattern);
     if (match) {
-      extracted.schedule = match[1] || match[0];
+      extracted.schedule = (match[1] || match[0]).replace(/[{}[\]"]/g, '');
       break;
     }
   }
@@ -180,24 +182,66 @@ function extractInformationFromAnswer(answer) {
   const participantPattern = /(部長|課長|主任|担当|マネージャー|社長|専務)[^。、]*?([さん|様|氏]?)/;
   const participantMatch = answer.match(participantPattern);
   if (participantMatch) {
-    // 単一の参加者でも配列形式で保存（PostgreSQL TEXT[]用）
-    extracted.participants = [participantMatch[0]];
+    // 単一の参加者でも文字列として保存（{}除去）
+    extracted.participants = participantMatch[0].replace(/[{}[\]"]/g, '');
   }
   
   // 場所情報の抽出
   const locationPattern = /(本社|支社|事務所|現場|会議室|オフィス)[^。、]*?/;
   const locationMatch = answer.match(locationPattern);
   if (locationMatch) {
-    extracted.location = locationMatch[0];
+    extracted.location = locationMatch[0].replace(/[{}[\]"]/g, '');
   }
   
-  // 課題・問題の抽出（複数対応）
+  // 課題・問題の抽出（複数対応、より広範囲で検出）
   const issuePatterns = [
-    /([^。、]*?(課題|問題|懸念|リスク|困って|難しい)[^。、]*)/g,
-    /([^。、]*?(コスト|費用|時間|人手|効率)[^。、]*?(かかって|不足|課題|問題)[^。、]*)/g
+    // 直接的な課題・問題のキーワード
+    /([^。、]*?(課題|問題|懸念|リスク|困って|難しい|心配|不安|厳しい|きつい|大変|対応が必要)[^。、]*)/g,
+    
+    // リソース関連の課題
+    /([^。、]*?(コスト|費用|時間|人手|効率|予算|資金|期間|工期|納期)[^。、]*?(かかって|不足|課題|問題|足りない|厳しい|ギリギリ|タイト|オーバー)[^。、]*)/g,
+    
+    // 技術的な課題
+    /([^。、]*?(技術|システム|設備|機能|性能|品質|精度)[^。、]*?(課題|問題|不足|対応|改善|必要|検討)[^。、]*)/g,
+    
+    // 人員・組織の課題
+    /([^。、]*?(人員|スタッフ|担当|体制|組織|チーム)[^。、]*?(不足|課題|問題|必要|検討|調整)[^。、]*)/g,
+    
+    // 「〜が〜ない」「〜できない」などの否定表現
+    /([^。、]*?(ない|できない|わからない|不明|未定|検討中|調整中)[^。、]*)/g,
+    
+    // 「〜する必要がある」「〜しなければならない」などの必要性
+    /([^。、]*?(必要がある|しなければならない|する必要|検討する必要|対応する必要|改善する必要)[^。、]*)/g,
+    
+    // 汎用的な問題を示す表現
+    /([^。、]*?(うまくいかない|スムーズにいかない|遅れて|遅延|延期|変更|修正|見直し)[^。、]*)/g
   ];
   
   const issues = [];
+  
+  // 質問コンテキストから課題について聞かれているかを判定
+  const isIssueQuestion = lastQuestion && (
+    lastQuestion.includes('課題') || 
+    lastQuestion.includes('問題') || 
+    lastQuestion.includes('懸念') || 
+    lastQuestion.includes('リスク') ||
+    lastQuestion.includes('解決したい')
+  );
+  
+  // 課題について質問されている場合は、より積極的に抽出
+  if (isIssueQuestion && answer.length > 10) {
+    // 回答全体を一つの課題として扱う（明らかに課題以外の部分は除外）
+    const cleanedAnswer = answer
+      .replace(/^(はい|いえ|そうですね|まあ|うーん)[、。]?\s*/, '')  // 冒頭の相槌を除去
+      .replace(/^(特に|特別)[はに]?[ない]?[です。]*\s*/, '')  // 「特にない」系を除去
+      .trim();
+    
+    if (cleanedAnswer && !cleanedAnswer.match(/^(ない|ありません|特にない|問題ない)([です。]*)$/)) {
+      issues.push(cleanedAnswer);
+    }
+  }
+  
+  // 通常のパターンマッチングも実行
   for (const pattern of issuePatterns) {
     const matches = [...answer.matchAll(pattern)];
     for (const match of matches) {
@@ -209,7 +253,29 @@ function extractInformationFromAnswer(answer) {
   }
   
   if (issues.length > 0) {
-    extracted.issues = issues;
+    // {}を除去してカンマ区切りの文字列として保存
+    extracted.issues = issues.map(i => i.replace(/[{}[\]"]/g, '')).join(', ');
+  }
+  
+  // 業界の推測
+  const industryKeywords = [
+    { industry: '建設業', keywords: ['建設', '工務', '施工', '建築', '土木', 'ゼネコン', '現場', '着工', '竣工', 'BIM', 'CAD'] },
+    { industry: '保険業', keywords: ['保険', '損保', '生保', '共済', '契約者', '被保険者', '保険料', '保険金', '査定'] },
+    { industry: '金融業', keywords: ['銀行', '信金', '証券', '投資', '融資', '資金', '金利', '債券', '株式', 'ファンド'] },
+    { industry: '製造業', keywords: ['製造', '工場', '生産', '品質', '検査', '組立', '製品', '部品', '設備', '機械'] },
+    { industry: 'IT業', keywords: ['IT', 'システム', 'ソフト', 'アプリ', 'データ', 'クラウド', 'AI', 'DX', 'SaaS'] },
+    { industry: '医療・介護', keywords: ['病院', '医療', '看護', '介護', '患者', '診療', '薬剤', 'カルテ', 'レセプト'] },
+    { industry: '教育', keywords: ['学校', '大学', '教育', '学生', '生徒', '授業', '講義', '研修', 'e-learning'] },
+    { industry: '小売業', keywords: ['店舗', '販売', '商品', '在庫', 'POS', 'レジ', 'EC', '顧客管理', '売上'] },
+    { industry: '不動産業', keywords: ['不動産', '賃貸', '売買', '物件', 'マンション', 'オフィス', '仲介', '管理'] },
+    { industry: '公共・自治体', keywords: ['自治体', '市役所', '県庁', '公共', '行政', '住民', '公務員', '入札'] }
+  ];
+  
+  for (const { industry, keywords } of industryKeywords) {
+    if (keywords.some(keyword => answer.includes(keyword))) {
+      extracted.industry = industry;
+      break;
+    }
   }
   
   // 参加者の抽出
@@ -225,9 +291,9 @@ function extractInformationFromAnswer(answer) {
     const match = answer.match(pattern);
     if (match) {
       const participantText = match[1] || match[0];
-      // 参加者の文字列を配列に変換（PostgreSQL TEXT[]用）
-      const participants = participantText.split(/[、,と・]/).map(p => p.trim()).filter(p => p.length > 0);
-      extracted.participants = participants;
+      // 参加者の文字列をカンマ区切り文字列として保存（{}除去）
+      const participants = participantText.split(/[、,と・]/).map(p => p.trim().replace(/[{}[\]"]/g, '')).filter(p => p.length > 0);
+      extracted.participants = participants.join(', ');
       break;
     }
   }
@@ -250,7 +316,8 @@ function extractInformationFromAnswer(answer) {
   }
   
   if (actions.length > 0) {
-    extracted.next_action = actions;
+    // {}を除去してカンマ区切りの文字列として保存
+    extracted.next_action = actions.map(a => a.replace(/[{}[\]"]/g, '')).join(', ');
   }
   
   // 「〜することになりました」「〜予定です」などの表現も抽出
@@ -264,10 +331,11 @@ function extractInformationFromAnswer(answer) {
   for (const pattern of actionExpressionPatterns) {
     const matches = [...answer.matchAll(pattern)];
     for (const match of matches) {
-      const action = match[1].trim();
-      if (action && (!extracted.next_action || !extracted.next_action.some(a => a.includes(action) || action.includes(a)))) {
-        if (!extracted.next_action) extracted.next_action = [];
-        extracted.next_action.push(action);
+      const action = match[1].trim().replace(/[{}[\]"]/g, '');
+      if (action && (!extracted.next_action || !extracted.next_action.includes(action))) {
+        if (!extracted.next_action) extracted.next_action = '';
+        if (extracted.next_action) extracted.next_action += ', ';
+        extracted.next_action += action;
       }
     }
   }
@@ -282,6 +350,10 @@ function analyzeAnswerDetail(answer) {
     isDetailed: answer.length > 80,
     isVeryDetailed: answer.length > 150,
     
+    // 曖昧・抽象的な回答の検出
+    isVague: /良かった|よかった|普通|まあまあ|そこそこ|まずまず|いい感じ|よい感じ|特に問題なく|順調|概ね|だいたい|まずまず|大丈夫|オーケー/.test(answer),
+    isOnlyFeeling: /^(良かった|よかった|普通|まあまあ|そこそこ|順調|いい感じ|よい感じ|大丈夫|オーケー)(と思います|だと思います|です|でした|。|！|？)*\s*$/.test(answer.trim()),
+    
     // 一般的なビジネスキーワード（建築・技術分野も含む）
     hasBusinessContext: /予算|コスト|費用|価格|金額|効率|時間|人手|課題|問題|目的|目標|システム|技術|AI|建築|設計|計算|導入|自動化|ソフト|プロジェクト|案件/.test(answer),
     hasPersonalDetails: /部長|課長|主任|担当|マネージャー|社長|専務|さん|様/.test(answer),
@@ -289,6 +361,9 @@ function analyzeAnswerDetail(answer) {
     
     // プロジェクトや技術的な話題があるかどうか
     hasProjectContent: /案件|プロジェクト|システム|技術|AI|建築|設計|計算|ソフト|ツール|業務|作業|開発/.test(answer),
+    
+    // 顧客や会社名が含まれているか
+    hasCustomerInfo: /株式会社|会社|コーポレーション|建設|工務|工業|産業|商事|物産|不動産|電気|設備|生命|保険|銀行|信託/.test(answer),
     
     // 文の構造で詳細度を判定
     hasMultipleTopics: (answer.match(/。/g) || []).length >= 2,
@@ -333,6 +408,21 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
   });
   console.log('Missing slots:', missingSlots);
   
+  // 回答が曖昧・不十分な場合は深掘り質問
+  if (currentIndex === 0 && (
+    answerDetail.isVague || 
+    answerDetail.isOnlyFeeling || 
+    (!answerDetail.hasCustomerInfo && !answerDetail.hasProjectContent && !answerDetail.hasBusinessContext) ||
+    answer.length < 30
+  )) {
+    console.log('Initial answer is vague or insufficient, asking for more details');
+    console.log('Answer analysis for deep dive:', answerDetail);
+    return {
+      nextQuestion: "もう少し詳しく教えてください。今回はどちらの会社の方と、どのような案件についてお話されましたか？",
+      isComplete: false
+    };
+  }
+  
   // 「決まっていない」系の回答の場合は、その情報を記録してスキップ
   if (isUndecidedAnswer) {
     console.log('User indicated information is undecided, recording as undecided');
@@ -350,7 +440,7 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
   }
   
   // 必須スロットのうち、まだ聞いていない重要な項目を優先的に質問
-  const priorityOrder = ['customer', 'project', 'next_action', 'budget', 'schedule', 'participants', 'location', 'issues'];
+  const priorityOrder = ['customer', 'project', 'next_action', 'issues', 'budget', 'schedule', 'participants', 'location'];
   
   for (const slotName of priorityOrder) {
     if (missingSlots.includes(slotName)) {
@@ -394,11 +484,16 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
   }
   
   // 重要なスロットがすべて埋まっている場合にのみ完了を検討
-  const essentialSlots = ['customer', 'project', 'next_action', 'budget', 'schedule', 'participants', 'location'];
+  const essentialSlots = ['customer', 'project', 'next_action', 'issues', 'budget', 'schedule', 'participants', 'location'];
   const missingEssentialSlots = essentialSlots.filter(slot => !slots[slot]);
   
-  // 必須情報がすべて埋まり、かつ十分な質問数を行った場合は完了
-  if (missingEssentialSlots.length === 0 || (missingEssentialSlots.length <= 2 && currentIndex >= 8)) {
+  // 最重要情報（customer, project, next_action, issues）が埋まっていない場合は継続
+  const criticalSlots = ['customer', 'project', 'next_action', 'issues'];
+  const missingCriticalSlots = criticalSlots.filter(slot => !slots[slot]);
+  
+  if (missingCriticalSlots.length > 0 && currentIndex < 8) {
+    // 最重要スロットが未完了の場合は継続
+  } else if (missingEssentialSlots.length === 0 || (missingEssentialSlots.length <= 2 && currentIndex >= 8)) {
     return { isComplete: true };
   }
   
@@ -409,7 +504,7 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
   const missingImportantSlots = importantSlots.filter(slot => !slots[slot]);
   
   // 質問数が多すぎる場合は強制完了
-  if (currentIndex >= 12) { // 質問の上限を12に増やす
+  if (currentIndex >= 10) { // 質問の上限を10に調整（深掘り質問分を考慮）
     return { isComplete: true };
   }
   
@@ -527,7 +622,7 @@ function getCurrentSlotBeingAsked(currentIndex, slots) {
 }
 
 // AIを使ってスロット情報を抽出する新しい関数
-async function extractInformationWithAI(answer, currentSlots) {
+async function extractInformationWithAI(answer, currentSlots, lastQuestion = '') {
   try {
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
     const apiKey = process.env.AZURE_OPENAI_API_KEY;
@@ -536,7 +631,7 @@ async function extractInformationWithAI(answer, currentSlots) {
     
     if (!endpoint || !apiKey || !deploymentName) {
       console.log('Azure OpenAI not configured, using fallback extraction');
-      return extractInformationFromAnswer(answer);
+      return extractInformationFromAnswer(answer, lastQuestion);
     }
 
     const url = `${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
@@ -558,11 +653,15 @@ async function extractInformationWithAI(answer, currentSlots) {
 - participants: 参加者・出席者（「山田部長」「田中さん」「先方3名」など、商談参加者の名前や人数）
 - location: 場所・会場（「新宿」「渋谷」「お客様オフィス」「弊社会議室」「〇〇ビル」など、商談場所）
 - issues: 課題・問題・懸念事項（「人手不足」「コスト削減が課題」「システム老朽化」など、顧客の抱える問題）
+- industry: 顧客の業界・分野（「建設業」「保険業」「製造業」「IT業」「金融業」「医療・介護」「教育」「小売業」「不動産業」など、会話から推測される業界）
 - personal_info: 顧客の個人情報・趣味（「ゴルフが趣味」「釣りが好き」「コーヒー好き」など、関係構築に役立つ個人的な情報）
 - relationship_notes: 関係構築メモ（「ゴルフの話で盛り上がった」「共通の知人がいた」「同じ大学出身」など、雑談や関係構築の内容）
 
 既に判明している情報：
 ${JSON.stringify(currentSlots, null, 2)}
+
+質問コンテキスト（直前の質問）：
+${lastQuestion ? `「${lastQuestion}」` : '初回質問'}
 
 重要な処理ルール：
 1. **既に判明している情報**がある場合、その項目は抽出せず空にしてください（上書きしない）
@@ -572,7 +671,12 @@ ${JSON.stringify(currentSlots, null, 2)}
 5. 過去の行動（「話しました」「説明しました」）は抽出しないでください
 6. **next_actionは営業担当者が今後行う具体的な行動のみ**を抽出してください
 7. 顧客の要望（「〜したいと言っていました」「〜が欲しいと話していました」）はnext_actionに含めないでください
+8. **{}、[]、""は一切使用しないでください。純粋なテキストのみ**
+9. 複数の項目がある場合はカンマ区切りで記載してください
 8. **課題・懸念事項・問題点の抽出方法**：
+   **質問コンテキストを重視**してください。特に「課題」「問題」「懸念」「解決したい」などのキーワードが質問に含まれている場合、
+   回答全体を課題の説明として扱い、積極的に抽出してください。
+   
    文章を注意深く読み、以下の観点で問題となる要素を特定してください：
    - 現在困っていること、悩んでいること
    - 解決したい問題、改善したい状況
@@ -580,6 +684,7 @@ ${JSON.stringify(currentSlots, null, 2)}
    - リスクや懸念材料、心配事
    - 制約や障害、ボトルネック
    - 難しいと感じていること、うまくいかないこと
+   - 質問で課題について聞かれた場合の回答内容全般
    
 9. **抽出の判断基準**：
    - ネガティブな状況や困りごとを表現している部分
@@ -587,7 +692,19 @@ ${JSON.stringify(currentSlots, null, 2)}
    - 問題や課題を示唆する文脈
    - 解決や改善の必要性を示している部分
    
-10. **抽出時の注意点**：
+10. **業界推測の方法**：
+   顧客の業界を会話の文脈から推測してください。以下の手がかりを活用：
+   - 会社名に含まれるキーワード（「建設」「保険」「銀行」「病院」「学校」など）
+   - 商談内容・システム・課題から推測される業界特性
+   - 参加者の肩書きや部門名
+   - 使用される専門用語や業界固有の表現
+   
+   主要業界カテゴリ：
+   - 建設業、不動産業、製造業、IT業、金融業、保険業
+   - 医療・介護、教育、小売業、運輸業、エネルギー業
+   - 公共・自治体、農業、観光・宿泊業、その他サービス業
+
+11. **抽出時の注意点**：
    - 文脈から問題の本質を理解し、簡潔にまとめる
    - 複数の課題が含まれている場合は、それぞれを分けて抽出する
    - 業界や技術を問わず、あらゆる種類の課題を見逃さない
@@ -617,14 +734,15 @@ next_actionの判定基準：
 {
   "customer": "会社名",
   "project": "案件内容（要約）",
-  "next_action": ["具体的なアクション"],
+  "next_action": "具体的なアクション（複数ある場合はカンマ区切り）",
   "budget": "予算額",
   "schedule": "期間・納期",
-  "participants": ["参加者"],
+  "participants": "参加者（複数ある場合はカンマ区切り）",
   "location": "場所",
-  "issues": ["課題（要約）"],
-  "personal_info": ["個人的な情報・趣味"],
-  "relationship_notes": ["関係構築メモ"]
+  "issues": "課題（複数ある場合はカンマ区切り）",
+  "industry": "推測される業界",
+  "personal_info": "個人的な情報・趣味（複数ある場合はカンマ区切り）",
+  "relationship_notes": "関係構築メモ（複数ある場合はカンマ区切り）"
 }`
           },
           {
@@ -655,28 +773,35 @@ next_actionの判定基準：
       const jsonText = jsonMatch ? jsonMatch[1] : extractedText;
       const extracted = JSON.parse(jsonText);
       
-      // 空の値をフィルタリング＆データ型を正規化
+      // 空の値をフィルタリング＆データ型を正規化し、{}[]"を除去
       const filtered = {};
       Object.keys(extracted).forEach(key => {
         const value = extracted[key];
         if (value && value !== '' && value !== null) {
+          // 全フィールド共通：{}[]"を除去する関数
+          const cleanValue = (val) => {
+            if (typeof val === 'string') {
+              return val.replace(/[{}[\]"]/g, '');
+            }
+            if (Array.isArray(val)) {
+              return val.map(item => typeof item === 'string' ? item.replace(/[{}[\]"]/g, '') : item).join(', ');
+            }
+            return val;
+          };
+          
           // 特定のフィールドは文字列として格納すべき
           const stringFields = ['customer', 'project', 'budget', 'schedule', 'location'];
           
           if (stringFields.includes(key)) {
             // 配列の場合は最初の要素を取得、文字列はそのまま
             if (Array.isArray(value) && value.length > 0) {
-              filtered[key] = String(value[0]);
+              filtered[key] = cleanValue(value[0]);
             } else if (!Array.isArray(value)) {
-              filtered[key] = String(value);
+              filtered[key] = cleanValue(value);
             }
           } else {
-            // その他のフィールド（配列として格納すべきもの）
-            if (Array.isArray(value) && value.length > 0) {
-              filtered[key] = value;
-            } else if (!Array.isArray(value)) {
-              filtered[key] = value;
-            }
+            // その他のフィールド（文字列として格納）
+            filtered[key] = cleanValue(value);
           }
         }
       });
@@ -685,13 +810,13 @@ next_actionの判定基準：
       
     } catch (parseError) {
       console.error('Failed to parse AI extraction result:', parseError);
-      return extractInformationFromAnswer(answer);
+      return extractInformationFromAnswer(answer, lastQuestion);
     }
     
   } catch (error) {
     console.error('Error in AI information extraction:', error.message);
     // エラーの場合は既存の関数にフォールバック
-    return extractInformationFromAnswer(answer);
+    return extractInformationFromAnswer(answer, lastQuestion);
   }
 }
 
@@ -741,14 +866,24 @@ async function determineNextQuestionWithAI(currentIndex, slots, lastAnswer, aske
 4. 未入力の項目があれば、最も重要な項目から質問する
 5. ユーザーが「決まっていない」「未定」「わからない」と答えた場合は、その項目をスキップして次に進む
 6. **next_actionが空の場合は、必ず追加質問して営業アクションを確認する**
-7. 基本情報（customer, project, next_action）が揃えば、他の項目が未定でも完了可能
-8. 質問が5回を超えた場合は完了とする
-9. 既に聞いた質問と似た内容は避ける
+7. 重要情報（customer, project, next_action, issues）が揃うまで質問を続ける
+8. 課題・懸念事項（issues）は営業にとって重要なので必ず確認する
+9. **回答が曖昧・不十分な場合は深掘り質問を行う**：
+   - 「良かった」「普通でした」などの抽象的な回答
+   - 商談の具体的な内容が不明な回答
+   - 顧客名や案件が特定できない回答
+10. 質問が8回を超えた場合は完了とする
+11. 既に聞いた質問と似た内容は避ける
 
 特別な処理：
 - 過去の行動が回答された場合：「その提案を受けて、次に何をする予定になりましたか？」
 - 顧客の要望が回答された場合：「そのご要望を受けて、あなたが次に取るアクションは何ですか？」
 - next_actionが見つからない場合：「今回の商談を受けて、次に何をする予定になりましたか？」
+- issuesが未入力の場合：「お客様が抱えている課題や困りごと、懸念事項はありましたか？」
+- 曖昧な回答の場合：「もう少し詳しく教えてください。具体的にはどのような話をされましたか？」
+- 顧客名が不明な場合：「今回お会いしたのはどちらの会社の方でしたか？」
+- 案件内容が不明な場合：「どのような案件やプロジェクトについてお話されましたか？」
+- 感想のみの回答の場合：「その商談で具体的にはどのような内容を話し合われましたか？」
 
 回答形式（JSON）：
 {

@@ -45,4 +45,21 @@ router.get('/team', authMiddleware, managerOnly, async (req, res) => {
   }
 });
 
+// マネージャー一覧を取得（新規登録時に使用）
+router.get('/managers', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, name, email
+      FROM users 
+      WHERE role = 'manager'
+      ORDER BY name
+    `);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get managers error:', error);
+    res.status(500).json({ error: 'マネージャー一覧の取得に失敗しました' });
+  }
+});
+
 module.exports = router;

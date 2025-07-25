@@ -343,8 +343,11 @@ const HearingPage = () => {
   };
 
   const saveReport = () => {
+    // Get current JST date (UTC+9)
+    const now = new Date();
+    const jstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
     const reportData = {
-      report_date: new Date().toISOString().split('T')[0],
+      report_date: jstDate.toISOString().split('T')[0],
       mode: 'hearing',
       questions_answers: questionsAnswers,
       slots: slots

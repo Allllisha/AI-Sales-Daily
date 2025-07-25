@@ -1,0 +1,73 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: salesdaily-api
+  AZURE_ACR_NAME: salesdailyacr
+  NODE_VERSION: '18.x'
+
+jobs:
+  build-and-deploy-api:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Build and push Docker image
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.AZURE_ACR_NAME }}.azurecr.io
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: Build and push to ACR
+      run: |
+        cd server
+        docker build -f Dockerfile.prod -t ${{ env.AZURE_ACR_NAME }}.azurecr.io/sales-daily-api:${{ github.sha }} .
+        docker tag ${{ env.AZURE_ACR_NAME }}.azurecr.io/sales-daily-api:${{ github.sha }} ${{ env.AZURE_ACR_NAME }}.azurecr.io/sales-daily-api:latest
+        docker push ${{ env.AZURE_ACR_NAME }}.azurecr.io/sales-daily-api:${{ github.sha }}
+        docker push ${{ env.AZURE_ACR_NAME }}.azurecr.io/sales-daily-api:latest
+
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        images: ${{ env.AZURE_ACR_NAME }}.azurecr.io/sales-daily-api:${{ github.sha }}
+
+  build-and-deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install dependencies and build
+      run: |
+        cd client
+        npm ci
+        echo "VITE_API_URL=https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" > .env.production
+        npm run build
+
+    - name: Deploy to Azure Static Web Apps
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: "upload"
+        app_location: "client"
+        output_location: "dist"
+        skip_app_build: true

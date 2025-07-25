@@ -207,27 +207,21 @@ const ReportEditPage = () => {
     location: '',
     issues: '',
     participants: '',
+    industry: '',
   });
 
   React.useEffect(() => {
     if (report?.slots) {
       setFormData({
         customer: report.slots.customer || '',
-        project: Array.isArray(report.slots.project) 
-          ? report.slots.project.join('、') 
-          : report.slots.project || '',
-        next_action: Array.isArray(report.slots.next_action) 
-          ? report.slots.next_action.join('\n') 
-          : report.slots.next_action || '',
+        project: report.slots.project || '',
+        next_action: report.slots.next_action ? report.slots.next_action.replace(/,/g, '\n') : '',
         budget: report.slots.budget || '',
         schedule: report.slots.schedule || '',
         location: report.slots.location || '',
-        issues: Array.isArray(report.slots.issues) 
-          ? report.slots.issues.join('\n') 
-          : report.slots.issues || '',
-        participants: Array.isArray(report.slots.participants) 
-          ? report.slots.participants.join('、') 
-          : report.slots.participants || '',
+        issues: report.slots.issues ? report.slots.issues.replace(/,/g, '\n') : '',
+        participants: report.slots.participants || '',
+        industry: report.slots.industry || '',
       });
     }
   }, [report]);
@@ -280,20 +274,19 @@ const ReportEditPage = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Convert form data to appropriate types for the API
+    // Convert form data to appropriate types for the API (comma-separated strings)
     const processedSlots = {
       customer: formData.customer,
-      project: formData.project.trim() ? 
-        formData.project.split('、').map(item => item.trim()).filter(item => item) : [],
+      project: formData.project,
       next_action: formData.next_action.trim() ?
-        formData.next_action.split('\n').map(item => item.trim()).filter(item => item) : [],
+        formData.next_action.split('\n').map(item => item.trim()).filter(item => item).join(', ') : '',
       budget: formData.budget,
       schedule: formData.schedule,
       location: formData.location,
       issues: formData.issues.trim() ?
-        formData.issues.split('\n').map(item => item.trim()).filter(item => item) : [],
-      participants: formData.participants.trim() ?
-        formData.participants.split('、').map(item => item.trim()).filter(item => item) : [],
+        formData.issues.split('\n').map(item => item.trim()).filter(item => item).join(', ') : '',
+      participants: formData.participants,
+      industry: formData.industry,
     };
     
     updateMutation.mutate({
@@ -405,6 +398,17 @@ const ReportEditPage = () => {
                 value={formData.participants}
                 onChange={handleChange}
                 placeholder="参加者を入力（、で区切る）"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label htmlFor="industry">業界</Label>
+              <Input
+                id="industry"
+                name="industry"
+                value={formData.industry}
+                onChange={handleChange}
+                placeholder="業界を入力（例：建設業、IT業、保険業）"
               />
             </FormGroup>
 

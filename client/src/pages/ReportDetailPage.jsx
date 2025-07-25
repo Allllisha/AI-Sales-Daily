@@ -331,12 +331,84 @@ const StatusBadge = styled.span`
   }
 `;
 
+// Modal styles
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: ${spacing[4]};
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  border-radius: ${borderRadius.xl};
+  padding: ${spacing[8]};
+  max-width: 500px;
+  width: 100%;
+  box-shadow: ${shadows.xl};
+  animation: slideIn 0.2s ease-out;
+
+  @keyframes slideIn {
+    from {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: ${spacing[6]};
+  }
+`;
+
+const ModalTitle = styled.h3`
+  font-size: ${typography.fontSize.xl};
+  font-weight: ${typography.fontWeight.semibold};
+  color: ${colors.neutral[900]};
+  margin-bottom: ${spacing[4]};
+  text-align: center;
+`;
+
+const ModalMessage = styled.p`
+  font-size: ${typography.fontSize.base};
+  color: ${colors.neutral[600]};
+  margin-bottom: ${spacing[6]};
+  text-align: center;
+  line-height: ${typography.lineHeight.relaxed};
+`;
+
+const ModalButtons = styled.div`
+  display: flex;
+  gap: ${spacing[3]};
+  justify-content: center;
+`;
+
+const ModalButton = styled(PrimaryButton)`
+  min-width: 120px;
+`;
+
+const ModalCancelButton = styled(SecondaryButton)`
+  min-width: 120px;
+`;
+
 const ReportDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isCompleting, setIsCompleting] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const { data: report, isLoading, error } = useQuery({
     queryKey: ['report', id],
@@ -397,15 +469,21 @@ const ReportDetailPage = () => {
   const isOwner = user && user.id === report.user_id;
 
   const handleComplete = () => {
-    if (window.confirm('この日報を完了しますか？完了後は編集できなくなります。')) {
-      completeMutation.mutate();
-    }
+    setShowCompleteModal(true);
+  };
+
+  const handleConfirmComplete = () => {
+    completeMutation.mutate();
+    setShowCompleteModal(false);
   };
 
   const handleDelete = () => {
-    if (window.confirm('この日報を削除しますか？この操作は取り消せません。')) {
-      deleteMutation.mutate();
-    }
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    deleteMutation.mutate();
+    setShowDeleteModal(false);
   };
 
   return (
@@ -459,14 +537,10 @@ const ReportDetailPage = () => {
                 <InfoValue>{slots.customer}</InfoValue>
               </InfoItem>
             )}
-            {slots.project && (Array.isArray(slots.project) ? slots.project.length > 0 : slots.project) && (
+            {slots.project && slots.project.trim() && (
               <InfoItem>
                 <InfoLabel>案件</InfoLabel>
-                <InfoValue>
-                  {Array.isArray(slots.project) 
-                    ? slots.project.join('、') 
-                    : slots.project}
-                </InfoValue>
+                <InfoValue>{slots.project}</InfoValue>
               </InfoItem>
             )}
             {slots.budget && (
@@ -487,37 +561,47 @@ const ReportDetailPage = () => {
                 <InfoValue>{slots.location}</InfoValue>
               </InfoItem>
             )}
-            {slots.participants && slots.participants.length > 0 && (
+            {slots.participants && slots.participants.trim() && (
               <InfoItem>
                 <InfoLabel>参加者</InfoLabel>
-                <InfoValue>{slots.participants.join('、')}</InfoValue>
+                <InfoValue>{slots.participants}</InfoValue>
+              </InfoItem>
+            )}
+            {slots.industry && slots.industry.trim() && (
+              <InfoItem>
+                <InfoLabel>業界</InfoLabel>
+                <InfoValue>{slots.industry}</InfoValue>
               </InfoItem>
             )}
           </InfoGrid>
         </Section>
 
-        {slots.next_action && (Array.isArray(slots.next_action) ? slots.next_action.length > 0 : slots.next_action) && (
+        {slots.next_action && slots.next_action.trim() && (
           <Section>
             <SectionTitle>次のアクション</SectionTitle>
             <InfoItem>
               <InfoValue>
-                {Array.isArray(slots.next_action) 
-                  ? slots.next_action.map((action, index) => (
-                      <div key={index} style={{ marginBottom: '8px' }}>• {action}</div>
-                    ))
-                  : slots.next_action}
+                {slots.next_action.split(',').map((action, index) => (
+                  <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
+                    <span style={{ marginRight: '8px', color: colors.primary[500], fontWeight: 'bold' }}>•</span>
+                    <span>{action.trim()}</span>
+                  </div>
+                ))}
               </InfoValue>
             </InfoItem>
           </Section>
         )}
 
-        {slots.issues && slots.issues.length > 0 && (
+        {slots.issues && slots.issues.trim() && (
           <Section>
             <SectionTitle>課題・リスク</SectionTitle>
             <InfoItem>
               <InfoValue>
-                {slots.issues.map((issue, index) => (
-                  <div key={index} style={{ marginBottom: '8px' }}>• {issue}</div>
+                {slots.issues.split(',').map((issue, index) => (
+                  <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
+                    <span style={{ marginRight: '8px', color: colors.error[500], fontWeight: 'bold' }}>•</span>
+                    <span>{issue.trim()}</span>
+                  </div>
                 ))}
               </InfoValue>
             </InfoItem>
@@ -541,6 +625,56 @@ const ReportDetailPage = () => {
           </Section>
         )}
       </Card>
+
+      {/* Complete Modal */}
+      {showCompleteModal && (
+        <ModalOverlay onClick={() => setShowCompleteModal(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>日報を完了しますか？</ModalTitle>
+            <ModalMessage>
+              完了後は編集できなくなります。<br />
+              この操作は取り消せません。
+            </ModalMessage>
+            <ModalButtons>
+              <ModalButton
+                onClick={handleConfirmComplete}
+                disabled={completeMutation.isPending}
+                style={{ backgroundColor: colors.success.main, borderColor: colors.success.main }}
+              >
+                {completeMutation.isPending ? '処理中...' : '完了する'}
+              </ModalButton>
+              <ModalCancelButton onClick={() => setShowCompleteModal(false)}>
+                キャンセル
+              </ModalCancelButton>
+            </ModalButtons>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <ModalOverlay onClick={() => setShowDeleteModal(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>日報を削除しますか？</ModalTitle>
+            <ModalMessage>
+              この操作は取り消せません。<br />
+              本当に削除してもよろしいですか？
+            </ModalMessage>
+            <ModalButtons>
+              <ModalButton
+                onClick={handleConfirmDelete}
+                disabled={deleteMutation.isPending}
+                style={{ backgroundColor: colors.error.main, borderColor: colors.error.main }}
+              >
+                {deleteMutation.isPending ? '削除中...' : '削除する'}
+              </ModalButton>
+              <ModalCancelButton onClick={() => setShowDeleteModal(false)}>
+                キャンセル
+              </ModalCancelButton>
+            </ModalButtons>
+          </ModalContent>
+        </ModalOverlay>
+      )}
     </Container>
   );
 };

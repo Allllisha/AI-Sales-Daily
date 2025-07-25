@@ -39,12 +39,23 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      console.log('AuthContext: Starting login...');
       const response = await authAPI.login(email, password);
+      console.log('AuthContext: Login response received:', response);
+      
+      // Store token first
       localStorage.setItem('token', response.token);
+      
+      // Set user data
       setUser(response.user);
+      
+      // Small delay to ensure state is updated before navigation
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       toast.success('ログインしました');
       return { success: true };
     } catch (error) {
+      console.error('AuthContext: Login error:', error);
       const message = error.response?.data?.error || 'ログインに失敗しました';
       toast.error(message);
       return { success: false, error: message };

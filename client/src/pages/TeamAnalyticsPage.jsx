@@ -6,10 +6,26 @@ import { colors, typography, spacing, borderRadius, shadows } from '../styles/de
 import { Card } from '../styles/componentStyles';
 import toast from 'react-hot-toast';
 
+const PageWrapper = styled.div`
+  min-height: calc(100vh - 64px);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 15%,
+    rgba(255, 255, 255, 0.8) 25%,
+    rgba(255, 255, 255, 0.95) 35%,
+    white 45%,
+    white 100%
+  );
+  position: relative;
+`;
+
 const Container = styled.div`
   padding: ${spacing[8]};
   max-width: 1200px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1;
   
   @media (max-width: 768px) {
     padding: ${spacing[4]};
@@ -196,6 +212,8 @@ const TeamAnalyticsPage = () => {
   const [teamMembers, setTeamMembers] = useState([]);
   const [individualActionStates, setIndividualActionStates] = useState({});
   const [selectedMetric, setSelectedMetric] = useState('count');
+  const [issuesAnalysis, setIssuesAnalysis] = useState([]);
+  const [issuesLoading, setIssuesLoading] = useState(false);
 
   const periods = [
     { value: 7, label: '7日間' },
@@ -227,6 +245,7 @@ const TeamAnalyticsPage = () => {
 
   useEffect(() => {
     fetchAnalyticsData();
+    fetchIssuesAnalysis();
   }, [selectedPeriod, selectedMembers]);
   
   // ページにフォーカスが戻った時にデータを再取得
@@ -263,6 +282,18 @@ const TeamAnalyticsPage = () => {
     }
   };
 
+  const fetchIssuesAnalysis = async () => {
+    try {
+      setIssuesLoading(true);
+      const data = await analyticsAPI.getTeamIssues(selectedPeriod, selectedMembers);
+      setIssuesAnalysis(data.issuesAnalysis || []);
+    } catch (error) {
+      console.error('Team issues analysis fetch error:', error);
+    } finally {
+      setIssuesLoading(false);
+    }
+  };
+
   const handleMemberToggle = (memberId) => {
     setSelectedMembers(prev => 
       prev.includes(memberId) 
@@ -275,23 +306,27 @@ const TeamAnalyticsPage = () => {
 
   if (loading) {
     return (
-      <Container>
-        <LoadingSpinner>データを読み込み中...</LoadingSpinner>
-      </Container>
+      <PageWrapper>
+        <Container>
+          <LoadingSpinner>データを読み込み中...</LoadingSpinner>
+        </Container>
+      </PageWrapper>
     );
   }
 
   if (!analyticsData) {
     return (
-      <Container>
-        <Header>
-          <Title>チーム分析</Title>
-        </Header>
-        <div style={{ padding: '20px', textAlign: 'center' }}>
-          <p>データが取得できませんでした</p>
-          <button onClick={fetchAnalyticsData}>再試行</button>
-        </div>
-      </Container>
+      <PageWrapper>
+        <Container>
+          <Header>
+            <Title>チーム分析</Title>
+          </Header>
+          <div style={{ padding: '20px', textAlign: 'center' }}>
+            <p>データが取得できませんでした</p>
+            <button onClick={fetchAnalyticsData}>再試行</button>
+          </div>
+        </Container>
+      </PageWrapper>
     );
   }
 
@@ -300,7 +335,7 @@ const TeamAnalyticsPage = () => {
     memberStats = [],
     dailyReports = [], 
     customerAnalysis = [], 
-    projectCategories = [],
+    industryAnalysis = [],
     teamActionsList = []
   } = analyticsData;
 
@@ -356,7 +391,8 @@ const TeamAnalyticsPage = () => {
   };
 
   return (
-    <Container>
+    <PageWrapper>
+      <Container>
       <Header>
         <Title>チーム分析</Title>
         <ControlSection>
@@ -534,19 +570,19 @@ const TeamAnalyticsPage = () => {
 
         {/* 案件カテゴリ分析 */}
         <ChartCard>
-          <ChartTitle>案件カテゴリ分析</ChartTitle>
-          {projectCategories && projectCategories.length > 0 ? (
+          <ChartTitle>業界分析</ChartTitle>
+          {industryAnalysis && industryAnalysis.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={projectCategories}
+                  data={industryAnalysis}
                   cx="50%"
                   cy="40%"
                   outerRadius={70}
                   fill="#8884d8"
                   dataKey="count"
                 >
-                  {projectCategories.map((entry, index) => (
+                  {industryAnalysis.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -554,7 +590,7 @@ const TeamAnalyticsPage = () => {
                 <Legend 
                   verticalAlign="bottom" 
                   height={36}
-                  formatter={(_, entry) => `${entry.payload.category} (${entry.payload.count})`}
+                  formatter={(_, entry) => `${entry.payload.industry} (${entry.payload.count})`}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -617,6 +653,52 @@ const TeamAnalyticsPage = () => {
           )}
         </ChartCard>
       </ChartGrid>
+
+      {/* チーム課題・リスク分析 */}
+      {issuesAnalysis && issuesAnalysis.length > 0 && (
+        <ChartCard style={{ marginTop: spacing[8] }}>
+          <ChartTitle>チームでよく使われる課題キーワード</ChartTitle>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+            gap: spacing[4],
+            padding: spacing[4]
+          }}>
+            {issuesAnalysis.map((item, index) => (
+              <div key={index} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: `${spacing[3]} ${spacing[4]}`,
+                backgroundColor: colors.neutral[50],
+                borderRadius: borderRadius.md,
+                border: `1px solid ${colors.neutral[200]}`,
+                transition: 'all 0.2s'
+              }}>
+                <span style={{
+                  fontWeight: typography.fontWeight.medium,
+                  color: colors.neutral[800],
+                  fontSize: typography.fontSize.sm
+                }}>
+                  {item.keyword}
+                </span>
+                <span style={{
+                  backgroundColor: colors.primary[500],
+                  color: 'white',
+                  padding: `${spacing[1]} ${spacing[2]}`,
+                  borderRadius: borderRadius.sm,
+                  fontSize: typography.fontSize.xs,
+                  fontWeight: typography.fontWeight.bold,
+                  minWidth: '24px',
+                  textAlign: 'center'
+                }}>
+                  {item.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </ChartCard>
+      )}
 
       {/* チームアクション一覧 */}
       {teamActionsList && teamActionsList.length > 0 && (
@@ -722,7 +804,8 @@ const TeamAnalyticsPage = () => {
           </div>
         </ChartCard>
       )}
-    </Container>
+      </Container>
+    </PageWrapper>
   );
 };
 

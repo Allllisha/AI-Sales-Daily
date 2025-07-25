@@ -71,3 +71,51 @@ npm run dev
 - データベース: PostgreSQL
 - 認証: JWT
 - AI: Azure OpenAI（将来実装）
+
+## デプロイ
+
+### Azureへのデプロイ
+
+詳細な手順は [DEPLOY_AZURE.md](DEPLOY_AZURE.md) を参照してください。
+
+#### クイックスタート
+
+1. **Azure リソースの作成**
+```bash
+./scripts/setup-azure-resources.sh
+```
+
+2. **環境変数の設定**
+```bash
+cp .env.azure.example .env.azure
+# エディタで .env.azure を編集
+```
+
+3. **データベースの初期化**
+```bash
+# サーバーディレクトリで実行
+cd server
+./db/init-seed.sh
+```
+
+4. **Dockerイメージのビルドとプッシュ**
+```bash
+ACR_NAME=salesdailyacr ./scripts/build-and-push-acr.sh
+```
+
+5. **フロントエンドのデプロイ**
+```bash
+cd client
+npm run build
+# Azure Static Web Apps にデプロイ
+```
+
+### デフォルトユーザー（本番環境）
+- **マネージャー**: yamada@example.com / password123
+- **営業担当者**: 
+  - tanaka@example.com / password123
+  - suzuki@example.com / password123
+  - sato@example.com / password123
+  - takahashi@example.com / password123
+
+⚠️ **セキュリティ注意**: 本番環境では必ずパスワードを変更してください。

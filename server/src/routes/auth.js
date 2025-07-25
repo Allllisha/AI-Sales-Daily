@@ -9,10 +9,10 @@ const router = express.Router();
 // ユーザー登録
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 8 }).matches(/^(?=.*[a-zA-Z])(?=.*[0-9])/),
+  body('password').isLength({ min: 6 }),
   body('name').notEmpty().trim(),
   body('role').isIn(['sales', 'manager']),
-  body('managerId').optional().isInt()
+  body('manager_id').optional().isInt()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -20,7 +20,7 @@ router.post('/register', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password, name, role, managerId } = req.body;
+    const { email, password, name, role, manager_id } = req.body;
 
     // Check if user exists
     const existingUser = await pool.query(
@@ -38,7 +38,7 @@ router.post('/register', [
     // Create user
     const result = await pool.query(
       'INSERT INTO users (email, password, name, role, manager_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, role',
-      [email, hashedPassword, name, role, managerId]
+      [email, hashedPassword, name, role, manager_id]
     );
 
     const user = result.rows[0];

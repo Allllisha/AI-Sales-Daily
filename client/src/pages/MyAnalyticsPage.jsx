@@ -6,10 +6,30 @@ import { colors, typography, spacing, borderRadius, shadows } from '../styles/de
 import { Card } from '../styles/componentStyles';
 import toast from 'react-hot-toast';
 
+const PageWrapper = styled.div`
+  min-height: calc(100vh - 72px);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 15%,
+    rgba(255, 255, 255, 0.8) 25%,
+    rgba(255, 255, 255, 0.95) 35%,
+    white 45%,
+    white 100%
+  );
+  position: relative;
+
+  @media (max-width: 768px) {
+    min-height: calc(100vh - 64px);
+  }
+`;
+
 const Container = styled.div`
   padding: ${spacing[8]};
   max-width: 1200px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1;
   
   @media (max-width: 768px) {
     padding: ${spacing[4]};
@@ -191,12 +211,15 @@ const ActionDate = styled.span`
   color: ${colors.neutral[500]};
 `;
 
+
 const MyAnalyticsPage = () => {
   const [analyticsData, setAnalyticsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState(30);
   const [localActions, setLocalActions] = useState([]);
   const [actionCompletionStates, setActionCompletionStates] = useState({});
+  const [issuesAnalysis, setIssuesAnalysis] = useState([]);
+  const [issuesLoading, setIssuesLoading] = useState(false);
   const [visibleLines, setVisibleLines] = useState({
     count: true,
     completedActions: true,
@@ -223,6 +246,7 @@ const MyAnalyticsPage = () => {
 
   useEffect(() => {
     fetchAnalyticsData();
+    fetchIssuesAnalysis();
   }, [selectedPeriod]);
   
   // ページにフォーカスが戻った時にデータを再取得
@@ -289,6 +313,18 @@ const MyAnalyticsPage = () => {
     }));
   };
 
+  const fetchIssuesAnalysis = async () => {
+    try {
+      setIssuesLoading(true);
+      const data = await analyticsAPI.getPersonalIssues(selectedPeriod);
+      setIssuesAnalysis(data.issuesAnalysis || []);
+    } catch (error) {
+      console.error('Issues analysis fetch error:', error);
+    } finally {
+      setIssuesLoading(false);
+    }
+  };
+
   const fetchAnalyticsData = async () => {
     try {
       setLoading(true);
@@ -328,23 +364,27 @@ const MyAnalyticsPage = () => {
 
   if (loading) {
     return (
-      <Container>
-        <LoadingSpinner>データを読み込み中...</LoadingSpinner>
-      </Container>
+      <PageWrapper>
+        <Container>
+          <LoadingSpinner>データを読み込み中...</LoadingSpinner>
+        </Container>
+      </PageWrapper>
     );
   }
 
   if (!analyticsData) {
     return (
-      <Container>
-        <Header>
-          <Title>マイ分析</Title>
-        </Header>
-        <div style={{ padding: '20px', textAlign: 'center' }}>
-          <p>データが取得できませんでした</p>
-          <button onClick={fetchAnalyticsData}>再試行</button>
-        </div>
-      </Container>
+      <PageWrapper>
+        <Container>
+          <Header>
+            <Title>マイ分析</Title>
+          </Header>
+          <div style={{ padding: '20px', textAlign: 'center' }}>
+            <p>データが取得できませんでした</p>
+            <button onClick={fetchAnalyticsData}>再試行</button>
+          </div>
+        </Container>
+      </PageWrapper>
     );
   }
   
@@ -354,8 +394,7 @@ const MyAnalyticsPage = () => {
     basicStats = {}, 
     dailyReports = [], 
     customerAnalysis = [], 
-    projectCategories = [], 
-    issuesAnalysis = [], 
+    industryAnalysis = [], 
     relationshipAnalysis = {} 
   } = analyticsData;
 
@@ -383,7 +422,8 @@ const MyAnalyticsPage = () => {
   };
 
   return (
-    <Container>
+    <PageWrapper>
+      <Container>
       <Header>
         <Title>マイ分析</Title>
         <PeriodSelector>
@@ -496,21 +536,21 @@ const MyAnalyticsPage = () => {
           )}
         </ChartCard>
 
-        {/* 案件カテゴリ分析 */}
+        {/* 業界分析 */}
         <ChartCard>
-          <ChartTitle>案件カテゴリ分析</ChartTitle>
-          {projectCategories && projectCategories.length > 0 ? (
+          <ChartTitle>業界分析</ChartTitle>
+          {industryAnalysis && industryAnalysis.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
               <Pie
-                data={projectCategories}
+                data={industryAnalysis}
                 cx="50%"
                 cy="40%"
                 outerRadius={60}
                 fill="#8884d8"
                 dataKey="count"
               >
-                {projectCategories.map((entry, index) => (
+                {industryAnalysis.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -518,7 +558,7 @@ const MyAnalyticsPage = () => {
               <Legend 
                 verticalAlign="bottom" 
                 height={36}
-                formatter={(value, entry) => `${entry.payload.category} (${entry.payload.count})`}
+                formatter={(value, entry) => `${entry.payload.industry} (${entry.payload.count})`}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -532,16 +572,11 @@ const MyAnalyticsPage = () => {
         {/* 顧客別商談数 */}
         <ChartCard>
           <ChartTitle>顧客別商談数（Top 10）</ChartTitle>
-          {(() => {
-            console.log('Customer Analysis Data:', customerAnalysis);
-            console.log('Customer Analysis Length:', customerAnalysis?.length);
-            return null;
-          })()}
           {customerAnalysis && customerAnalysis.length > 0 ? (
-            customerAnalysis.length === 1 ? (
-              // 1件の場合はプログレスバー風の表示
-              <div style={{ padding: '20px' }}>
-                {customerAnalysis.map((item, index) => (
+            <div style={{ padding: '20px' }}>
+              {(() => {
+                const maxCount = Math.max(...customerAnalysis.map(item => item.reportCount));
+                return customerAnalysis.map((item, index) => (
                   <div key={index} style={{ marginBottom: '16px' }}>
                     <div style={{ 
                       display: 'flex', 
@@ -568,7 +603,7 @@ const MyAnalyticsPage = () => {
                       overflow: 'hidden'
                     }}>
                       <div style={{ 
-                        width: '100%', 
+                        width: `${(item.reportCount / maxCount) * 100}%`, 
                         height: '100%', 
                         backgroundColor: colors.primary[500],
                         borderRadius: '6px',
@@ -576,24 +611,9 @@ const MyAnalyticsPage = () => {
                       }} />
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              // 複数件の場合はバーチャート
-              <ResponsiveContainer width="100%" height={Math.max(200, customerAnalysis.length * 60)}>
-                <BarChart 
-                  data={customerAnalysis} 
-                  layout="horizontal"
-                  margin={{ left: 10, right: 20, top: 20, bottom: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="customer" type="category" width={80} />
-                  <Tooltip />
-                  <Bar dataKey="reportCount" fill={colors.primary[500]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )
+                ));
+              })()}
+            </div>
           ) : (
             <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
               データがありません
@@ -603,26 +623,49 @@ const MyAnalyticsPage = () => {
 
         {/* 課題・リスク分析 */}
         <ChartCard>
-          <ChartTitle>課題・リスク分析</ChartTitle>
+          <ChartTitle>よく使われる課題キーワード</ChartTitle>
           {issuesAnalysis && issuesAnalysis.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={issuesAnalysis}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="issueType" 
-                  angle={-30} 
-                  textAnchor="end" 
-                  height={80}
-                  tick={{ fontSize: 11, fill: colors.neutral[600] }}
-                  interval={0}
-                />
-                <YAxis tick={{ fontSize: 12, fill: colors.neutral[600] }} />
-                <Tooltip />
-                <Bar dataKey="count" fill={colors.primary[500]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+              gap: spacing[4],
+              padding: spacing[4]
+            }}>
+              {issuesAnalysis.map((item, index) => (
+                <div key={index} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: `${spacing[3]} ${spacing[4]}`,
+                  backgroundColor: colors.neutral[50],
+                  borderRadius: borderRadius.md,
+                  border: `1px solid ${colors.neutral[200]}`,
+                  transition: 'all 0.2s'
+                }}>
+                  <span style={{
+                    fontWeight: typography.fontWeight.medium,
+                    color: colors.neutral[800],
+                    fontSize: typography.fontSize.sm
+                  }}>
+                    {item.keyword}
+                  </span>
+                  <span style={{
+                    backgroundColor: colors.primary[500],
+                    color: 'white',
+                    padding: `${spacing[1]} ${spacing[2]}`,
+                    borderRadius: borderRadius.sm,
+                    fontSize: typography.fontSize.xs,
+                    fontWeight: typography.fontWeight.bold,
+                    minWidth: '24px',
+                    textAlign: 'center'
+                  }}>
+                    {item.count}
+                  </span>
+                </div>
+              ))}
+            </div>
           ) : (
-            <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+            <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
               データがありません
             </div>
           )}
@@ -667,18 +710,62 @@ const MyAnalyticsPage = () => {
       {relationshipAnalysis && relationshipAnalysis.topHobbies && relationshipAnalysis.topHobbies.length > 0 && (
         <ChartCard style={{ marginTop: spacing[8] }}>
           <ChartTitle>顧客の趣味・関心事（Top 10）</ChartTitle>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={relationshipAnalysis.topHobbies}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hobby" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill={colors.secondary[500]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {relationshipAnalysis.topHobbies.length === 1 ? (
+            // 1件の場合はプログレスバー風の表示
+            <div style={{ padding: '20px' }}>
+              {relationshipAnalysis.topHobbies.map((item, index) => (
+                <div key={index} style={{ marginBottom: '16px' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginBottom: '8px'
+                  }}>
+                    <span style={{ fontWeight: '600', color: colors.neutral[800] }}>
+                      {item.hobby}
+                    </span>
+                    <span style={{ 
+                      fontWeight: 'bold', 
+                      color: colors.secondary[600],
+                      fontSize: '18px'
+                    }}>
+                      {item.count}件
+                    </span>
+                  </div>
+                  <div style={{ 
+                    width: '100%', 
+                    height: '12px', 
+                    backgroundColor: colors.neutral[200],
+                    borderRadius: '6px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      backgroundColor: colors.secondary[500],
+                      borderRadius: '6px',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // 複数件の場合はバーチャート（動的な高さ調整）
+            <ResponsiveContainer width="100%" height={Math.max(200, relationshipAnalysis.topHobbies.length * 40)}>
+              <BarChart data={relationshipAnalysis.topHobbies}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hobby" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill={colors.secondary[500]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
       )}
-    </Container>
+      </Container>
+    </PageWrapper>
   );
 };
 
