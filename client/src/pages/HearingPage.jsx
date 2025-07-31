@@ -219,6 +219,7 @@ const HearingPage = () => {
   const [questionsAnswers, setQuestionsAnswers] = useState([]);
   const [questionHistory, setQuestionHistory] = useState([]); // 質問履歴を保存
   const [askedQuestions, setAskedQuestions] = useState([]); // 重複防止用質問履歴
+  const [isRevisiting, setIsRevisiting] = useState(false); // 戻って回答を修正中かどうか
 
   // Start hearing session
   const startMutation = useMutation({
@@ -232,7 +233,8 @@ const HearingPage = () => {
       setQuestionHistory([{
         question: data.question,
         questionIndex: data.questionIndex,
-        slots: {}
+        slots: {},
+        answer: '' // 初回の回答は空
       }]);
       setAskedQuestions([data.question]);
     },
@@ -254,13 +256,25 @@ const HearingPage = () => {
         setQuestionIndex(data.questionIndex);
         setTotalQuestions(data.totalQuestions);
         setSlots(data.slots);
-        setAnswer('');
-        // 新しい質問を履歴に追加
-        setQuestionHistory(prev => [...prev, {
-          question: data.question,
-          questionIndex: data.questionIndex,
-          slots: data.slots
-        }]);
+        
+        // 新しい質問を履歴に追加（前の回答も保存）
+        setQuestionHistory(prev => {
+          // 現在の質問に回答を追加
+          const updatedHistory = [...prev];
+          if (updatedHistory.length > 0) {
+            updatedHistory[updatedHistory.length - 1].answer = answer;
+          }
+          // 新しい質問を追加
+          return [...updatedHistory, {
+            question: data.question,
+            questionIndex: data.questionIndex,
+            slots: data.slots,
+            answer: '' // 新しい質問の回答は空
+          }];
+        });
+        
+        setAnswer(''); // 入力フィールドをクリア
+        setIsRevisiting(false); // 修正モードをリセット
         if (data.askedQuestions) {
           setAskedQuestions(data.askedQuestions);
         }
@@ -295,20 +309,49 @@ const HearingPage = () => {
       return;
     }
 
-    // Store Q&A
-    const newQA = {
-      question: currentQuestion,
-      answer: answer,
-      timestamp: new Date().toLocaleTimeString('ja-JP')
-    };
-    setQuestionsAnswers([...questionsAnswers, newQA]);
+    if (isRevisiting) {
+      // 戻って修正した場合は、その位置から再度進む
+      const currentHistoryIndex = questionHistory.findIndex(
+        h => h.question === currentQuestion && h.questionIndex === questionIndex
+      );
+      
+      if (currentHistoryIndex !== -1) {
+        // 履歴を現在の位置までに切り詰める
+        const newHistory = questionHistory.slice(0, currentHistoryIndex + 1);
+        newHistory[currentHistoryIndex].answer = answer;
+        setQuestionHistory(newHistory);
+        
+        // 質問回答も同じ位置まで切り詰める
+        const newQuestionsAnswers = questionsAnswers.slice(0, currentHistoryIndex);
+        newQuestionsAnswers.push({
+          question: currentQuestion,
+          answer: answer,
+          timestamp: new Date().toLocaleTimeString('ja-JP')
+        });
+        setQuestionsAnswers(newQuestionsAnswers);
+        
+        // askedQuestionsも調整
+        const newAskedQuestions = askedQuestions.slice(0, currentHistoryIndex + 1);
+        setAskedQuestions(newAskedQuestions);
+      }
+      
+      setIsRevisiting(false);
+    } else {
+      // 通常の次へ処理
+      const newQA = {
+        question: currentQuestion,
+        answer: answer,
+        timestamp: new Date().toLocaleTimeString('ja-JP')
+      };
+      setQuestionsAnswers([...questionsAnswers, newQA]);
+    }
 
     answerMutation.mutate({
       sessionId,
       questionIndex,
       answer,
       currentSlots: slots,
-      askedQuestions
+      askedQuestions: isRevisiting ? askedQuestions.slice(0, questionIndex + 1) : askedQuestions
     });
   };
 
@@ -327,15 +370,22 @@ const HearingPage = () => {
     const newQuestionsAnswers = questionsAnswers.slice(0, -1);
     setQuestionsAnswers(newQuestionsAnswers);
 
+    // 現在の回答を履歴に保存してから戻る
+    const updatedHistory = [...questionHistory];
+    if (updatedHistory.length > 0) {
+      updatedHistory[updatedHistory.length - 1].answer = answer;
+    }
+
     // 履歴から最後のエントリを削除し、前の質問に戻る
-    const newHistory = questionHistory.slice(0, -1);
+    const newHistory = updatedHistory.slice(0, -1);
     const previousQuestion = newHistory[newHistory.length - 1];
     
     setQuestionHistory(newHistory);
     setCurrentQuestion(previousQuestion.question);
     setQuestionIndex(previousQuestion.questionIndex);
     setSlots(previousQuestion.slots);
-    setAnswer('');
+    setAnswer(previousQuestion.answer || ''); // 履歴から前の回答を復元
+    setIsRevisiting(true); // 戻って修正モードをONにする
   };
 
   const handleVoiceResult = (transcript) => {

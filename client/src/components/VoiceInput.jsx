@@ -227,6 +227,7 @@ const VoiceInput = ({ onResult, value }) => {
   const [isSupported, setIsSupported] = useState(false);
   const finalTranscriptRef = useRef('');
   const isRecordingRef = useRef(false);
+  const recognitionStateRef = useRef('inactive'); // 'inactive', 'starting', 'active', 'stopping'
 
   useEffect(() => {
     // Check if Web Speech API is supported
@@ -292,23 +293,32 @@ const VoiceInput = ({ onResult, value }) => {
         }
       };
 
+      recognitionRef.current.onstart = () => {
+        console.log('Speech recognition started');
+        recognitionStateRef.current = 'active';
+      };
+
       recognitionRef.current.onend = () => {
-        console.log('Speech recognition ended, isRecording:', isRecordingRef.current);
+        console.log('Speech recognition ended, state:', recognitionStateRef.current);
+        recognitionStateRef.current = 'inactive';
+        
         // 録音中に自動的に停止した場合は再開を試みる
         if (isRecordingRef.current && recognitionRef.current) {
           console.log('Attempting to restart recognition...');
-          try {
-            setTimeout(() => {
-              if (isRecordingRef.current) {
+          setTimeout(() => {
+            if (isRecordingRef.current && recognitionRef.current && recognitionStateRef.current === 'inactive') {
+              try {
+                recognitionStateRef.current = 'starting';
                 recognitionRef.current.start();
+              } catch (error) {
+                console.log('Failed to restart recognition:', error);
+                setIsRecording(false);
+                setInterimTranscript('');
+                isRecordingRef.current = false;
+                recognitionStateRef.current = 'inactive';
               }
-            }, 100);
-          } catch (error) {
-            console.log('Failed to restart recognition:', error);
-            setIsRecording(false);
-            setInterimTranscript('');
-            isRecordingRef.current = false;
-          }
+            }
+          }, 100);
         } else {
           setIsRecording(false);
           setInterimTranscript('');
@@ -329,17 +339,40 @@ const VoiceInput = ({ onResult, value }) => {
       return;
     }
 
+    // 既に録音中または開始中の場合は何もしない
+    if (isRecordingRef.current || recognitionStateRef.current !== 'inactive') {
+      console.log('Already recording or starting, ignoring start request. State:', recognitionStateRef.current);
+      return;
+    }
+
     setIsRecording(true);
     isRecordingRef.current = true;
     setTranscript('');
     setInterimTranscript('');
     finalTranscriptRef.current = '';
-    recognitionRef.current.start();
+    
+    try {
+      recognitionStateRef.current = 'starting';
+      recognitionRef.current.start();
+    } catch (error) {
+      console.error('Failed to start recognition:', error);
+      if (error.message.includes('already started')) {
+        // 既に開始されている場合は状態をリセット
+        console.log('Recognition already started, resetting state');
+        recognitionStateRef.current = 'active';
+      } else {
+        setIsRecording(false);
+        isRecordingRef.current = false;
+        recognitionStateRef.current = 'inactive';
+        toast.error('音声認識を開始できませんでした');
+      }
+    }
   };
 
   const stopRecording = () => {
     isRecordingRef.current = false;
-    if (recognitionRef.current) {
+    if (recognitionRef.current && recognitionStateRef.current !== 'inactive') {
+      recognitionStateRef.current = 'stopping';
       recognitionRef.current.stop();
     }
     setIsRecording(false);

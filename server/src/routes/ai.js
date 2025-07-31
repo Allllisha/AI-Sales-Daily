@@ -4,13 +4,13 @@ const axios = require('axios');
 
 const router = express.Router();
 
-// AIヒアリング用の質問生成
+// AIヒアリング用の質問生成（ビジネスマナーを保ちつつ親しみやすい）
 const HEARING_QUESTIONS = [
-  "お疲れ様です。今日はどんな商談がありましたか？",
-  "どちらのお客様とお会いしましたか？",
-  "どのような案件についてお話しされましたか？",
-  "次のアクションは何になりますか？",
-  "何か課題や懸念事項はありましたか？"
+  "お疲れ様でした。本日の商談はいかがでしたか？",
+  "それは良いですね。キーパーソンはどなたでしたか？その方の反応はいかがでしたか？",
+  "なるほど。商談中、特に先方の関心が高まった場面はありましたか？",
+  "予算についてお話された際、先方の反応はどうでしたか？",
+  "他社様との比較検討状況について、何かお話はありましたか？"
 ];
 
 // 必須スロット
@@ -25,21 +25,116 @@ const REQUIRED_SLOTS = [
   'issues'
 ];
 
-// 任意スロット（関係構築に役立つ情報）
+// 任意スロット（関係構築や感覚値情報）
 const OPTIONAL_SLOTS = [
-  'personal_info',
-  'relationship_notes'
+  'personal_info',        // 個人的な情報・趣味
+  'relationship_notes',   // 関係構築メモ
+  'key_person_reaction',  // キーマンの反応・温度感
+  'positive_points',      // 先方が興味を持った点・前のめりになった瞬間
+  'atmosphere_change',    // 雰囲気が変わった瞬間・転換点
+  'competitor_info',      // 競合情報・比較検討状況
+  'decision_timeline',    // 意思決定のタイミング
+  'enthusiasm_level',     // 先方の熱意度（高/中/低）
+  'budget_reaction',      // 予算への反応（前向き/渋い/余裕あり）
+  'decision_makers',      // 決定権者・キーマン情報
+  'concerns_mood',        // 懸念事項の雰囲気・温度感
+  'next_step_mood'        // 次ステップへの温度感・確度
 ];
+
+// 初回の質問を動的に生成
+async function generateInitialQuestion() {
+  try {
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const apiKey = process.env.AZURE_OPENAI_API_KEY;
+    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    const apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
+    
+    if (!endpoint || !apiKey || !deploymentName) {
+      // AIが使えない場合のフォールバック
+      const fallbackQuestions = [
+        "お疲れ様でした。本日の商談はいかがでしたか？",
+        "本日はどのような商談がございましたか？",
+        "今日の営業活動はいかがでしたか？手応えはありましたか？",
+        "本日の訪問について、お聞かせください。"
+      ];
+      return fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
+    }
+
+    const url = `${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
+    
+    // 現在の時間帯を取得
+    const hour = new Date().getHours();
+    const timeContext = hour < 12 ? "午前" : hour < 17 ? "午後" : "夕方";
+    
+    const response = await axios.post(
+      url,
+      {
+        messages: [
+          {
+            role: 'system',
+            content: `あなたは営業部の経験豊富な上司です。部下が商談から戻ってきたところです。
+時間帯は${timeContext}です。ビジネスマナーを保ちながら、親しみやすい雰囲気で最初の声かけをしてください。
+
+【重要な指示】
+- 必ず敬語を使用する（です・ます調）
+- 全体的な雰囲気や感触を聞く（事実より感覚を重視）
+- 「お疲れ様でした」から始めて、親しみやすい雰囲気を作る
+- 最初から細かい事実を聞かない（場所、時間、参加者名などは後回し）
+- 話しやすい雰囲気で、部下の感覚や印象を引き出す
+- 毎回少し違う表現を使う
+
+良い例：
+- お疲れ様でした。今日の商談の雰囲気はどうでしたか？
+- 商談お疲れ様でした。先方の反応や手応えはいかがでしたか？
+- お戻りになられましたね。今日はどんな感じでしたか？良い雰囲気でした？
+- お疲れ様でした。商談の感触はどうでしたか？いけそうな感じでした？
+
+悪い例（最初に聞くべきでない質問）：
+- 何時から何時まででしたか？
+- 参加者は誰でしたか？
+- 次のアクションは何に決まりましたか？
+
+回答は質問文のみを返してください。引用符は付けないでください。`
+          },
+          {
+            role: 'user',
+            content: '営業担当者が戻ってきました。最初の声かけをお願いします。'
+          }
+        ],
+        max_tokens: 100,
+        temperature: 0.8  // バリエーションを増やすため高めに設定
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': apiKey
+        }
+      }
+    );
+
+    // 引用符を除去
+    let question = response.data.choices[0].message.content.trim();
+    question = question.replace(/^["']|["']$/g, '').replace(/^「|」$/g, '');
+    return question;
+    
+  } catch (error) {
+    console.error('Error generating initial question:', error.message);
+    // エラー時のフォールバック
+    return "お疲れ様でした。本日の商談はいかがでしたか？";
+  }
+}
 
 // AIヒアリングセッション開始
 router.post('/hearing/start', authMiddleware, async (req, res) => {
   try {
-    // 初回の質問を返す
+    // AIを使って最初の質問を動的に生成
+    const initialQuestion = await generateInitialQuestion();
+    
     res.json({
       sessionId: Date.now().toString(),
-      question: HEARING_QUESTIONS[0],
+      question: initialQuestion,
       questionIndex: 0,
-      totalQuestions: HEARING_QUESTIONS.length
+      totalQuestions: 8 // 目安の質問数
     });
   } catch (error) {
     console.error('Start hearing error:', error);
@@ -59,10 +154,16 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
     const lastQuestion = askedQuestions.length > 0 ? askedQuestions[askedQuestions.length - 1] : '';
     const extractedInfo = await extractInformationWithAI(answer, updatedSlots, lastQuestion);
     
-    // 抽出された情報をスロットに追加
+    // 抽出された情報をスロットに追加（上書きも許可）
     Object.keys(extractedInfo).forEach(key => {
-      if (extractedInfo[key] && !updatedSlots[key]) {
-        updatedSlots[key] = extractedInfo[key];
+      if (extractedInfo[key]) {
+        // projectとlocationは常に最新の情報で更新
+        if (key === 'project' || key === 'location') {
+          updatedSlots[key] = extractedInfo[key];
+        } else if (!updatedSlots[key]) {
+          // その他のスロットは既存の値がない場合のみ更新
+          updatedSlots[key] = extractedInfo[key];
+        }
       }
     });
     
@@ -71,7 +172,7 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
       updatedSlots.summary = answer;
     }
 
-    // 次の質問を動的に決定（質問履歴も渡す）
+    // 次の質問を動的に決定（常にAIを使用）
     const { nextQuestion, isComplete } = await determineNextQuestionWithAI(questionIndex, updatedSlots, answer, askedQuestions);
     
     if (isComplete) {
@@ -387,13 +488,16 @@ function analyzeAnswerDetail(answer) {
   return detailIndicators;
 }
 
-// 次の質問を動的に決定
+// 次の質問を動的に決定（フォールバック用）
 async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuestions = []) {
+  // この関数は主にAIが利用できない場合のフォールバックとして使用
+  // 通常はdetermineNextQuestionWithAIが呼ばれる
+  
   // 回答の詳細度を分析
   const answerDetail = analyzeAnswerDetail(lastAnswer);
   
-  console.log('Answer analysis:', answerDetail);
-  console.log('Current slots:', slots);
+  console.log('Fallback: Answer analysis:', answerDetail);
+  console.log('Fallback: Current slots:', slots);
   
   // AIを使って「決まっていない」かどうかを文脈で判断
   const isUndecidedAnswer = await analyzeIfUndecidedAnswer(lastAnswer);
@@ -406,14 +510,14 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
     if (typeof value === 'string' && value.trim() === '') return true;
     return false;
   });
-  console.log('Missing slots:', missingSlots);
+  console.log('Fallback: Missing slots:', missingSlots);
   
   // 回答が曖昧・不十分な場合は深掘り質問
   if (currentIndex === 0 && (
     answerDetail.isVague || 
     answerDetail.isOnlyFeeling || 
     (!answerDetail.hasCustomerInfo && !answerDetail.hasProjectContent && !answerDetail.hasBusinessContext) ||
-    answer.length < 30
+    lastAnswer.length < 30
   )) {
     console.log('Initial answer is vague or insufficient, asking for more details');
     console.log('Answer analysis for deep dive:', answerDetail);
@@ -551,34 +655,50 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
   };
 }
 
-// スロット別の質問を生成
+// スロット別の質問を生成（ビジネスライクなトーン）
 function generateQuestionForSlot(slotName, existingSlots) {
   const customerName = existingSlots.customer || 'お客様';
   
   switch (slotName) {
     case 'customer':
-      return "どちらのお客様とお会いしましたか？";
+      return "どちらの企業様を訪問されましたか？";
     
     case 'project':
-      return `${customerName}との商談では、どのような案件やプロジェクトについてお話されましたか？`;
+      return `${customerName}様の案件について、詳しくお聞かせいただけますか？`;
     
     case 'next_action':
-      return "今回の商談を受けて、次に何をする予定になりましたか？";
+      return "次のアクションについて、具体的にどのようなお話になりましたか？";
     
     case 'budget':
-      return "予算や金額についてのお話はありましたか？";
+      return "予算について何かお話はございましたか？先方の反応はいかがでしたか？";
     
     case 'schedule':
-      return "スケジュールや納期についてはいかがでしたか？";
+      return "スケジュールについて、いつまでに必要とおっしゃっていましたか？納期のご要望は？";
     
     case 'participants':
-      return `${customerName}からは、どなたが参加されていましたか？`;
+      return `${customerName}様からはどなたがご参加されていましたか？お名前と役職を教えてください。`;
     
     case 'location':
       return "商談はどちらで行われましたか？";
     
     case 'issues':
-      return "何か課題や懸念事項、解決したい問題などはありましたか？";
+      return "何か課題や懸念事項はございましたか？";
+    
+    // 感覚値系の質問を追加（ビジネスライク）
+    case 'key_person_reaction':
+      return "キーパーソンの反応はいかがでしたか？ご関心は高そうでしたか？";
+      
+    case 'positive_points':
+      return "特に先方のご関心が高かった点はどちらでしたか？";
+      
+    case 'atmosphere_change':
+      return "商談中、雰囲気が変わった場面はございましたか？どのような変化でしたか？";
+      
+    case 'competitor_info':
+      return "他社様との比較検討状況について、何かお話はありましたか？";
+      
+    case 'enthusiasm_level':
+      return "全体的な商談の温度感はいかがでしたか？";
     
     default:
       return null;
@@ -646,16 +766,25 @@ async function extractInformationWithAI(answer, currentSlots, lastQuestion = '')
 
 抽出する情報：
 - customer: 顧客名・会社名（「大成建設」「ABC株式会社」「田中さん」「山田部長」など、会社名や個人名を抽出）
-- project: 案件名・プロジェクト内容（「AIと建築」「在庫管理システム」「新社屋建設」など、商談内容を簡潔に要約）
+- project: 案件名・プロジェクト内容（これまでの会話全体から推測。商談内容・提案内容・顧客の課題などから案件名を生成）
 - next_action: 次のアクション・やるべきこと（「見積もり作成」「提案書準備」「次回会議設定」など、営業担当者の未来の行動のみ）
 - budget: 予算・金額（「1000万円」「年間500万」「月額10万」「予算は未定」など、金額に関する情報）
 - schedule: スケジュール・納期・期間（「来月まで」「3月着工」「年度内」「2025年4月から」など、時期に関する情報）
 - participants: 参加者・出席者（「山田部長」「田中さん」「先方3名」など、商談参加者の名前や人数）
-- location: 場所・会場（「新宿」「渋谷」「お客様オフィス」「弊社会議室」「〇〇ビル」など、商談場所）
+- location: 場所・会場（必ず抽出！「新宿」「渋谷」「お客様オフィス」「〇〇で行われた」「〇〇にて」など、どこで商談したかの情報）
 - issues: 課題・問題・懸念事項（「人手不足」「コスト削減が課題」「システム老朽化」など、顧客の抱える問題）
-- industry: 顧客の業界・分野（「建設業」「保険業」「製造業」「IT業」「金融業」「医療・介護」「教育」「小売業」「不動産業」など、会話から推測される業界）
+- industry: 顧客の業界・分野（会社名や会話内容から推測。建設業、保険業、製造業、IT業、金融業、医療・介護、教育、小売業、不動産業など）
 - personal_info: 顧客の個人情報・趣味（「ゴルフが趣味」「釣りが好き」「コーヒー好き」など、関係構築に役立つ個人的な情報）
 - relationship_notes: 関係構築メモ（「ゴルフの話で盛り上がった」「共通の知人がいた」「同じ大学出身」など、雑談や関係構築の内容）
+- key_person_reaction: キーマンの反応・温度感（「乗り気だった」「渋い顔をしていた」「前のめりになった」など）
+- positive_points: 先方が興味を持った点（「AIの部分で目が輝いた」「コスト削減の話で身を乗り出した」など）
+- atmosphere_change: 雰囲気が変わった瞬間（「予算の話で空気が重くなった」「デモを見せたら一気に盛り上がった」など）
+- competitor_info: 競合情報（「A社と比較検討中」「B社の提案も受けている」など）
+- enthusiasm_level: 全体的な熱意度（「高い」「中程度」「低い」「冷めている」「熱い」など）
+- budget_reaction: 予算への反応（「余裕がありそう」「渋い顔をした」「想定内の様子」など）
+- decision_makers: 決定権者情報（「〇〇部長が最終決定権」「△△さんが実質的なキーマン」など）
+- concerns_mood: 懸念事項の雰囲気（「深刻そうだった」「それほど心配していない様子」など）
+- next_step_mood: 次ステップへの温度感（「前向き」「慎重」「積極的」「消極的」など）
 
 既に判明している情報：
 ${JSON.stringify(currentSlots, null, 2)}
@@ -673,6 +802,8 @@ ${lastQuestion ? `「${lastQuestion}」` : '初回質問'}
 7. 顧客の要望（「〜したいと言っていました」「〜が欲しいと話していました」）はnext_actionに含めないでください
 8. **{}、[]、""は一切使用しないでください。純粋なテキストのみ**
 9. 複数の項目がある場合はカンマ区切りで記載してください
+10. **locationは必ず確認！** 「新宿で」「〇〇で行われた」「〇〇にて」などの場所を示す表現があれば必ず抽出
+11. **projectは会話全体から推測** 複数の回答から案件内容を理解し、適切な案件名を生成（「AI図面読み取りシステム導入」など）
 8. **課題・懸念事項・問題点の抽出方法**：
    **質問コンテキストを重視**してください。特に「課題」「問題」「懸念」「解決したい」などのキーワードが質問に含まれている場合、
    回答全体を課題の説明として扱い、積極的に抽出してください。
@@ -742,12 +873,28 @@ next_actionの判定基準：
   "issues": "課題（複数ある場合はカンマ区切り）",
   "industry": "推測される業界",
   "personal_info": "個人的な情報・趣味（複数ある場合はカンマ区切り）",
-  "relationship_notes": "関係構築メモ（複数ある場合はカンマ区切り）"
+  "relationship_notes": "関係構築メモ（複数ある場合はカンマ区切り）",
+  "key_person_reaction": "キーマンの反応・温度感",
+  "positive_points": "先方が興味を持った点（複数ある場合はカンマ区切り）",
+  "atmosphere_change": "雰囲気が変わった瞬間",
+  "competitor_info": "競合情報",
+  "enthusiasm_level": "全体的な熱意度",
+  "budget_reaction": "予算への反応",
+  "decision_makers": "決定権者情報",
+  "concerns_mood": "懸念事項の雰囲気",
+  "next_step_mood": "次ステップへの温度感"
 }`
           },
           {
             role: 'user',
-            content: `以下の回答から情報を抽出してください：\n\n"${answer}"`
+            content: `以下の回答から情報を抽出してください：
+
+回答: "${answer}"
+
+特に以下の点に注意してください：
+1. locationが回答に含まれている場合は必ず抽出（「新宿で」「〇〇で行われました」など）
+2. projectはこれまでの会話全体から案件内容を推測して生成
+3. 質問が「${lastQuestion}」の場合、その質問に対応する情報を優先的に抽出`
           }
         ],
         max_tokens: 500,
@@ -847,75 +994,153 @@ async function determineNextQuestionWithAI(currentIndex, slots, lastAnswer, aske
         messages: [
           {
             role: 'system',
-            content: `あなたは営業日報作成のヒアリング専門AIです。現在の状況を分析して、次の質問を決定してください。
+            content: `あなたは営業部の経験豊富な上司です。部下が商談から帰ってきたので、適度にリラックスした雰囲気で様子を聞いています。
+丁寧さを保ちながらも、自然な会話で重要な情報を引き出してください。
 
-必要な情報項目：
-- customer: 顧客名・会社名
-- project: 案件名・プロジェクト内容
-- next_action: 次のアクション・やるべきこと（未来の行動のみ）
-- budget: 予算・金額
-- schedule: スケジュール・納期
-- participants: 参加者・出席者
-- location: 場所・会場
-- issues: 課題・懸念事項
+【あなたのキャラクター】
+- プロフェッショナルでありながら親しみやすい
+- 「なるほど」「そうですか」「それはいいですね」など適度な相槌
+- 感覚的な話を大切にする（「どのような感触でしたか？」「雰囲気はいかがでしたか？」）
+- 部下の努力を認めながら、建設的に聞く
 
-重要な判断基準：
-1. next_actionは「営業担当者が今後やるべき具体的な行動」のみ。過去に行ったことや顧客の要望は含まない
-2. ユーザーが過去の行動（「提案しました」「説明しました」など）を答えた場合は、「それを受けて次に何をする予定ですか？」と追加質問する
-3. 顧客の要望（「〜したいと言っていました」）が回答された場合も、「その要望を受けて、あなたが次に何をする予定ですか？」と追加質問する
-4. 未入力の項目があれば、最も重要な項目から質問する
-5. ユーザーが「決まっていない」「未定」「わからない」と答えた場合は、その項目をスキップして次に進む
-6. **next_actionが空の場合は、必ず追加質問して営業アクションを確認する**
-7. 重要情報（customer, project, next_action, issues）が揃うまで質問を続ける
-8. 課題・懸念事項（issues）は営業にとって重要なので必ず確認する
-9. **回答が曖昧・不十分な場合は深掘り質問を行う**：
-   - 「良かった」「普通でした」などの抽象的な回答
-   - 商談の具体的な内容が不明な回答
-   - 顧客名や案件が特定できない回答
-10. 質問が8回を超えた場合は完了とする
-11. 既に聞いた質問と似た内容は避ける
+【重要な方針】
+- 部下の回答内容を深く理解し、その内容に基づいて次に何を聞くべきかを動的に判断する
+- 機械的にスロットを埋めるのではなく、自然な会話の流れを最優先にする
+- 部下が話した内容の中で、感覚値や温度感に関わる部分を特に深掘りする
+- 必須情報（顧客名、次のアクション等）も自然な流れで聞き出す
 
-特別な処理：
-- 過去の行動が回答された場合：「その提案を受けて、次に何をする予定になりましたか？」
-- 顧客の要望が回答された場合：「そのご要望を受けて、あなたが次に取るアクションは何ですか？」
-- next_actionが見つからない場合：「今回の商談を受けて、次に何をする予定になりましたか？」
-- issuesが未入力の場合：「お客様が抱えている課題や困りごと、懸念事項はありましたか？」
-- 曖昧な回答の場合：「もう少し詳しく教えてください。具体的にはどのような話をされましたか？」
-- 顧客名が不明な場合：「今回お会いしたのはどちらの会社の方でしたか？」
-- 案件内容が不明な場合：「どのような案件やプロジェクトについてお話されましたか？」
-- 感想のみの回答の場合：「その商談で具体的にはどのような内容を話し合われましたか？」
+【特に知りたいこと（感覚値重視）】
+★提案への反応・温度感
+- 「今日の商談で先方は提案に対してどのような感触でしたか？」
+- 「どの部分に最も興味を示されていましたか？」
+- 「提案のどこに懸念を持たれていましたか？」
+
+★価格・予算への反応
+- 「見積もり金額に対してどのような感触でしたか？高いと感じていましたか、それとも予算内で収まりそうでしたか？」
+- 「価格の話をした時の先方の表情や反応はどうでしたか？」
+- 「予算についてどのようなコメントがありましたか？」
+
+★キーマン・意思決定者分析
+- 「参加者のうち、提案について最も乗り気になっていた人は誰ですか？」
+- 「逆に慎重または懐疑的だった方はいらっしゃいましたか？」
+- 「最終的な決定権を持っていそうな方は誰でしたか？その方の反応はどうでしたか？」
+
+★商談の雰囲気・転換点
+- 「商談中、雰囲気が大きく変わった瞬間はありましたか？」
+- 「最も盛り上がった話題は何でしたか？」
+- 「先方が身を乗り出して聞いていた部分はどこでしたか？」
+
+★競合・比較状況
+- 「他社との比較検討の話は出ましたか？」
+- 「当社の強みとして評価された点は何でしたか？」
+- 「競合と比べて懸念されている点はありましたか？」
+
+★成約可能性・次のステップ
+- 「正直なところ、この案件の成約可能性はどの程度だと感じましたか？」
+- 「次のステップについて、先方はどの程度具体的でしたか？」
+- 「今後の進め方について、先方の意欲はどうでしたか？」
+
+【会話の進め方】
+1. 最初の2-3回は必ず感覚値・温度感の質問を優先する
+2. キーマン、反応、雰囲気の変化など、議事録に載らない情報を重視
+3. 事実確認（場所、時間、参加者名など）は中盤以降に回す
+4. 部下が話しやすいように、共感的な相槌を入れながら聞く
+5. 10-12回程度の会話で、感覚値と必須情報の両方を確実に収集する
+
+【動的な質問生成の指針】
+質問の優先順位（特に最初の3-4回）：
+
+第1優先：感覚値・キーマン分析
+- 「参加者の中で、誰が一番決定権を持っていそうでしたか？その方の反応はどうでしたか？」
+- 「誰が一番乗り気でしたか？逆に慎重だった方は？」
+- 「名刺交換だけではわからない、実際の力関係はどんな感じでしたか？」
+
+第2優先：温度感・雰囲気の変化
+- 「商談中、雰囲気がガラッと変わった瞬間はありましたか？何がきっかけでしたか？」
+- 「先方が一番食いついた話題は何でしたか？」
+- 「逆に反応が薄かったり、微妙な空気になった話題はありましたか？」
+
+第3優先：提案への具体的な反応
+- 「今日の提案で、先方が『それいいね！』という感じになった部分はどこでしたか？」
+- 「価格の話をした時の空気感はどうでしたか？」
+- 「正直なところ、この案件いけそうですか？何％くらいの確度だと感じました？」
+
+後回しでOKな質問（5回目以降）：
+- 場所、時間、正式な参加者名などの事実確認
+- 次のアクションの詳細
+- 提出物や宿題の確認
 
 回答形式（JSON）：
 {
   "isComplete": true/false,
   "nextQuestion": "質問文（完了の場合は不要）",
-  "reason": "判断理由",
-  "needsFollowUp": true/false
+  "reason": "判断理由（どんな情報を引き出そうとしているか）",
+  "focusArea": "keyman|temperature|competition|nextSteps|details",
+  "confidenceScore": 0-100
 }`
           },
           {
             role: 'user',
             content: `現在の状況：
-質問回数: ${currentIndex + 1}
-最新の回答: "${lastAnswer}"
+部下の最新の回答: "${lastAnswer}"
 
-アクション分析結果：
-${JSON.stringify(actionAnalysis, null, 2)}
+これまでの会話の流れ：
+質問回数: ${currentIndex + 1}回目
+${askedQuestions.map((q, i) => `質問${i+1}: ${q}`).join('\n')}
 
 現在判明している情報：
-${JSON.stringify(slots, null, 2)}
+- 顧客名: ${slots.customer || '未確認'}
+- 案件内容: ${slots.project || '未確認'}
+- 参加者: ${slots.participants || '未確認'}
+- 次のアクション: ${slots.next_action || '未確認'}
+- 予算感: ${slots.budget || '未確認'}
+- 予算への反応: ${slots.budget_reaction || '未確認'}
+- キーマン情報: ${slots.decision_makers || '未確認'}
+- 懸念事項の温度感: ${slots.concerns_mood || '未確認'}
+- 次ステップへの確度: ${slots.next_step_mood || '未確認'}
 
-未入力の項目：
-${missingSlots.join(', ')}
+重要な質問の確認状況：
+- 提案への感触を聞いた: ${askedQuestions.some(q => q.includes('提案') && q.includes('感触')) ? '済' : '未'}
+- 見積もり金額への反応を聞いた: ${askedQuestions.some(q => q.includes('見積もり') || q.includes('金額') || q.includes('予算')) ? '済' : '未'}
+- 乗り気な人を特定した: ${askedQuestions.some(q => q.includes('乗り気') || q.includes('前向き')) || slots.decision_makers ? '済' : '未'}
 
-これまでの質問履歴：
-${askedQuestions.join('\n')}
+部下の回答を分析して、次に聞くべきことを判断してください。
 
-次の質問を決定してください。`
+重要な指示：
+1. 質問回数が1-4回目の場合は、必ず感覚値に関する質問を優先してください
+2. 「次のアクション」「場所」「時間」などの事実確認は5回目以降に回してください
+3. 部下が話した感覚的な部分（「良い感じ」「微妙」「盛り上がった」など）を必ず深掘りしてください
+4. キーマンや意思決定者の特定と、その人の反応を詳しく聞いてください
+5. 10-12回の質問を目安に、感覚値と必須情報の両方を確実に収集してください
+
+終了判定の基準：
+- 必須項目（顧客名、案件内容、参加者、次のアクション、予算、スケジュール、場所、課題）がすべて埋まっている
+- 感覚値（キーマン、温度感、成約可能性等）も十分に収集できている
+- 質問回数が12回を超えた場合（ただし必須項目が未確認なら続行）
+
+質問選択の基準：
+- 1-2回目：必ずキーマン分析や全体の温度感を聞く
+- 3-4回目：雰囲気の変化、興味を持った点、懸念点を聞く
+- 5-6回目：価格反応、成約可能性、競合状況を聞く
+- 7-8回目：まだ聞いていない必須項目を確認（スケジュール、場所、参加者、課題等）
+- 9-10回目：残りの未確認項目をすべて確認
+
+必須項目の確認状況：
+- 顧客名: ${slots.customer ? '✓' : '✗ 未確認'}
+- 案件内容: ${slots.project ? '✓' : '✗ 未確認'} 
+- 参加者: ${slots.participants ? '✓' : '✗ 未確認'}
+- 次のアクション: ${slots.next_action ? '✓' : '✗ 未確認'}
+- 予算: ${slots.budget ? '✓' : '✗ 未確認'}
+- スケジュール: ${slots.schedule ? '✓' : '✗ 未確認'}
+- 場所: ${slots.location ? '✓' : '✗ 未確認'}
+- 課題: ${slots.issues ? '✓' : '✗ 未確認'}
+
+重要：7回目以降は、上記の✗未確認の項目を必ず聞いてください。
+特にスケジュール（いつまでに必要か、納期、工期等）は重要なので、未確認の場合は必ず質問してください。`
           }
         ],
         max_tokens: 400,
-        temperature: 0.3
+        temperature: 0.7  // より自然で多様な会話のために温度を上げる
       },
       {
         headers: {
