@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../contexts/AuthContext';
 import styled from '@emotion/styled';
-import { colors, typography, spacing, borderRadius, shadows } from '../styles/designSystem';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -11,62 +10,64 @@ const Container = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 1rem;
+  background-color: var(--color-background);
+  padding: var(--space-4);
   position: relative;
   overflow: hidden;
 
+  /* Architectural grid background */
   &::before {
     content: '';
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="80" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="60" r="1" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
-    animation: float 20s infinite linear;
-  }
-
-  @keyframes float {
-    0% { transform: translateY(0px) translateX(0px); }
-    50% { transform: translateY(-10px) translateX(5px); }
-    100% { transform: translateY(0px) translateX(0px); }
+    background-image: 
+      linear-gradient(rgba(0,0,0,0.01) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.01) 1px, transparent 1px);
+    background-size: var(--space-7) var(--space-7);
+    pointer-events: none;
+    z-index: 0;
   }
 
   @media (max-width: 768px) {
-    padding: 0.75rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: var(--space-3);
   }
 `;
 
 const Card = styled.div`
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  padding: 2.5rem;
-  border-radius: 24px;
-  box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.2);
+  background-color: var(--color-surface);
+  padding: var(--space-6);
+  border-radius: var(--radius-none);
+  border: 2px solid var(--color-border);
+  box-shadow: var(--shadow-structure);
   width: 100%;
-  max-width: 420px;
+  max-width: 450px;
   position: relative;
   z-index: 1;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  
+  /* Removed excessive corner details */
 
   @media (max-width: 768px) {
-    padding: 2rem 1.5rem;
-    border-radius: 20px;
+    padding: var(--space-7);
     max-width: 100%;
     margin: 0 auto;
-    box-shadow: 
-      0 20px 40px -12px rgba(0, 0, 0, 0.3),
-      0 0 0 1px rgba(255, 255, 255, 0.2);
+    
+    &::before,
+    &::after {
+      width: 16px;
+      height: 16px;
+    }
   }
 
   @media (max-width: 480px) {
-    padding: 1.75rem 1.25rem;
-    border-radius: 16px;
+    padding: var(--space-6);
+  }
+  
+  @media (max-width: 400px) {
+    padding: var(--space-5);
+    max-width: calc(100vw - var(--space-6));
   }
 `;
 
@@ -74,42 +75,44 @@ const LogoContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-5);
+  position: relative;
 
   @media (max-width: 768px) {
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--space-5);
   }
 `;
 
 const Logo = styled.div`
   width: 64px;
   height: 64px;
-  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
-  border-radius: 16px;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-none);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-3);
   position: relative;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: var(--shadow-elevation);
   
+  /* Architectural blueprint style */
   &::after {
     content: '';
     position: absolute;
-    width: 24px;
-    height: 24px;
-    border: 3px solid white;
-    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--color-text-inverse);
+    border-radius: var(--radius-none);
     background: transparent;
   }
 
   &::before {
     content: '';
     position: absolute;
-    width: 16px;
-    height: 16px;
-    background: white;
-    border-radius: 2px;
+    width: 12px;
+    height: 12px;
+    background: var(--color-accent);
+    border-radius: var(--radius-none);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -117,57 +120,69 @@ const Logo = styled.div`
   }
 
   @media (max-width: 768px) {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
+    width: 64px;
+    height: 64px;
     
     &::after {
-      width: 20px;
-      height: 20px;
-      border: 2px solid white;
+      width: 24px;
+      height: 24px;
+      border-width: 2px;
     }
 
     &::before {
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
     }
   }
 `;
 
 const Title = styled.h1`
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-thin);
   text-align: center;
-  margin-bottom: 0.5rem;
-  color: #1f2937;
+  margin-bottom: var(--space-2);
+  color: var(--color-primary);
   letter-spacing: -0.025em;
+  line-height: var(--line-height-compressed);
+  position: relative;
+  
+  /* Removed excessive underline accent */
 
   @media (max-width: 768px) {
-    font-size: 1.75rem;
+    font-size: var(--font-size-heading);
+    
+    &::after {
+      width: 60px;
+    }
   }
 
   @media (max-width: 480px) {
-    font-size: 1.5rem;
+    font-size: var(--font-size-title);
+    
+    &::after {
+      width: 50px;
+    }
   }
 `;
 
 const Subtitle = styled.p`
   text-align: center;
-  color: #6b7280;
-  font-size: 0.95rem;
-  margin-bottom: 2rem;
-  line-height: 1.5;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+  margin-bottom: var(--space-5);
+  line-height: var(--line-height-comfortable);
+  font-weight: var(--font-weight-regular);
 
   @media (max-width: 768px) {
-    font-size: 0.9rem;
-    margin-bottom: 1.5rem;
+    font-size: var(--font-size-body);
+    margin-bottom: var(--space-6);
   }
 `;
 
 const Form = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 `;
 
 const FormGroup = styled.div`
@@ -177,42 +192,76 @@ const FormGroup = styled.div`
 `;
 
 const Label = styled.label`
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.5rem;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
   transition: color 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 `;
 
 const InputContainer = styled.div`
   position: relative;
 `;
 
-const Input = styled.input`
-  width: 100%;
-  padding: 1rem 1.25rem;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
-  font-size: 16px;
-  background: rgba(255, 255, 255, 0.8);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  color: #1f2937;
-  -webkit-appearance: none;
+const PasswordToggle = styled.button`
+  position: absolute;
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 
-  &::placeholder {
-    color: #9ca3af;
-    transition: opacity 0.3s ease;
+  &:hover {
+    color: var(--color-accent);
   }
 
   &:focus {
     outline: none;
-    border-color: #667eea;
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: 
-      0 0 0 4px rgba(102, 126, 234, 0.1),
-      0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    color: var(--color-accent);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: var(--space-5) var(--space-5);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-body);
+  background-color: var(--color-background);
+  transition: all 0.2s ease-in-out;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-weight: var(--font-weight-regular);
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  height: 52px;
+
+  &::placeholder {
+    color: var(--color-text-tertiary);
+    transition: opacity 0.2s ease;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background-color: var(--color-background);
+    box-shadow: var(--shadow-focused);
     
     &::placeholder {
       opacity: 0.6;
@@ -220,43 +269,47 @@ const Input = styled.input`
   }
 
   &:disabled {
-    background: rgba(243, 244, 246, 0.8);
+    background-color: var(--color-surface-alt);
     cursor: not-allowed;
     opacity: 0.7;
   }
 
   @media (max-width: 768px) {
-    padding: 1.1rem 1.25rem;
-    border-radius: 14px;
+    padding: var(--space-5) var(--space-4);
+    height: 48px;
   }
 `;
 
 const ErrorMessage = styled.div`
-  color: #ef4444;
-  font-size: 0.875rem;
-  margin-top: 0.5rem;
-  font-weight: 500;
-  line-height: 1.4;
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+  margin-top: var(--space-2);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-standard);
 `;
 
 const Button = styled.button`
-  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
-  color: white;
-  padding: 1.1rem 1.5rem;
-  border: none;
-  border-radius: 12px;
-  font-size: 1.1rem;
-  font-weight: 600;
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  padding: var(--space-5) var(--space-6);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-top: 0.5rem;
+  transition: all 0.2s ease-in-out;
+  margin-top: var(--space-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
+  box-shadow: var(--shadow-elevation);
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
 
   &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5);
+    box-shadow: var(--shadow-structure);
   }
 
   &:active:not(:disabled) {
@@ -264,110 +317,147 @@ const Button = styled.button`
   }
 
   &:disabled {
-    background: #A3A3A3;
+    background-color: var(--color-text-tertiary);
+    border-color: var(--color-text-tertiary);
     cursor: not-allowed;
     transform: none;
-    box-shadow: 0 2px 8px rgba(163, 163, 163, 0.3);
+    box-shadow: var(--shadow-paper);
   }
+  
+  /* Removed excessive corner accent */
 
   @media (max-width: 768px) {
-    padding: 1.25rem 1.5rem;
-    font-size: 1.125rem;
-    border-radius: 14px;
+    padding: var(--space-5) var(--space-5);
+    font-size: var(--font-size-small);
   }
 `;
 
 const DemoInfo = styled.div`
-  margin-top: 2rem;
-  padding: 1.25rem;
-  background: rgba(245, 243, 255, 0.9);
-  border-radius: 16px;
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  backdrop-filter: blur(10px);
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  background-color: var(--color-accent-light);
+  border-radius: var(--radius-none);
+  border: 2px solid var(--color-accent);
+  border-left: 6px solid var(--color-accent);
+  position: relative;
+  
+  /* Removed excessive corner detail */
 
   @media (max-width: 768px) {
-    margin-top: 1.5rem;
-    padding: 1rem;
-    border-radius: 14px;
+    margin-top: var(--space-6);
+    padding: var(--space-4);
   }
 `;
 
 const DemoTitle = styled.h3`
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #5B21B6;
-  margin-bottom: 0.75rem;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: var(--space-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 
   @media (max-width: 768px) {
-    font-size: 0.875rem;
+    font-size: var(--font-size-micro);
   }
 `;
 
 const DemoAccount = styled.div`
-  font-size: 0.875rem;
-  color: #44403C;
-  margin-bottom: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 8px;
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-  font-weight: 500;
+  font-size: var(--font-size-small);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-background);
+  border-radius: var(--radius-none);
+  font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-weight: var(--font-weight-medium);
   transition: all 0.2s ease;
   cursor: pointer;
   user-select: all;
-  border: 1px solid rgba(139, 92, 246, 0.1);
+  border: 1px solid var(--color-border);
+  position: relative;
+  word-break: break-all;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: rgba(139, 92, 246, 0.2);
+    background-color: var(--color-surface);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
   }
+  
+  /* Removed excessive corner accent */
 
   &:last-child {
     margin-bottom: 0;
   }
 
   @media (max-width: 768px) {
-    font-size: 0.8rem;
-    padding: 0.5rem 0.75rem;
+    font-size: var(--font-size-micro);
+    padding: var(--space-3) var(--space-3);
+  }
+  
+  @media (max-width: 400px) {
+    font-size: 11px;
+    padding: var(--space-2) var(--space-3);
   }
 `;
 
 const Divider = styled.div`
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(107, 114, 128, 0.3), transparent);
-  margin: 1.5rem 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--color-border) 20%, var(--color-accent) 50%, var(--color-border) 80%, transparent 100%);
+  margin: var(--space-6) 0;
+  position: relative;
+  
+  /* Removed excessive accent elements */
 
   @media (max-width: 768px) {
-    margin: 1.25rem 0;
+    margin: var(--space-5) 0;
   }
 `;
 
 const SignupLink = styled.div`
   text-align: center;
-  font-size: 0.9rem;
-  color: #6b7280;
-  line-height: 1.5;
+  font-size: var(--font-size-body);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-standard);
 
   @media (max-width: 768px) {
-    font-size: 0.875rem;
+    font-size: var(--font-size-small);
   }
 `;
 
 const Link = styled.button`
-  color: #8B5CF6;
+  color: var(--color-accent);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
   font-size: inherit;
   transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
   -webkit-tap-highlight-color: transparent;
 
   &:hover {
-    color: #7C3AED;
-    text-decoration: underline;
+    color: var(--color-primary);
+    
+    &::after {
+      width: 100%;
+    }
+  }
+  
+  /* Simplified underline - only on hover */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background-color: var(--color-primary);
+    transition: width 0.2s ease;
   }
 
   &:active {
@@ -380,6 +470,7 @@ const LoginPage = () => {
   const { login } = useAuth();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
   const [showSignupPrompt, setShowSignupPrompt] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const onSubmit = async (data) => {
     try {
@@ -414,7 +505,7 @@ const LoginPage = () => {
         <LogoContainer>
           <Logo />
         </LogoContainer>
-        <Title>Sales Daily</Title>
+        <Title>Archi Daily</Title>
         <Subtitle>営業日報をAIでスマートに管理</Subtitle>
         
         <Form onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -443,7 +534,7 @@ const LoginPage = () => {
             <InputContainer>
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="パスワードを入力"
                 {...register('password', {
                   required: 'パスワードを入力してください',
@@ -453,7 +544,26 @@ const LoginPage = () => {
                   }
                 })}
                 disabled={isSubmitting}
+                style={{ paddingRight: 'calc(var(--space-5) + 40px)' }}
               />
+              <PasswordToggle
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
+              >
+                {showPassword ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </PasswordToggle>
             </InputContainer>
             {errors.password && <ErrorMessage>{errors.password.message}</ErrorMessage>}
           </FormGroup>
@@ -466,13 +576,15 @@ const LoginPage = () => {
         {/* 新規登録を促すメッセージ */}
         {showSignupPrompt && (
           <div style={{
-            marginTop: spacing[4],
-            padding: spacing[4],
-            backgroundColor: colors.info[50],
-            border: `1px solid ${colors.info[200]}`,
-            borderRadius: borderRadius.md,
+            marginTop: 'var(--space-5)',
+            padding: 'var(--space-5)',
+            backgroundColor: 'var(--color-accent-light)',
+            border: '2px solid var(--color-accent)',
+            borderLeft: '6px solid var(--color-accent)',
+            borderRadius: 'var(--radius-none)',
             textAlign: 'center',
-            animation: 'fadeIn 0.3s ease-in'
+            animation: 'fadeIn 0.3s ease-in',
+            position: 'relative'
           }}>
             <style>
               {`
@@ -482,44 +594,61 @@ const LoginPage = () => {
                 }
               `}
             </style>
+            <div style={{
+              content: '""',
+              position: 'absolute',
+              top: '-2px',
+              right: '-2px',
+              width: '10px',
+              height: '10px',
+              borderTop: '2px solid var(--color-accent)',
+              borderRight: '2px solid var(--color-accent)'
+            }}></div>
             <p style={{
-              color: colors.info[800],
-              fontSize: typography.fontSize.sm,
-              marginBottom: spacing[2],
-              fontWeight: typography.fontWeight.medium
+              color: 'var(--color-primary)',
+              fontSize: 'var(--font-size-small)',
+              marginBottom: 'var(--space-2)',
+              fontWeight: 'var(--font-weight-bold)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
             }}>
               アカウントが見つかりませんでした
             </p>
             <p style={{
-              color: colors.info[700],
-              fontSize: typography.fontSize.sm,
-              marginBottom: spacing[3]
+              color: 'var(--color-text-secondary)',
+              fontSize: 'var(--font-size-small)',
+              marginBottom: 'var(--space-4)',
+              lineHeight: 'var(--line-height-standard)'
             }}>
-              新規登録してSales Dailyを始めましょう！
+              新規登録してArchi Dailyを始めましょう！
             </p>
             <button
               onClick={handleSignupClick}
               style={{
-                backgroundColor: colors.info[600],
-                color: 'white',
-                padding: `${spacing[2]} ${spacing[4]}`,
-                borderRadius: borderRadius.md,
-                border: 'none',
-                fontSize: typography.fontSize.sm,
-                fontWeight: typography.fontWeight.semibold,
+                backgroundColor: 'var(--color-primary)',
+                color: 'var(--color-text-inverse)',
+                padding: 'var(--space-3) var(--space-5)',
+                borderRadius: 'var(--radius-none)',
+                border: '2px solid var(--color-primary)',
+                fontSize: 'var(--font-size-small)',
+                fontWeight: 'var(--font-weight-bold)',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                boxShadow: shadows.sm
+                transition: 'all 0.2s ease-in-out',
+                boxShadow: 'var(--shadow-elevation)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
               }}
               onMouseOver={(e) => {
-                e.target.style.backgroundColor = colors.info[700];
+                e.target.style.backgroundColor = 'var(--color-accent)';
+                e.target.style.borderColor = 'var(--color-accent)';
                 e.target.style.transform = 'translateY(-1px)';
-                e.target.style.boxShadow = shadows.md;
+                e.target.style.boxShadow = 'var(--shadow-structure)';
               }}
               onMouseOut={(e) => {
-                e.target.style.backgroundColor = colors.info[600];
+                e.target.style.backgroundColor = 'var(--color-primary)';
+                e.target.style.borderColor = 'var(--color-primary)';
                 e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = shadows.sm;
+                e.target.style.boxShadow = 'var(--shadow-elevation)';
               }}
             >
               新規登録ページへ →
