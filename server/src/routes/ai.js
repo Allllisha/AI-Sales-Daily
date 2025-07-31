@@ -10,7 +10,10 @@ const HEARING_QUESTIONS = [
   "それは良いですね。キーパーソンはどなたでしたか？その方の反応はいかがでしたか？",
   "なるほど。商談中、特に先方の関心が高まった場面はありましたか？",
   "予算についてお話された際、先方の反応はどうでしたか？",
-  "他社様との比較検討状況について、何かお話はありましたか？"
+  "他社様との比較検討状況について、何かお話はありましたか？",
+  "商談の雰囲気が変わった瞬間や、空気感が変化したタイミングはありましたか？",
+  "先方が身を乗り出して聞いていた部分や、特に興味を示された機能はどこでしたか？",
+  "率直なところ、今回の案件の成約可能性は何％くらいだと感じましたか？"
 ];
 
 // 必須スロット
@@ -38,7 +41,15 @@ const OPTIONAL_SLOTS = [
   'budget_reaction',      // 予算への反応（前向き/渋い/余裕あり）
   'decision_makers',      // 決定権者・キーマン情報
   'concerns_mood',        // 懸念事項の雰囲気・温度感
-  'next_step_mood'        // 次ステップへの温度感・確度
+  'next_step_mood',       // 次ステップへの温度感・確度
+  'strongest_interest',   // 最も興味を示した機能・特徴
+  'body_language',        // ボディランゲージ・身を乗り出した瞬間
+  'closing_possibility',  // 成約可能性の率直な感覚（%）
+  'differentiation',      // 他社と比べた優位性・評価された点
+  'hidden_concerns',      // 言葉にはしないが感じた隠れた懸念
+  'stakeholder_dynamics', // 参加者間の力関係・意見の相違
+  'unexpected_insights',  // 商談で予想外だった発見・気づき
+  'action_commitment'     // 次のアクションへのコミットメント度
 ];
 
 // 初回の質問を動的に生成
@@ -134,7 +145,7 @@ router.post('/hearing/start', authMiddleware, async (req, res) => {
       sessionId: Date.now().toString(),
       question: initialQuestion,
       questionIndex: 0,
-      totalQuestions: 8 // 目安の質問数
+      totalQuestions: 10 // 目安の質問数（最大10個）
     });
   } catch (error) {
     console.error('Start hearing error:', error);
@@ -175,8 +186,21 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
     // 次の質問を動的に決定（常にAIを使用）
     const { nextQuestion, isComplete } = await determineNextQuestionWithAI(questionIndex, updatedSlots, answer, askedQuestions);
     
+    console.log('AI determination result:', { nextQuestion, isComplete, questionIndex });
+    
     if (isComplete) {
       // ヒアリング完了
+      return res.json({
+        sessionId,
+        completed: true,
+        slots: updatedSlots,
+        message: "ヒアリングが完了しました。お疲れ様でした！"
+      });
+    }
+
+    // nextQuestionがnullまたは空の場合はエラー
+    if (!nextQuestion) {
+      console.error('Next question is empty, forcing completion');
       return res.json({
         sessionId,
         completed: true,
@@ -193,7 +217,7 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
       sessionId,
       question: nextQuestion,
       questionIndex: questionIndex + 1,
-      totalQuestions: 5, // 動的に変わるため固定値
+      totalQuestions: 10, // 動的に変わるため目安値（最低8個）
       slots: updatedSlots,
       askedQuestions: updatedAskedQuestions
     });
@@ -595,9 +619,75 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
   const criticalSlots = ['customer', 'project', 'next_action', 'issues'];
   const missingCriticalSlots = criticalSlots.filter(slot => !slots[slot]);
   
-  if (missingCriticalSlots.length > 0 && currentIndex < 8) {
-    // 最重要スロットが未完了の場合は継続
-  } else if (missingEssentialSlots.length === 0 || (missingEssentialSlots.length <= 2 && currentIndex >= 8)) {
+  // 最低8個の質問を確保
+  if (currentIndex < 8) {
+    // 8個未満の場合は必ず継続
+    console.log(`Question ${currentIndex + 1}/8 minimum - continuing`);
+    
+    // 感覚値の質問を優先的に聞く
+    if (!slots.key_person_reaction && currentIndex < 4) {
+      return {
+        nextQuestion: "今日の商談で、特に影響力がありそうな方はどなたでしたか？その方の反応はいかがでしたか？",
+        isComplete: false
+      };
+    }
+    
+    if (!slots.strongest_interest && currentIndex < 5) {
+      return {
+        nextQuestion: "商談の中で、先方が最も興味を示された部分はどこでしたか？",
+        isComplete: false
+      };
+    }
+    
+    if (!slots.budget_reaction && currentIndex < 6) {
+      return {
+        nextQuestion: "予算や価格についてお話された時の先方の反応はいかがでしたか？",
+        isComplete: false
+      };
+    }
+    
+    // 必須情報を確認
+    if (!slots.schedule) {
+      return {
+        nextQuestion: "なるほど。ところで、今回の案件のスケジュール感はいつ頃までに必要とされていますか？",
+        isComplete: false
+      };
+    }
+    
+    if (!slots.issues) {
+      return {
+        nextQuestion: "先方が現在抱えている課題や、解決したい問題について何かお話がありましたか？",
+        isComplete: false
+      };
+    }
+    
+    if (!slots.location) {
+      return {
+        nextQuestion: "本日の商談はどちらで行われましたか？",
+        isComplete: false
+      };
+    }
+    
+    // デフォルトの質問
+    return {
+      nextQuestion: "他に共有しておきたい重要な情報はありますか？",
+      isComplete: false
+    };
+  } else if (missingCriticalSlots.length > 0 && currentIndex < 8) {
+    // 重要スロットが未完了で10個未満なら継続
+    console.log(`Critical slots missing: ${missingCriticalSlots.join(', ')} - continuing`);
+    
+    // 未取得の重要スロットに対する質問を生成
+    const missingSlot = missingCriticalSlots[0];
+    const question = generateQuestionForSlot(missingSlot, slots);
+    
+    return {
+      nextQuestion: question || "他に重要な情報はありますか？",
+      isComplete: false
+    };
+  } else if (missingEssentialSlots.length === 0 && currentIndex >= 8) {
+    // 必須スロットがすべて埋まり、8個以上質問済みなら完了可能
+    console.log(`All essential slots filled after ${currentIndex + 1} questions - can complete`);
     return { isComplete: true };
   }
   
@@ -607,8 +697,8 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
   const importantSlots = ['customer', 'project', 'next_action', 'budget', 'schedule'];
   const missingImportantSlots = importantSlots.filter(slot => !slots[slot]);
   
-  // 質問数が多すぎる場合は強制完了
-  if (currentIndex >= 10) { // 質問の上限を10に調整（深掘り質問分を考慮）
+  // 質問数が多すぎる場合は強制完了（10個を上限とする）
+  if (currentIndex >= 10) {
     return { isComplete: true };
   }
   
@@ -709,8 +799,8 @@ function generateQuestionForSlot(slotName, existingSlots) {
 function extractQuestionKeywords(question) {
   const keywords = [];
   
-  // 質問タイプ別のキーワード抽出
-  if (question.includes('顧客') || question.includes('お客様')) keywords.push('customer');
+  // 質問タイプ別のキーワード抽出（より詳細に）
+  if (question.includes('顧客') || question.includes('お客様') || question.includes('企業') || question.includes('会社')) keywords.push('customer');
   if (question.includes('案件') || question.includes('プロジェクト')) keywords.push('project');
   if (question.includes('次の') || question.includes('アクション') || question.includes('今後')) keywords.push('next_action');
   if (question.includes('予算') || question.includes('費用') || question.includes('金額')) keywords.push('budget');
@@ -718,6 +808,16 @@ function extractQuestionKeywords(question) {
   if (question.includes('参加') || question.includes('出席') || question.includes('同席')) keywords.push('participants');
   if (question.includes('場所') || question.includes('どこ') || question.includes('会場')) keywords.push('location');
   if (question.includes('課題') || question.includes('問題') || question.includes('懸念')) keywords.push('issues');
+  
+  // 感覚値・温度感関連（重複防止のため詳細に分類）
+  if (question.includes('興味') || question.includes('関心')) keywords.push('interest');
+  if (question.includes('反応')) keywords.push('reaction');
+  if (question.includes('温度感') || question.includes('感触')) keywords.push('temperature');
+  if (question.includes('雰囲気')) keywords.push('atmosphere');
+  if (question.includes('盛り上が') || question.includes('食いつ')) keywords.push('excitement');
+  if (question.includes('キーマン') || question.includes('決定権') || question.includes('影響力')) keywords.push('keyman');
+  if (question.includes('乗り気') || question.includes('前向き')) keywords.push('positive');
+  if (question.includes('慎重') || question.includes('懐疑的')) keywords.push('negative');
   
   return keywords;
 }
@@ -1003,11 +1103,23 @@ async function determineNextQuestionWithAI(currentIndex, slots, lastAnswer, aske
 - 感覚的な話を大切にする（「どのような感触でしたか？」「雰囲気はいかがでしたか？」）
 - 部下の努力を認めながら、建設的に聞く
 
-【重要な方針】
+【超重要な方針】
 - 部下の回答内容を深く理解し、その内容に基づいて次に何を聞くべきかを動的に判断する
 - 機械的にスロットを埋めるのではなく、自然な会話の流れを最優先にする
 - 部下が話した内容の中で、感覚値や温度感に関わる部分を特に深掘りする
 - 必須情報（顧客名、次のアクション等）も自然な流れで聞き出す
+
+【重複質問を避けるための重要なルール】
+★★★同じ内容を聞かないでください★★★
+- 既に回答された内容について、別の表現で再度聞かない
+- 「興味を示した部分」について既に聞いている場合、「最も関心を持った点」など似た質問をしない
+- 「雰囲気」「反応」「温度感」などについて、既に聞いた場合は別の観点から質問する
+- 過去の質問履歴を必ず確認し、類似の質問を避ける
+
+【質問選択の優先順位】
+1. まだ聞いていない新しい観点からの質問
+2. 部下の回答で言及された新しいトピックの深掘り
+3. 未確認の必須情報
 
 【特に知りたいこと（感覚値重視）】
 ★提案への反応・温度感
@@ -1045,7 +1157,7 @@ async function determineNextQuestionWithAI(currentIndex, slots, lastAnswer, aske
 2. キーマン、反応、雰囲気の変化など、議事録に載らない情報を重視
 3. 事実確認（場所、時間、参加者名など）は中盤以降に回す
 4. 部下が話しやすいように、共感的な相槌を入れながら聞く
-5. 10-12回程度の会話で、感覚値と必須情報の両方を確実に収集する
+5. 8-10回程度の会話で、感覚値と必須情報の両方を確実に収集する
 
 【動的な質問生成の指針】
 質問の優先順位（特に最初の3-4回）：
@@ -1077,7 +1189,13 @@ async function determineNextQuestionWithAI(currentIndex, slots, lastAnswer, aske
   "reason": "判断理由（どんな情報を引き出そうとしているか）",
   "focusArea": "keyman|temperature|competition|nextSteps|details",
   "confidenceScore": 0-100
-}`
+}
+
+【質問生成時の注意事項】
+- 既に聞いた内容を別の表現で聞き直さない
+- 「提案の中で最も興味を持った点」を既に聞いた場合、「具体的にどの部分に興味を示した」などと聞かない
+- 各質問は明確に異なる観点から聞く
+- 会話の自然な流れを重視し、部下の回答から新しい話題を引き出す`
           },
           {
             role: 'user',
@@ -1098,6 +1216,14 @@ ${askedQuestions.map((q, i) => `質問${i+1}: ${q}`).join('\n')}
 - キーマン情報: ${slots.decision_makers || '未確認'}
 - 懸念事項の温度感: ${slots.concerns_mood || '未確認'}
 - 次ステップへの確度: ${slots.next_step_mood || '未確認'}
+- 最も興味を示した点: ${slots.strongest_interest || '未確認'}
+- 身を乗り出した瞬間: ${slots.body_language || '未確認'}
+- 成約可能性: ${slots.closing_possibility || '未確認'}
+- 他社との差別化: ${slots.differentiation || '未確認'}
+- 隠れた懸念: ${slots.hidden_concerns || '未確認'}
+- 参加者間の力関係: ${slots.stakeholder_dynamics || '未確認'}
+- 予想外の発見: ${slots.unexpected_insights || '未確認'}
+- アクションへのコミット: ${slots.action_commitment || '未確認'}
 
 重要な質問の確認状況：
 - 提案への感触を聞いた: ${askedQuestions.some(q => q.includes('提案') && q.includes('感触')) ? '済' : '未'}
@@ -1106,23 +1232,49 @@ ${askedQuestions.map((q, i) => `質問${i+1}: ${q}`).join('\n')}
 
 部下の回答を分析して、次に聞くべきことを判断してください。
 
+★★★即座に終了すべき発言の検出★★★
+以下のような発言があった場合は、isComplete: true で即座に終了してください：
+- 「終わりたい」「もう終わり」「もういい」
+- 「質問が多すぎる」「何度も同じことを聞く」
+- 「もう十分」「これで終わり」「時間がない」
+- 「さっき言った」「同じ話」「繰り返し」
+
+★★★重複質問を避けるための具体的な指示★★★
+以下の質問パターンは重複とみなし、絶対に聞かないでください：
+- 「興味を示した部分」と「最も関心を持った点」は同じ内容
+- 「提案への反応」と「提案への温度感」は同じ内容
+- 「懸念点」と「課題」について既に聞いた場合、再度聞かない
+- 同じトピック（例：AI、コンクリートひび割れ）について何度も聞かない
+
+過去の質問を分析して、以下のトピックが既に聞かれているか確認：
+${askedQuestions.map((q, i) => {
+  const topics = [];
+  if (q.includes('興味') || q.includes('関心')) topics.push('興味・関心');
+  if (q.includes('反応') || q.includes('温度感')) topics.push('反応・温度感');
+  if (q.includes('懸念') || q.includes('課題')) topics.push('懸念・課題');
+  if (q.includes('雰囲気')) topics.push('雰囲気');
+  if (q.includes('参加者') || q.includes('キーマン')) topics.push('参加者・キーマン');
+  return `Q${i+1}: ${topics.join(', ')}`;
+}).join('\n')}
+
 重要な指示：
-1. 質問回数が1-4回目の場合は、必ず感覚値に関する質問を優先してください
-2. 「次のアクション」「場所」「時間」などの事実確認は5回目以降に回してください
-3. 部下が話した感覚的な部分（「良い感じ」「微妙」「盛り上がった」など）を必ず深掘りしてください
-4. キーマンや意思決定者の特定と、その人の反応を詳しく聞いてください
-5. 10-12回の質問を目安に、感覚値と必須情報の両方を確実に収集してください
+1. 上記の「既に聞かれたトピック」は避ける
+2. 新しい観点からの質問を優先する
+3. 部下の回答で新しく言及されたトピックを深掘りする
+4. 最低8回、最大12回の質問を行い、感覚値と必須情報の両方を確実に収集する
 
 終了判定の基準：
-- 必須項目（顧客名、案件内容、参加者、次のアクション、予算、スケジュール、場所、課題）がすべて埋まっている
-- 感覚値（キーマン、温度感、成約可能性等）も十分に収集できている
-- 質問回数が12回を超えた場合（ただし必須項目が未確認なら続行）
+- 質問回数が6回未満の場合は絶対に終了しない
+- 7回以上で、必須項目（顧客名、案件内容、次のアクション）と感覚値（参加者の反応、温度感）が得られた場合は終了可能
+- 質問回数が10回を超えた場合は強制終了
+- ユーザーが「終わりたい」「もう十分」等の発言をした場合は即座に終了
 
 質問選択の基準：
 - 1-2回目：必ずキーマン分析や全体の温度感を聞く
-- 3-4回目：雰囲気の変化、興味を持った点、懸念点を聞く
-- 5-6回目：価格反応、成約可能性、競合状況を聞く
-- 7-8回目：まだ聞いていない必須項目を確認（スケジュール、場所、参加者、課題等）
+- 3-4回目：雰囲気の変化、興味を持った点、身を乗り出した瞬間を聞く
+- 5-6回目：価格反応、成約可能性（%）、競合との差別化ポイントを聞く
+- 7-8回目：隠れた懸念、参加者間の力関係、予想外の発見を聞く
+- 9-10回目：次のアクションへのコミットメント度、まだ聞いていない必須項目を確認
 - 9-10回目：残りの未確認項目をすべて確認
 
 必須項目の確認状況：
@@ -1134,6 +1286,12 @@ ${askedQuestions.map((q, i) => `質問${i+1}: ${q}`).join('\n')}
 - スケジュール: ${slots.schedule ? '✓' : '✗ 未確認'}
 - 場所: ${slots.location ? '✓' : '✗ 未確認'}
 - 課題: ${slots.issues ? '✓' : '✗ 未確認'}
+
+★★★早期終了の判定★★★
+7回以上の質問が完了し、以下の条件を満たす場合は isComplete: true で終了可能：
+- 必須項目：顧客名(${slots.customer ? '✓' : '✗'})、案件内容(${slots.project ? '✓' : '✗'})、次のアクション(${slots.next_action ? '✓' : '✗'}) が確認済み
+- 感覚値：参加者の反応やキーマン情報、温度感のうち2つ以上が確認済み
+- ユーザーが「終わりたい」系の発言をした場合は即座に終了
 
 重要：7回目以降は、上記の✗未確認の項目を必ず聞いてください。
 特にスケジュール（いつまでに必要か、納期、工期等）は重要なので、未確認の場合は必ず質問してください。`
@@ -1154,21 +1312,37 @@ ${askedQuestions.map((q, i) => `質問${i+1}: ${q}`).join('\n')}
     console.log('AI question determination result:', resultText);
     
     try {
-      const result = JSON.parse(resultText);
+      // JSONとしてパース（コードブロックを除去）
+      const jsonMatch = resultText.match(/```json\s*(\{[\s\S]*?\})\s*```/) || 
+                       resultText.match(/(\{[\s\S]*?\})/);
+      
+      const jsonText = jsonMatch ? jsonMatch[1] : resultText;
+      const result = JSON.parse(jsonText);
+      
+      console.log('Parsed AI result:', result);
+      
+      // nextQuestionが空またはnullの場合、isCompleteがfalseならフォールバック質問を生成
+      if (!result.isComplete && (!result.nextQuestion || result.nextQuestion.trim() === '')) {
+        console.warn('AI returned incomplete status but no nextQuestion, using fallback');
+        const fallbackResult = await determineNextQuestion(currentIndex, slots, lastAnswer, askedQuestions);
+        return fallbackResult;
+      }
       
       return {
-        isComplete: result.isComplete,
+        isComplete: result.isComplete || false,
         nextQuestion: result.nextQuestion || null,
         needsFollowUp: result.needsFollowUp || false
       };
       
     } catch (parseError) {
       console.error('Failed to parse AI question determination result:', parseError);
+      console.error('Raw AI result was:', resultText);
       return await determineNextQuestion(currentIndex, slots, lastAnswer, askedQuestions);
     }
     
   } catch (error) {
     console.error('Error in AI question determination:', error.message);
+    console.error('Error details:', error.response?.data);
     // エラーの場合は既存の関数にフォールバック
     return await determineNextQuestion(currentIndex, slots, lastAnswer, askedQuestions);
   }
