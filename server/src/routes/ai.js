@@ -183,6 +183,17 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
       updatedSlots.summary = answer;
     }
 
+    // 質問数の強制制限チェック（10問を超えないように）
+    if (questionIndex >= 9) {
+      console.log(`Force completion at question ${questionIndex + 1} - maximum reached`);
+      return res.json({
+        sessionId,
+        completed: true,
+        slots: updatedSlots,
+        message: "ヒアリングが完了しました。お疲れ様でした！"
+      });
+    }
+
     // 次の質問を動的に決定（常にAIを使用）
     const { nextQuestion, isComplete } = await determineNextQuestionWithAI(questionIndex, updatedSlots, answer, askedQuestions);
     
@@ -685,8 +696,8 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
       nextQuestion: question || "他に重要な情報はありますか？",
       isComplete: false
     };
-  } else if (missingEssentialSlots.length === 0 && currentIndex >= 8) {
-    // 必須スロットがすべて埋まり、8個以上質問済みなら完了可能
+  } else if (missingEssentialSlots.length === 0 && currentIndex >= 6) {
+    // 必須スロットがすべて埋まり、7個以上質問済みなら完了可能
     console.log(`All essential slots filled after ${currentIndex + 1} questions - can complete`);
     return { isComplete: true };
   }
@@ -697,8 +708,9 @@ async function determineNextQuestion(currentIndex, slots, lastAnswer, askedQuest
   const importantSlots = ['customer', 'project', 'next_action', 'budget', 'schedule'];
   const missingImportantSlots = importantSlots.filter(slot => !slots[slot]);
   
-  // 質問数が多すぎる場合は強制完了（10個を上限とする）
-  if (currentIndex >= 10) {
+  // 質問数が多すぎる場合は強制完了（9個を上限とする = 10問目で終了）
+  if (currentIndex >= 9) {
+    console.log(`Reached maximum questions (${currentIndex + 1}) - forcing completion`);
     return { isComplete: true };
   }
   
@@ -1266,7 +1278,8 @@ ${askedQuestions.map((q, i) => {
 終了判定の基準：
 - 質問回数が6回未満の場合は絶対に終了しない
 - 7回以上で、必須項目（顧客名、案件内容、次のアクション）と感覚値（参加者の反応、温度感）が得られた場合は終了可能
-- 質問回数が10回を超えた場合は強制終了
+- 質問回数が10回に達した場合は強制終了（currentIndex >= 9）
+- 9問目が終わった時点で絶対に終了する
 - ユーザーが「終わりたい」「もう十分」等の発言をした場合は即座に終了
 
 質問選択の基準：
