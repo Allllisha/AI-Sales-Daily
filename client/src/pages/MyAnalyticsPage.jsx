@@ -1,23 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { analyticsAPI } from '../services/api';
-import { colors, typography, spacing, borderRadius, shadows } from '../styles/designSystem';
-import { Card } from '../styles/componentStyles';
+// Using architectural design system variables from CSS
 import toast from 'react-hot-toast';
 
 const PageWrapper = styled.div`
   min-height: calc(100vh - 72px);
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    transparent 15%,
-    rgba(255, 255, 255, 0.8) 25%,
-    rgba(255, 255, 255, 0.95) 35%,
-    white 45%,
-    white 100%
-  );
+  background-color: var(--color-background);
   position: relative;
+  
+  /* Subtle architectural grid background */
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      linear-gradient(rgba(0,0,0,0.01) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.01) 1px, transparent 1px);
+    background-size: var(--space-7) var(--space-7);
+    pointer-events: none;
+    z-index: 0;
+  }
 
   @media (max-width: 768px) {
     min-height: calc(100vh - 64px);
@@ -25,97 +32,130 @@ const PageWrapper = styled.div`
 `;
 
 const Container = styled.div`
-  padding: ${spacing[8]};
-  max-width: 1200px;
+  padding: var(--space-6);
+  max-width: 1400px;
   margin: 0 auto;
   position: relative;
   z-index: 1;
   
   @media (max-width: 768px) {
-    padding: ${spacing[4]};
+    padding: var(--space-4);
   }
 `;
 
 const Header = styled.div`
-  margin-bottom: ${spacing[8]};
+  margin-bottom: var(--space-6);
 `;
 
 const Title = styled.h1`
-  font-size: ${typography.fontSize['3xl']};
-  font-weight: ${typography.fontWeight.bold};
-  color: ${colors.neutral[900]};
-  margin-bottom: ${spacing[4]};
-  font-family: ${typography.fontFamily.sans};
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-thin);
+  color: var(--color-primary);
+  margin-bottom: var(--space-4);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.025em;
+  line-height: var(--line-height-compressed);
+  text-transform: uppercase;
 `;
 
 const PeriodSelector = styled.div`
   display: flex;
-  gap: ${spacing[3]};
-  margin-bottom: ${spacing[6]};
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
 `;
 
 const PeriodButton = styled.button`
-  padding: ${spacing[2]} ${spacing[4]};
-  border: 1px solid ${colors.neutral[300]};
-  background: ${props => props.active ? colors.primary[500] : 'white'};
-  color: ${props => props.active ? 'white' : colors.neutral[700]};
-  border-radius: ${borderRadius.md};
-  font-size: ${typography.fontSize.sm};
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid ${props => props.active ? 'var(--color-primary)' : 'var(--color-border)'};
+  background: ${props => props.active ? 'var(--color-primary)' : 'var(--color-background)'};
+  color: ${props => props.active ? 'var(--color-text-inverse)' : 'var(--color-text-primary)'};
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all 0.2s;
-  font-family: ${typography.fontFamily.sans};
+  transition: all 0.2s ease-in-out;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 
   &:hover {
-    background: ${props => props.active ? colors.primary[600] : colors.neutral[50]};
+    background: ${props => props.active ? 'var(--color-accent)' : 'var(--color-surface)'};
+    border-color: ${props => props.active ? 'var(--color-accent)' : 'var(--color-primary)'};
+    transform: translateY(-1px);
   }
 `;
 
 const StatsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: ${spacing[6]};
-  margin-bottom: ${spacing[8]};
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
 `;
 
-const StatCard = styled(Card)`
-  padding: ${spacing[6]};
+const StatCard = styled.div`
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-paper);
   text-align: center;
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    box-shadow: var(--shadow-elevation);
+    transform: translateY(-1px);
+  }
 `;
 
 const StatValue = styled.div`
-  font-size: ${typography.fontSize['3xl']};
-  font-weight: ${typography.fontWeight.bold};
-  color: ${colors.primary[600]};
-  margin-bottom: ${spacing[2]};
-  font-family: ${typography.fontFamily.sans};
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-thin);
+  color: var(--color-primary);
+  margin-bottom: var(--space-2);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.02em;
 `;
 
 const StatLabel = styled.div`
-  font-size: ${typography.fontSize.sm};
-  color: ${colors.neutral[600]};
-  font-family: ${typography.fontFamily.sans};
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 `;
 
 const ChartGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr;
-  gap: ${spacing[8]};
+  gap: var(--space-6);
   
   @media (min-width: 1024px) {
     grid-template-columns: 2fr 1fr;
   }
 `;
 
-const ChartCard = styled(Card)`
-  padding: ${spacing[6]};
+const ChartCard = styled.div`
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-paper);
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    box-shadow: var(--shadow-elevation);
+  }
 `;
 
 const ChartTitle = styled.h3`
-  font-size: ${typography.fontSize.lg};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[900]};
-  margin-bottom: ${spacing[4]};
-  font-family: ${typography.fontFamily.sans};
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: var(--space-4);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
 `;
 
 const LoadingSpinner = styled.div`
@@ -123,56 +163,70 @@ const LoadingSpinner = styled.div`
   justify-content: center;
   align-items: center;
   height: 200px;
-  font-size: ${typography.fontSize.sm};
-  color: ${colors.neutral[500]};
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 `;
 
-// 業界ごとの固定色（紫系のグラデーション）
+// アーキテクチャルデザインに統一した色パレット
 const INDUSTRY_COLORS = {
-  '建設': '#8B5CF6', // 紫
-  '製造': '#A78BFA', // 明るい紫
-  'IT': '#C084FC', // ラベンダー
-  '小売': '#DDD6FE', // 薄紫
-  'サービス': '#7C3AED', // 濃い紫
-  '不動産': '#6D28D9', // ダークパープル
-  '金融': '#5B21B6', // より濃い紫
-  '医療': '#E9D5FF', // とても薄い紫
-  '教育': '#EDE9FE', // ペールラベンダー
-  'その他': '#9CA3AF'  // グレー
+  '建設': '#000000', // ブラック
+  '製造': '#1A1A1A', // ダークチャコール
+  'IT': '#333333', // ミディアムグレー
+  '小売': '#4A4A4A', // セカンダリーグレー
+  'サービス': '#666666', // ライトグレー
+  '不動産': '#888888', // ターシャリーグレー
+  '金融': '#AAAAAA', // ライトグレー
+  '医療': '#CCCCCC', // ベリーライトグレー
+  '教育': '#E8E8E8', // ボーダーグレー
+  'その他': '#FF6B00'  // アクセントオレンジ
 };
 
-// デフォルトのカラーパレット（紫系グラデーション）
+// アーキテクチャルカラーパレット
 const COLORS = [
-  '#8B5CF6', // 紫
-  '#A78BFA', // 明るい紫
-  '#C084FC', // ラベンダー
-  '#7C3AED', // 濃い紫
-  '#6D28D9', // ダークパープル
-  '#DDD6FE', // 薄紫
-  '#5B21B6', // より濃い紫
-  '#E9D5FF', // とても薄い紫
+  '#000000', // プライマリー（ブラック）
+  '#1A1A1A', // ダークチャコール
+  '#333333', // ミディアムグレー
+  '#4A4A4A', // セカンダリーグレー
+  '#666666', // ライトグレー
+  '#888888', // ターシャリーグレー
+  '#FF6B00', // アクセントオレンジ
+  '#E8E8E8', // ボーダーグレー
 ];
 
 const ActionsList = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${spacing[3]};
+  gap: var(--space-3);
   max-height: 400px;
   overflow-y: auto;
+  overflow-x: auto;
+  
+  @media (max-width: 768px) {
+    -webkit-overflow-scrolling: touch;
+  }
 `;
 
 const ActionItem = styled.div`
   display: flex;
   align-items: flex-start;
-  padding: ${spacing[4]};
-  background: ${props => props.completed ? colors.neutral[50] : 'white'};
-  border: 1px solid ${colors.neutral[200]};
-  border-radius: ${borderRadius.md};
-  gap: ${spacing[3]};
-  transition: all 0.2s;
+  padding: var(--space-4);
+  background: ${props => props.completed ? 'var(--color-surface-alt)' : 'var(--color-background)'};
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  gap: var(--space-3);
+  transition: all 0.2s ease-in-out;
+  min-width: 300px;
 
   &:hover {
-    box-shadow: ${shadows.sm};
+    box-shadow: var(--shadow-elevation);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+  
+  @media (max-width: 400px) {
+    min-width: 280px;
+    padding: var(--space-3);
   }
 `;
 
@@ -180,52 +234,59 @@ const ActionCheckbox = styled.input`
   margin-top: 2px;
   width: 18px;
   height: 18px;
-  accent-color: ${colors.success[500]};
+  accent-color: var(--color-success);
 `;
 
 const ActionContent = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: ${spacing[2]};
+  gap: var(--space-2);
 `;
 
 const ActionText = styled.div`
-  font-size: ${typography.fontSize.sm};
-  font-weight: ${typography.fontWeight.medium};
-  color: ${props => props.completed ? colors.neutral[500] : colors.neutral[800]};
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  color: ${props => props.completed ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)'};
   text-decoration: ${props => props.completed ? 'line-through' : 'none'};
-  font-family: ${typography.fontFamily.sans};
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 `;
 
 const ActionMeta = styled.div`
   display: flex;
-  gap: ${spacing[4]};
+  gap: var(--space-4);
   align-items: center;
   flex-wrap: wrap;
 `;
 
 const ActionCustomer = styled.span`
-  font-size: ${typography.fontSize.xs};
-  color: ${colors.primary[600]};
-  background: ${colors.primary[50]};
-  padding: ${spacing[1]} ${spacing[2]};
-  border-radius: ${borderRadius.sm};
-  font-weight: ${typography.fontWeight.medium};
+  font-size: var(--font-size-micro);
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-none);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 `;
 
 const ActionDueDate = styled.span`
-  font-size: ${typography.fontSize.xs};
-  color: ${props => props.overdue ? colors.error[600] : colors.warning[600]};
-  background: ${props => props.overdue ? colors.error[50] : colors.warning[50]};
-  padding: ${spacing[1]} ${spacing[2]};
-  border-radius: ${borderRadius.sm};
-  font-weight: ${typography.fontWeight.medium};
+  font-size: var(--font-size-micro);
+  color: ${props => props.overdue ? 'var(--color-error)' : 'var(--color-warning)'};
+  background: var(--color-surface-alt);
+  border: 1px solid ${props => props.overdue ? 'var(--color-error)' : 'var(--color-warning)'};
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-none);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 `;
 
 const ActionDate = styled.span`
-  font-size: ${typography.fontSize.xs};
-  color: ${colors.neutral[500]};
+  font-size: var(--font-size-micro);
+  color: var(--color-text-tertiary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 `;
 
 
@@ -262,15 +323,15 @@ const MyAnalyticsPage = () => {
   }, []);
 
   useEffect(() => {
-    fetchAnalyticsData();
+    fetchAnalyticsData(true); // 期間が変更された時は強制的に再取得
     fetchIssuesAnalysis();
   }, [selectedPeriod]);
   
-  // ページにフォーカスが戻った時にデータを再取得
+  // ページにフォーカスが戻った時の処理（チェックボックス状態は維持）
   useEffect(() => {
     const handleFocus = () => {
-      console.log('Page focused, refetching analytics data');
-      fetchAnalyticsData();
+      console.log('Page focused, keeping checkbox states');
+      // チェックボックスの状態は再取得しない
     };
     
     window.addEventListener('focus', handleFocus);
@@ -289,6 +350,9 @@ const MyAnalyticsPage = () => {
     const newStates = { ...actionCompletionStates, [actionKey]: completed };
     setActionCompletionStates(newStates);
     localStorage.setItem('actionCompletionStates', JSON.stringify(newStates));
+    
+    // 現在のアクションリストも更新
+    localStorage.setItem('currentActionsList', JSON.stringify(updatedActions));
     
     // 日別活動推移のデータも更新
     updateDailyReportsWithActionData(updatedActions);
@@ -342,8 +406,14 @@ const MyAnalyticsPage = () => {
     }
   };
 
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = async (forceRefresh = false) => {
     try {
+      // forceRefreshがfalseでlocalActionsが既に存在する場合は再取得しない
+      if (!forceRefresh && localActions.length > 0) {
+        console.log('Using cached actions data');
+        return;
+      }
+      
       setLoading(true);
       console.log('Fetching analytics data for period:', selectedPeriod);
       const data = await analyticsAPI.getPersonalAnalytics(selectedPeriod);
@@ -354,16 +424,27 @@ const MyAnalyticsPage = () => {
       setAnalyticsData(data);
       // アクションリストをローカル状態にコピー（チェックボックス操作用）
       if (data.actionsList) {
+        console.log('Raw actionsList from API:', data.actionsList);
+        console.log('Number of actions:', data.actionsList.length);
+        
+        // 最新のローカルストレージの状態を取得
+        const savedStates = localStorage.getItem('actionCompletionStates');
+        const currentActionStates = savedStates ? JSON.parse(savedStates) : {};
+        
         // 保存された完了状態を適用
         const actionsWithSavedStates = data.actionsList.map(action => {
           const actionKey = `${action.reportId}_${action.text}`;
-          const savedCompleted = actionCompletionStates[actionKey];
+          const savedCompleted = currentActionStates[actionKey];
           return {
             ...action,
             completed: savedCompleted !== undefined ? savedCompleted : action.completed
           };
         });
+        console.log('Actions with saved states:', actionsWithSavedStates);
         setLocalActions(actionsWithSavedStates);
+        
+        // 現在のアクションリストをローカルストレージに保存（ホームページでの表示用）
+        localStorage.setItem('currentActionsList', JSON.stringify(actionsWithSavedStates));
         
         // 初回読み込み時も日別活動推移を更新
         if (actionsWithSavedStates.length > 0) {
@@ -471,11 +552,11 @@ const MyAnalyticsPage = () => {
           <StatLabel>アクション項目数</StatLabel>
         </StatCard>
         <StatCard>
-          <StatValue style={{ color: colors.success[600] }}>{actionStats.completed}</StatValue>
+          <StatValue style={{ color: 'var(--color-success)' }}>{actionStats.completed}</StatValue>
           <StatLabel>アクション完了数</StatLabel>
         </StatCard>
         <StatCard>
-          <StatValue style={{ color: colors.warning[600] }}>{actionStats.pending}</StatValue>
+          <StatValue style={{ color: 'var(--color-warning)' }}>{actionStats.pending}</StatValue>
           <StatLabel>アクション未完了数</StatLabel>
         </StatCard>
         <StatCard>
@@ -490,7 +571,7 @@ const MyAnalyticsPage = () => {
         <ChartCard>
           <ChartTitle>日別活動推移</ChartTitle>
           {dailyReports && dailyReports.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 300}>
               <LineChart data={dailyReports}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
@@ -520,27 +601,27 @@ const MyAnalyticsPage = () => {
               <Line 
                 type="monotone" 
                 dataKey="count" 
-                stroke={visibleLines.count ? colors.primary[500] : 'transparent'}
+                stroke={visibleLines.count ? 'var(--color-primary)' : 'transparent'}
                 strokeWidth={2}
-                dot={visibleLines.count ? { fill: colors.primary[500], r: 4 } : false}
+                dot={visibleLines.count ? { fill: 'var(--color-primary)', r: 4 } : false}
                 name="日報数"
                 hide={!visibleLines.count}
               />
               <Line 
                 type="monotone" 
                 dataKey="completedActions" 
-                stroke={visibleLines.completedActions ? colors.warning[500] : 'transparent'}
+                stroke={visibleLines.completedActions ? 'var(--color-success)' : 'transparent'}
                 strokeWidth={2}
-                dot={visibleLines.completedActions ? { fill: colors.warning[500], r: 4 } : false}
+                dot={visibleLines.completedActions ? { fill: 'var(--color-success)', r: 4 } : false}
                 name="アクション完了数"
                 hide={!visibleLines.completedActions}
               />
               <Line 
                 type="monotone" 
                 dataKey="customerCount" 
-                stroke={visibleLines.customerCount ? '#8B5CF6' : 'transparent'}
+                stroke={visibleLines.customerCount ? 'var(--color-accent)' : 'transparent'}
                 strokeWidth={2}
-                dot={visibleLines.customerCount ? { fill: '#8B5CF6', r: 4 } : false}
+                dot={visibleLines.customerCount ? { fill: 'var(--color-accent)', r: 4 } : false}
                 name="取引先数"
                 hide={!visibleLines.customerCount}
               />
@@ -557,7 +638,7 @@ const MyAnalyticsPage = () => {
         <ChartCard>
           <ChartTitle>業界分析</ChartTitle>
           {industryAnalysis && industryAnalysis.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 300}>
               <PieChart>
               <Pie
                 data={industryAnalysis}
@@ -596,7 +677,11 @@ const MyAnalyticsPage = () => {
         <ChartCard>
           <ChartTitle>顧客別商談数（Top 10）</ChartTitle>
           {customerAnalysis && customerAnalysis.length > 0 ? (
-            <div style={{ padding: '20px' }}>
+            <div style={{ 
+              padding: '20px',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch'
+            }}>
               {(() => {
                 const maxCount = Math.max(...customerAnalysis.map(item => item.reportCount));
                 return customerAnalysis.map((item, index) => (
@@ -607,12 +692,12 @@ const MyAnalyticsPage = () => {
                       alignItems: 'center',
                       marginBottom: '8px'
                     }}>
-                      <span style={{ fontWeight: '600', color: colors.neutral[800] }}>
+                      <span style={{ fontWeight: '600', color: 'var(--color-text-primary)' }}>
                         {item.customer}
                       </span>
                       <span style={{ 
                         fontWeight: 'bold', 
-                        color: colors.primary[600],
+                        color: 'var(--color-primary)',
                         fontSize: '18px'
                       }}>
                         {item.reportCount}件
@@ -621,14 +706,14 @@ const MyAnalyticsPage = () => {
                     <div style={{ 
                       width: '100%', 
                       height: '12px', 
-                      backgroundColor: colors.neutral[200],
+                      backgroundColor: 'var(--color-border)',
                       borderRadius: '6px',
                       overflow: 'hidden'
                     }}>
                       <div style={{ 
                         width: `${(item.reportCount / maxCount) * 100}%`, 
                         height: '100%', 
-                        backgroundColor: colors.primary[500],
+                        backgroundColor: 'var(--color-primary)',
                         borderRadius: '6px',
                         transition: 'width 0.3s ease'
                       }} />
@@ -651,34 +736,34 @@ const MyAnalyticsPage = () => {
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-              gap: spacing[4],
-              padding: spacing[4]
+              gap: 'var(--space-4)',
+              padding: 'var(--space-4)'
             }}>
               {issuesAnalysis.map((item, index) => (
                 <div key={index} style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  padding: `${spacing[3]} ${spacing[4]}`,
-                  backgroundColor: colors.neutral[50],
-                  borderRadius: borderRadius.md,
-                  border: `1px solid ${colors.neutral[200]}`,
+                  padding: 'var(--space-3) var(--space-4)',
+                  backgroundColor: 'var(--color-surface)',
+                  borderRadius: 'var(--radius-none)',
+                  border: '2px solid var(--color-border)',
                   transition: 'all 0.2s'
                 }}>
                   <span style={{
-                    fontWeight: typography.fontWeight.medium,
-                    color: colors.neutral[800],
-                    fontSize: typography.fontSize.sm
+                    fontWeight: 'var(--font-weight-medium)',
+                    color: 'var(--color-text-primary)',
+                    fontSize: 'var(--font-size-small)'
                   }}>
                     {item.keyword}
                   </span>
                   <span style={{
-                    backgroundColor: colors.primary[500],
-                    color: 'white',
-                    padding: `${spacing[1]} ${spacing[2]}`,
-                    borderRadius: borderRadius.sm,
-                    fontSize: typography.fontSize.xs,
-                    fontWeight: typography.fontWeight.bold,
+                    backgroundColor: 'var(--color-primary)',
+                    color: 'var(--color-text-inverse)',
+                    padding: 'var(--space-1) var(--space-2)',
+                    borderRadius: 'var(--radius-none)',
+                    fontSize: 'var(--font-size-micro)',
+                    fontWeight: 'var(--font-weight-bold)',
                     minWidth: '24px',
                     textAlign: 'center'
                   }}>
@@ -697,7 +782,7 @@ const MyAnalyticsPage = () => {
 
       {/* アクション一覧（Todoリスト形式） */}
       {localActions && localActions.length > 0 && (
-        <ChartCard style={{ marginTop: spacing[8] }}>
+        <ChartCard style={{ marginTop: 'var(--space-6)' }}>
           <ChartTitle>アクション一覧</ChartTitle>
           <ActionsList>
             {localActions.map((action, index) => (
@@ -731,7 +816,7 @@ const MyAnalyticsPage = () => {
 
       {/* 関係構築情報 */}
       {relationshipAnalysis && relationshipAnalysis.topHobbies && relationshipAnalysis.topHobbies.length > 0 && (
-        <ChartCard style={{ marginTop: spacing[8] }}>
+        <ChartCard style={{ marginTop: 'var(--space-6)' }}>
           <ChartTitle>顧客の趣味・関心事（Top 10）</ChartTitle>
           {relationshipAnalysis.topHobbies.length === 1 ? (
             // 1件の場合はプログレスバー風の表示
@@ -744,12 +829,12 @@ const MyAnalyticsPage = () => {
                     alignItems: 'center',
                     marginBottom: '8px'
                   }}>
-                    <span style={{ fontWeight: '600', color: colors.neutral[800] }}>
+                    <span style={{ fontWeight: '600', color: 'var(--color-text-primary)' }}>
                       {item.hobby}
                     </span>
                     <span style={{ 
                       fontWeight: 'bold', 
-                      color: colors.secondary[600],
+                      color: 'var(--color-accent)',
                       fontSize: '18px'
                     }}>
                       {item.count}件
@@ -758,14 +843,14 @@ const MyAnalyticsPage = () => {
                   <div style={{ 
                     width: '100%', 
                     height: '12px', 
-                    backgroundColor: colors.neutral[200],
+                    backgroundColor: 'var(--color-border)',
                     borderRadius: '6px',
                     overflow: 'hidden'
                   }}>
                     <div style={{ 
                       width: '100%', 
                       height: '100%', 
-                      backgroundColor: colors.secondary[500],
+                      backgroundColor: 'var(--color-accent)',
                       borderRadius: '6px',
                       transition: 'width 0.3s ease'
                     }} />
@@ -775,13 +860,13 @@ const MyAnalyticsPage = () => {
             </div>
           ) : (
             // 複数件の場合はバーチャート（動的な高さ調整）
-            <ResponsiveContainer width="100%" height={Math.max(200, relationshipAnalysis.topHobbies.length * 40)}>
+            <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? Math.max(180, Math.min(250, relationshipAnalysis.topHobbies.length * 35)) : Math.max(200, relationshipAnalysis.topHobbies.length * 40)}>
               <BarChart data={relationshipAnalysis.topHobbies}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="hobby" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="count" fill={colors.secondary[500]} />
+                <Bar dataKey="count" fill="var(--color-accent)" />
               </BarChart>
             </ResponsiveContainer>
           )}

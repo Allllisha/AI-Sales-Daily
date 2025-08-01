@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import styled from '@emotion/styled';
-import { colors, typography, spacing, borderRadius, shadows, transitions, media } from '../styles/designSystem';
 
 const Container = styled.div`
   min-height: 100vh;
   min-height: 100dvh;
-  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+  background-color: var(--color-background);
   position: relative;
   overflow-x: hidden;
-
+  
+  /* Architectural grid overlay */
   &::before {
     content: '';
     position: fixed;
@@ -18,73 +18,68 @@ const Container = styled.div`
     left: 0;
     right: 0;
     bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="80" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="60" r="1" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
-    animation: float 20s infinite linear;
+    background-image: 
+      linear-gradient(rgba(0,0,0,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px);
+    background-size: var(--space-7) var(--space-7);
     pointer-events: none;
     z-index: 0;
-  }
-
-  @keyframes float {
-    0% { transform: translateY(0px) translateX(0px); }
-    50% { transform: translateY(-10px) translateX(5px); }
-    100% { transform: translateY(0px) translateX(0px); }
   }
 `;
 
 const Header = styled.header`
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+  background-color: var(--color-background);
+  border-bottom: 1px solid var(--color-border);
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: 0 1px 20px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-paper);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 `;
 
 const Nav = styled.nav`
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: ${spacing[4]} ${spacing[6]};
-  height: 72px;
-
-  ${media.md} {
-    padding: ${spacing[4]} ${spacing[4]};
-  }
+  padding: var(--space-5) var(--space-6);
+  height: 88px;
+  position: relative;
+  z-index: 1;
 
   @media (max-width: 768px) {
-    padding: ${spacing[3]} ${spacing[4]};
-    height: 64px;
+    padding: var(--space-4) var(--space-5);
+    height: 72px;
   }
 `;
 
 const LogoContainer = styled.div`
   display: flex;
   align-items: center;
-  gap: ${spacing[3]};
+  gap: var(--space-4);
 `;
 
 const LogoIcon = styled.div`
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
-  border-radius: 8px;
+  width: 42px;
+  height: 42px;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: var(--shadow-elevation);
   
+  /* Simple architectural element */
   &::after {
     content: '';
     position: absolute;
-    width: 14px;
-    height: 14px;
-    border: 2px solid white;
-    border-radius: 2px;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--color-text-inverse);
+    border-radius: var(--radius-subtle);
     background: transparent;
   }
 
@@ -93,8 +88,8 @@ const LogoIcon = styled.div`
     position: absolute;
     width: 8px;
     height: 8px;
-    background: white;
-    border-radius: 1px;
+    background: var(--color-text-inverse);
+    border-radius: var(--radius-subtle);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -102,13 +97,12 @@ const LogoIcon = styled.div`
   }
 
   @media (max-width: 768px) {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
+    width: 36px;
+    height: 36px;
     
     &::after {
-      width: 12px;
-      height: 12px;
+      width: 14px;
+      height: 14px;
     }
 
     &::before {
@@ -119,27 +113,32 @@ const LogoIcon = styled.div`
 `;
 
 const Logo = styled(Link)`
-  font-size: ${typography.fontSize.xl};
-  font-weight: ${typography.fontWeight.bold};
-  color: ${colors.neutral[900]};
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
   text-decoration: none;
-  letter-spacing: ${typography.letterSpacing.tight};
-  transition: all ${transitions.fast};
+  letter-spacing: -0.02em;
+  transition: all 0.2s ease-in-out;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
 
   &:hover {
-    color: #8B5CF6;
+    color: var(--color-accent);
   }
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.lg};
+    font-size: var(--font-size-lead);
   }
 `;
 
 const NavLinks = styled.div`
   display: flex;
   align-items: center;
-  gap: ${spacing[1]};
+  justify-content: center;
+  gap: var(--space-3);
+  flex: 1;
 
   @media (max-width: 768px) {
     display: none;
@@ -147,93 +146,87 @@ const NavLinks = styled.div`
 `;
 
 const NavLink = styled(Link)`
-  color: ${colors.neutral[600]};
+  color: var(--color-text-secondary);
   text-decoration: none;
-  padding: ${spacing[2.5]} ${spacing[4]};
-  border-radius: ${borderRadius.lg};
-  font-size: ${typography.fontSize.sm};
-  font-weight: ${typography.fontWeight.medium};
-  transition: all ${transitions.base};
-  position: relative;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-standard);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  transition: all 0.2s ease-in-out;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   
   &:hover {
-    color: #8B5CF6;
-    background: rgba(139, 92, 246, 0.08);
-    transform: translateY(-1px);
+    color: var(--color-primary);
+    background-color: var(--color-surface);
   }
 
   &:active {
-    transform: translateY(0);
+    transform: scale(0.98);
   }
 `;
 
 const UserSection = styled.div`
   display: flex;
   align-items: center;
-  gap: ${spacing[4]};
+  gap: var(--space-6);
 
   @media (max-width: 768px) {
-    gap: ${spacing[2]};
+    gap: var(--space-4);
   }
 `;
 
 const LogoutButton = styled.button`
   background: transparent;
-  color: ${colors.neutral[500]};
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  padding: ${spacing[2]} ${spacing[4]};
-  border-radius: ${borderRadius.lg};
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-standard);
   cursor: pointer;
-  font-size: ${typography.fontSize.sm};
-  font-weight: ${typography.fontWeight.medium};
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  transition: all ${transitions.base};
+  transition: all 0.2s ease-in-out;
 
   &:hover {
-    color: #dc2626;
-    border-color: rgba(220, 38, 38, 0.3);
-    background: rgba(220, 38, 38, 0.05);
-    transform: translateY(-1px);
+    color: var(--color-error);
+    border-color: var(--color-error);
+    background-color: rgba(198, 40, 40, 0.05);
   }
 
   &:active {
-    transform: translateY(0);
+    transform: scale(0.98);
   }
 
   @media (max-width: 768px) {
-    padding: ${spacing[1.5]} ${spacing[2.5]};
-    font-size: ${typography.fontSize.xs};
+    display: none; /* モバイルでは非表示にしてハンバーガーメニュー内のみに */
   }
 `;
 
 const Main = styled.main`
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: ${spacing[8]} ${spacing[6]};
+  padding: var(--space-6) var(--space-6);
+  margin-top: var(--space-5);
   position: relative;
   z-index: 1;
 
-  ${media.md} {
-    padding: ${spacing[6]} ${spacing[4]};
-  }
-
   @media (max-width: 768px) {
-    padding: ${spacing[4]} ${spacing[4]};
+    padding: var(--space-6) var(--space-4);
+    margin-top: var(--space-4);
   }
 `;
 
 const OnlineIndicator = styled.div`
   display: flex;
   align-items: center;
-  gap: ${spacing[2]};
-  font-size: ${typography.fontSize.xs};
-  color: ${colors.neutral[500]};
-  font-weight: ${typography.fontWeight.medium};
-  padding: ${spacing[1.5]} ${spacing[3]};
-  background: rgba(139, 92, 246, 0.05);
-  border-radius: ${borderRadius.full};
-  border: 1px solid rgba(139, 92, 246, 0.1);
+  gap: var(--space-3);
+  font-size: var(--font-size-micro);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-surface);
+  border-radius: 24px;
+  border: 1px solid var(--color-border-light);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   @media (max-width: 768px) {
@@ -241,12 +234,30 @@ const OnlineIndicator = styled.div`
   }
 `;
 
+const MobileOnlineIndicator = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-micro);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-none);
+  border: 1px solid var(--color-border);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  margin-top: var(--space-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+`;
+
 const StatusDot = styled.span`
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: ${props => props.online ? '#10b981' : '#f59e0b'};
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+  background-color: ${props => props.online ? 'var(--color-success)' : 'var(--color-warning)'};
+  box-shadow: 0 0 0 2px var(--color-background);
   position: relative;
 
   ${props => props.online && `
@@ -255,7 +266,7 @@ const StatusDot = styled.span`
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background-color: #10b981;
+      background-color: var(--color-success);
       animation: pulse 2s infinite;
     }
 
@@ -269,12 +280,12 @@ const StatusDot = styled.span`
 const UserInfo = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${spacing[0.5]};
-  padding: ${spacing[2]} ${spacing[3]};
-  background: rgba(139, 92, 246, 0.05);
-  border-radius: ${borderRadius.lg};
-  border: 1px solid rgba(139, 92, 246, 0.1);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-standard);
+  border: 1px solid var(--color-border-light);
   min-width: 120px;
+  margin-right: var(--space-4);
+  padding: var(--space-2) var(--space-4);
 
   @media (max-width: 768px) {
     display: none;
@@ -282,38 +293,58 @@ const UserInfo = styled.div`
 `;
 
 const UserName = styled.span`
-  color: ${colors.neutral[700]};
-  font-size: ${typography.fontSize.sm};
-  font-weight: ${typography.fontWeight.semibold};
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 `;
 
 const UserRole = styled.span`
-  color: ${colors.neutral[500]};
-  font-size: ${typography.fontSize.xs};
-  font-weight: ${typography.fontWeight.medium};
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-medium);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  margin-top: var(--space-1);
 `;
 
 const MobileMenu = styled.button`
   display: none;
-  background: rgba(139, 92, 246, 0.05);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  color: #8B5CF6;
-  width: 40px;
-  height: 40px;
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  color: var(--color-primary);
+  width: 44px;
+  height: 44px;
   cursor: pointer;
-  border-radius: ${borderRadius.lg};
-  transition: all ${transitions.base};
-  font-size: 1.1rem;
+  border-radius: var(--radius-none);
+  transition: all 0.2s ease-in-out;
+  font-size: 1.2rem;
+  font-weight: var(--font-weight-bold);
+  box-shadow: var(--shadow-paper);
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
-    background: rgba(139, 92, 246, 0.1);
+    background-color: var(--color-accent-light);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    box-shadow: var(--shadow-elevation);
     transform: translateY(-1px);
   }
 
   &:active {
     transform: translateY(0);
+  }
+  
+  /* アーキテクチャル要素を追加 */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid var(--color-accent);
+    border-right: 2px solid var(--color-accent);
   }
 
   @media (max-width: 768px) {
@@ -321,21 +352,51 @@ const MobileMenu = styled.button`
     align-items: center;
     justify-content: center;
   }
+  
+  @media (max-width: 400px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
 `;
 
 const MobileDrawer = styled.div`
   position: fixed;
   top: 0;
   right: ${props => props.open ? '0' : '-100%'};
-  width: 80%;
-  max-width: 320px;
+  width: 85%;
+  max-width: 360px;
   height: 100vh;
-  background-color: white;
-  box-shadow: ${shadows.xl};
-  transition: right ${transitions.slow};
+  background-color: var(--color-surface);
+  border-left: 2px solid var(--color-border);
+  box-shadow: var(--shadow-structure);
   z-index: 1001;
-  padding: ${spacing[6]};
+  padding: var(--space-6);
   overflow-y: auto;
+  transition: right 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  
+  /* アーキテクチャルグリッド背景 */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
+    background-size: var(--space-6) var(--space-6);
+    pointer-events: none;
+    z-index: 0;
+    opacity: ${props => props.open ? '1' : '0'};
+    transition: opacity 0.3s ease;
+  }
+  
+  @media (max-width: 400px) {
+    width: 90%;
+    padding: var(--space-5);
+  }
 `;
 
 const MobileOverlay = styled.div`
@@ -344,93 +405,193 @@ const MobileOverlay = styled.div`
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  display: ${props => props.open ? 'block' : 'none'};
+  background-color: rgba(0, 0, 0, ${props => props.open ? '0.4' : '0'});
+  backdrop-filter: blur(${props => props.open ? '6px' : '0px'});
+  visibility: ${props => props.open ? 'visible' : 'hidden'};
+  opacity: ${props => props.open ? '1' : '0'};
   z-index: 1000;
-  transition: opacity ${transitions.base};
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 `;
 
 const MobileMenuHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: ${spacing[8]};
-  padding-bottom: ${spacing[4]};
-  border-bottom: 1px solid ${colors.neutral[200]};
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 2px solid var(--color-border);
+  position: relative;
+  z-index: 1;
+  
+  /* アーキテクチャル要素 */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 60px;
+    height: 2px;
+    background-color: var(--color-accent);
+  }
 `;
 
 const MobileMenuTitle = styled.h2`
-  font-size: ${typography.fontSize.lg};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[900]};
-  letter-spacing: ${typography.letterSpacing.tight};
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  margin: 0;
 `;
 
 const CloseButton = styled.button`
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: ${colors.neutral[400]};
+  background-color: var(--color-background);
+  border: 2px solid var(--color-border);
+  font-size: 1.2rem;
+  color: var(--color-text-primary);
   cursor: pointer;
-  padding: ${spacing[1]};
-  border-radius: ${borderRadius.md};
-  transition: all ${transitions.fast};
+  padding: var(--space-3);
+  border-radius: var(--radius-none);
+  transition: all 0.2s ease-in-out;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-paper);
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
-    color: ${colors.neutral[600]};
-    background-color: ${colors.neutral[100]};
+    color: var(--color-error);
+    border-color: var(--color-error);
+    background-color: rgba(198, 40, 40, 0.05);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-elevation);
+  }
+  
+  &:active {
+    transform: translateY(0);
   }
 `;
 
 const MobileNavLinks = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${spacing[1]};
+  gap: var(--space-4);
+  position: relative;
+  z-index: 1;
 `;
 
 const MobileNavLink = styled(Link)`
   display: block;
-  padding: ${spacing[3]} ${spacing[4]};
-  color: ${colors.neutral[700]};
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text-primary);
   text-decoration: none;
-  border-radius: ${borderRadius.md};
-  font-size: ${typography.fontSize.base};
-  font-weight: ${typography.fontWeight.medium};
-  transition: all ${transitions.fast};
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  transition: all 0.2s ease-in-out;
+  border: 2px solid transparent;
+  background-color: var(--color-background);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
 
   &:hover {
-    background-color: ${colors.neutral[100]};
-    color: ${colors.neutral[900]};
+    background-color: var(--color-accent-light);
+    color: var(--color-primary);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-elevation);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
+  /* アーキテクチャル要素 */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid var(--color-border);
+    border-left: 2px solid var(--color-border);
+    transition: border-color 0.2s ease;
+  }
+  
+  &:hover::after {
+    border-color: var(--color-accent);
   }
 `;
 
 const MobileUserInfo = styled.div`
-  padding: ${spacing[4]};
-  margin-bottom: ${spacing[6]};
-  background-color: ${colors.neutral[50]};
-  border-radius: ${borderRadius.lg};
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+  background-color: var(--color-background);
+  border-radius: var(--radius-none);
   text-align: center;
-  border: 1px solid ${colors.neutral[200]};
+  border: 2px solid var(--color-border);
+  box-shadow: var(--shadow-paper);
+  position: relative;
+  z-index: 1;
+  
+  /* アーキテクチャル要素 */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    border-top: 2px solid var(--color-accent);
+    border-right: 2px solid var(--color-accent);
+  }
 `;
 
 const MobileLogoutButton = styled.button`
   width: 100%;
-  background-color: transparent;
-  color: ${colors.error.main};
-  border: 1px solid ${colors.error.light};
-  padding: ${spacing[3]} ${spacing[4]};
-  border-radius: ${borderRadius.md};
+  background-color: var(--color-background);
+  color: var(--color-error);
+  border: 2px solid var(--color-error);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-none);
   cursor: pointer;
-  font-size: ${typography.fontSize.base};
-  font-weight: ${typography.fontWeight.medium};
-  font-family: ${typography.fontFamily.sans};
-  margin-top: ${spacing[8]};
-  transition: all ${transitions.fast};
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-bold);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  margin-top: var(--space-6);
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: var(--shadow-paper);
+  position: relative;
+  z-index: 1;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
-    background-color: rgba(239, 68, 68, 0.05);
-    border-color: ${colors.error.main};
+    background-color: rgba(198, 40, 40, 0.1);
+    border-color: var(--color-error);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-elevation);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
+  /* アーキテクチャル要素 */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    border-top: 2px solid var(--color-error);
+    border-right: 2px solid var(--color-error);
   }
 `;
 
@@ -472,7 +633,7 @@ const Layout = () => {
         <Nav>
           <LogoContainer>
             <LogoIcon />
-            <Logo to="/">Sales Daily</Logo>
+            <Logo to="/">Archi Daily</Logo>
           </LogoContainer>
           <NavLinks>
             <NavLink to="/">ホーム</NavLink>
@@ -504,14 +665,14 @@ const Layout = () => {
         </MobileMenuHeader>
         
         <MobileUserInfo>
-          <div style={{ fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold, color: colors.neutral[900] }}>{user?.name}さん</div>
-          <div style={{ fontSize: typography.fontSize.sm, color: colors.neutral[500], marginTop: spacing[1] }}>
+          <div style={{ fontSize: 'var(--font-size-body)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-primary)' }}>{user?.name}さん</div>
+          <div style={{ fontSize: 'var(--font-size-small)', color: 'var(--color-text-secondary)', marginTop: 'var(--space-2)' }}>
             {isManager ? 'マネージャー' : '営業担当'}
           </div>
-          <OnlineIndicator style={{ display: 'flex', justifyContent: 'center', marginTop: spacing[2] }}>
+          <MobileOnlineIndicator>
             <StatusDot online={isOnline} />
             {isOnline ? 'オンライン' : 'オフライン'}
-          </OnlineIndicator>
+          </MobileOnlineIndicator>
         </MobileUserInfo>
         
         <MobileNavLinks>

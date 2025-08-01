@@ -2,176 +2,229 @@ import React, { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { analyticsAPI, userAPI } from '../services/api';
-import { colors, typography, spacing, borderRadius, shadows } from '../styles/designSystem';
-import { Card } from '../styles/componentStyles';
+// Using architectural design system variables from CSS
 import toast from 'react-hot-toast';
 
 const PageWrapper = styled.div`
-  min-height: calc(100vh - 64px);
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    transparent 15%,
-    rgba(255, 255, 255, 0.8) 25%,
-    rgba(255, 255, 255, 0.95) 35%,
-    white 45%,
-    white 100%
-  );
+  min-height: calc(100vh - 72px);
+  background-color: var(--color-background);
   position: relative;
+  
+  /* Subtle architectural grid background */
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      linear-gradient(rgba(0,0,0,0.01) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.01) 1px, transparent 1px);
+    background-size: var(--space-7) var(--space-7);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @media (max-width: 768px) {
+    min-height: calc(100vh - 64px);
+  }
 `;
 
 const Container = styled.div`
-  padding: ${spacing[8]};
-  max-width: 1200px;
+  padding: var(--space-6);
+  max-width: 1400px;
   margin: 0 auto;
   position: relative;
   z-index: 1;
   
   @media (max-width: 768px) {
-    padding: ${spacing[4]};
+    padding: var(--space-4);
   }
 `;
 
 const Header = styled.div`
-  margin-bottom: ${spacing[8]};
+  margin-bottom: var(--space-6);
 `;
 
 const Title = styled.h1`
-  font-size: ${typography.fontSize['3xl']};
-  font-weight: ${typography.fontWeight.bold};
-  color: ${colors.neutral[900]};
-  margin-bottom: ${spacing[4]};
-  font-family: ${typography.fontFamily.sans};
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-thin);
+  color: var(--color-primary);
+  margin-bottom: var(--space-4);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.025em;
+  line-height: var(--line-height-compressed);
+  text-transform: uppercase;
 `;
 
 const ControlSection = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: ${spacing[6]};
+  margin-bottom: var(--space-5);
   flex-wrap: wrap;
-  gap: ${spacing[4]};
+  gap: var(--space-4);
 `;
 
 const PeriodSelector = styled.div`
   display: flex;
-  gap: ${spacing[3]};
+  gap: var(--space-3);
 `;
 
 const PeriodButton = styled.button`
-  padding: ${spacing[2]} ${spacing[4]};
-  border: 1px solid ${colors.neutral[300]};
-  background: ${props => props.active ? colors.primary[500] : 'white'};
-  color: ${props => props.active ? 'white' : colors.neutral[700]};
-  border-radius: ${borderRadius.md};
-  font-size: ${typography.fontSize.sm};
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid ${props => props.active ? 'var(--color-primary)' : 'var(--color-border)'};
+  background: ${props => props.active ? 'var(--color-primary)' : 'var(--color-background)'};
+  color: ${props => props.active ? 'var(--color-text-inverse)' : 'var(--color-text-primary)'};
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all 0.2s;
-  font-family: ${typography.fontFamily.sans};
+  transition: all 0.2s ease-in-out;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 
   &:hover {
-    background: ${props => props.active ? colors.primary[600] : colors.neutral[50]};
+    background: ${props => props.active ? 'var(--color-accent)' : 'var(--color-surface)'};
+    border-color: ${props => props.active ? 'var(--color-accent)' : 'var(--color-primary)'};
+    transform: translateY(-1px);
   }
 `;
 
 const MemberSelector = styled.div`
   display: flex;
-  gap: ${spacing[2]};
+  gap: var(--space-2);
   flex-wrap: wrap;
 `;
 
 const MemberButton = styled.button`
-  padding: ${spacing[1]} ${spacing[3]};
-  border: 1px solid ${props => props.selected ? colors.primary[500] : colors.neutral[300]};
-  background: ${props => props.selected ? colors.primary[50] : 'white'};
-  color: ${props => props.selected ? colors.primary[700] : colors.neutral[700]};
-  border-radius: ${borderRadius.sm};
-  font-size: ${typography.fontSize.xs};
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid ${props => props.selected ? 'var(--color-primary)' : 'var(--color-border)'};
+  background: ${props => props.selected ? 'var(--color-surface)' : 'var(--color-background)'};
+  color: ${props => props.selected ? 'var(--color-primary)' : 'var(--color-text-secondary)'};
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 
   &:hover {
-    border-color: ${colors.primary[500]};
-    background: ${colors.primary[50]};
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+    transform: translateY(-1px);
   }
 `;
 
 const MetricSelector = styled.div`
   display: flex;
-  gap: ${spacing[2]};
-  margin-bottom: ${spacing[4]};
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 `;
 
 const MetricButton = styled.button`
-  padding: ${spacing[2]} ${spacing[3]};
-  border: 1px solid ${props => props.selected ? colors.primary[500] : colors.neutral[300]};
-  background: ${props => props.selected ? colors.primary[500] : 'white'};
-  color: ${props => props.selected ? 'white' : colors.neutral[700]};
-  border-radius: ${borderRadius.sm};
-  font-size: ${typography.fontSize.xs};
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid ${props => props.selected ? 'var(--color-primary)' : 'var(--color-border)'};
+  background: ${props => props.selected ? 'var(--color-primary)' : 'var(--color-background)'};
+  color: ${props => props.selected ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)'};
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all 0.2s;
-  font-family: ${typography.fontFamily.sans};
+  transition: all 0.2s ease-in-out;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 
   &:hover {
-    background: ${props => props.selected ? colors.primary[600] : colors.neutral[50]};
+    background: ${props => props.selected ? 'var(--color-accent)' : 'var(--color-surface)'};
+    border-color: ${props => props.selected ? 'var(--color-accent)' : 'var(--color-primary)'};
+    transform: translateY(-1px);
   }
 `;
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: ${spacing[6]};
-  margin-bottom: ${spacing[8]};
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
 `;
 
-const StatCard = styled(Card)`
-  padding: ${spacing[6]};
+const StatCard = styled.div`
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-paper);
   text-align: center;
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    box-shadow: var(--shadow-elevation);
+    transform: translateY(-1px);
+  }
 `;
 
 const StatValue = styled.div`
-  font-size: ${typography.fontSize['3xl']};
-  font-weight: ${typography.fontWeight.bold};
-  color: ${colors.primary[600]};
-  margin-bottom: ${spacing[2]};
-  font-family: ${typography.fontFamily.sans};
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-thin);
+  color: var(--color-primary);
+  margin-bottom: var(--space-2);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.02em;
 `;
 
 const StatLabel = styled.div`
-  font-size: ${typography.fontSize.sm};
-  color: ${colors.neutral[600]};
-  font-family: ${typography.fontFamily.sans};
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 `;
 
 const ChartGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr;
-  gap: ${spacing[8]};
+  gap: var(--space-6);
   
   @media (min-width: 1024px) {
     grid-template-columns: 2fr 1fr;
   }
 `;
 
-const ChartCard = styled(Card)`
-  padding: ${spacing[6]};
+const ChartCard = styled.div`
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-paper);
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    box-shadow: var(--shadow-elevation);
+  }
 `;
 
 const ChartTitle = styled.h3`
-  font-size: ${typography.fontSize.lg};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[900]};
-  margin-bottom: ${spacing[4]};
-  font-family: ${typography.fontFamily.sans};
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: var(--space-4);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
 `;
 
 const TableContainer = styled.div`
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  margin-top: ${spacing[4]};
-  border-radius: ${borderRadius.md};
-  border: 1px solid ${colors.neutral[200]};
+  margin-top: var(--space-4);
+  border-radius: var(--radius-none);
+  border: 2px solid var(--color-border);
   
   /* スクロールバーのスタイリング */
   &::-webkit-scrollbar {
@@ -179,21 +232,21 @@ const TableContainer = styled.div`
   }
   
   &::-webkit-scrollbar-track {
-    background: ${colors.neutral[100]};
+    background: var(--color-surface-alt);
     border-radius: 3px;
   }
   
   &::-webkit-scrollbar-thumb {
-    background: ${colors.neutral[400]};
+    background: var(--color-text-tertiary);
     border-radius: 3px;
   }
   
   &::-webkit-scrollbar-thumb:hover {
-    background: ${colors.neutral[500]};
+    background: var(--color-text-secondary);
   }
   
   @media (max-width: 768px) {
-    margin: ${spacing[3]} -${spacing[4]};
+    margin: var(--space-3) calc(-1 * var(--space-4));
     border-radius: 0;
     border-left: none;
     border-right: none;
@@ -204,7 +257,7 @@ const MemberStatsTable = styled.table`
   width: 100%;
   min-width: 800px; /* 最小幅を設定してスクロールを有効化 */
   border-collapse: collapse;
-  background: white;
+  background: var(--color-background);
   
   @media (max-width: 768px) {
     min-width: 900px; /* モバイルではより広い最小幅 */
@@ -213,30 +266,32 @@ const MemberStatsTable = styled.table`
 
 const TableHeader = styled.th`
   text-align: left;
-  padding: ${spacing[3]};
-  border-bottom: 2px solid ${colors.neutral[200]};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[700]};
+  padding: var(--space-3);
+  border-bottom: 2px solid var(--color-border);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
   white-space: nowrap;
-  background: ${colors.neutral[50]};
-  font-size: ${typography.fontSize.sm};
+  background: var(--color-surface);
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   
   @media (max-width: 768px) {
-    padding: ${spacing[2]} ${spacing[3]};
-    font-size: ${typography.fontSize.xs};
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-micro);
   }
 `;
 
 const TableCell = styled.td`
-  padding: ${spacing[3]};
-  border-bottom: 1px solid ${colors.neutral[200]};
-  color: ${colors.neutral[600]};
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
   white-space: nowrap;
-  font-size: ${typography.fontSize.sm};
+  font-size: var(--font-size-small);
   
   @media (max-width: 768px) {
-    padding: ${spacing[2]} ${spacing[3]};
-    font-size: ${typography.fontSize.xs};
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-micro);
   }
 `;
 
@@ -245,34 +300,35 @@ const LoadingSpinner = styled.div`
   justify-content: center;
   align-items: center;
   height: 200px;
-  font-size: ${typography.fontSize.sm};
-  color: ${colors.neutral[500]};
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 `;
 
-// 業界ごとの固定色（紫系のグラデーション）
+// アーキテクチャルデザインに統一した色パレット
 const INDUSTRY_COLORS = {
-  '建設': '#8B5CF6', // 紫
-  '製造': '#A78BFA', // 明るい紫
-  'IT': '#C084FC', // ラベンダー
-  '小売': '#DDD6FE', // 薄紫
-  'サービス': '#7C3AED', // 濃い紫
-  '不動産': '#6D28D9', // ダークパープル
-  '金融': '#5B21B6', // より濃い紫
-  '医療': '#E9D5FF', // とても薄い紫
-  '教育': '#EDE9FE', // ペールラベンダー
-  'その他': '#9CA3AF'  // グレー
+  '建設': '#000000', // ブラック
+  '製造': '#1A1A1A', // ダークチャコール
+  'IT': '#333333', // ミディアムグレー
+  '小売': '#4A4A4A', // セカンダリーグレー
+  'サービス': '#666666', // ライトグレー
+  '不動産': '#888888', // ターシャリーグレー
+  '金融': '#AAAAAA', // ライトグレー
+  '医療': '#CCCCCC', // ベリーライトグレー
+  '教育': '#E8E8E8', // ボーダーグレー
+  'その他': '#FF6B00'  // アクセントオレンジ
 };
 
-// デフォルトのカラーパレット（紫系グラデーション）
+// アーキテクチャルカラーパレット
 const COLORS = [
-  '#8B5CF6', // 紫
-  '#A78BFA', // 明るい紫
-  '#C084FC', // ラベンダー
-  '#7C3AED', // 濃い紫
-  '#6D28D9', // ダークパープル
-  '#DDD6FE', // 薄紫
-  '#5B21B6', // より濃い紫
-  '#E9D5FF', // とても薄い紫
+  '#000000', // プライマリー（ブラック）
+  '#1A1A1A', // ダークチャコール
+  '#333333', // ミディアムグレー
+  '#4A4A4A', // セカンダリーグレー
+  '#666666', // ライトグレー
+  '#888888', // ターシャリーグレー
+  '#FF6B00', // アクセントオレンジ
+  '#E8E8E8', // ボーダーグレー
 ];
 
 const TeamAnalyticsPage = () => {
@@ -294,9 +350,9 @@ const TeamAnalyticsPage = () => {
   ];
 
   const metrics = [
-    { value: 'count', label: '日報数', color: colors.primary[500] },
-    { value: 'completedActions', label: 'アクション完了数', color: colors.success[500] },
-    { value: 'customerCount', label: '取引先数', color: colors.info[500] }
+    { value: 'count', label: '日報数', color: '#000000' },
+    { value: 'completedActions', label: 'アクション完了数', color: '#000000' },
+    { value: 'customerCount', label: '取引先数', color: '#333333' }
   ];
 
   // ローカルストレージから個人のアクション完了状態を読み込み（部下の完了状態を確認）
@@ -481,7 +537,7 @@ const TeamAnalyticsPage = () => {
           </PeriodSelector>
           
           <MemberSelector>
-            <span style={{ alignSelf: 'center', marginRight: spacing[2], fontSize: typography.fontSize.sm }}>
+            <span style={{ alignSelf: 'center', marginRight: 'var(--space-2)', fontSize: 'var(--font-size-small)' }}>
               メンバー:
             </span>
             {teamMembers.map(member => (
@@ -516,11 +572,11 @@ const TeamAnalyticsPage = () => {
           <StatLabel>総アクション数</StatLabel>
         </StatCard>
         <StatCard>
-          <StatValue style={{ color: colors.success[600] }}>{actualActionStats.completed}</StatValue>
+          <StatValue style={{ color: '#000000' }}>{actualActionStats.completed}</StatValue>
           <StatLabel>アクション完了数</StatLabel>
         </StatCard>
         <StatCard>
-          <StatValue style={{ color: colors.warning[600] }}>{actualActionStats.pending}</StatValue>
+          <StatValue style={{ color: '#FF6B00' }}>{actualActionStats.pending}</StatValue>
           <StatLabel>アクション未完了数</StatLabel>
         </StatCard>
         <StatCard>
@@ -533,7 +589,7 @@ const TeamAnalyticsPage = () => {
       </StatsGrid>
 
       {/* メンバー別統計テーブル */}
-      <ChartCard style={{ marginBottom: spacing[8] }}>
+      <ChartCard style={{ marginBottom: 'var(--space-6)' }}>
         <ChartTitle>メンバー別パフォーマンス</ChartTitle>
         {memberStats && memberStats.length > 0 ? (
           <TableContainer>
@@ -564,23 +620,23 @@ const TeamAnalyticsPage = () => {
 
                 return (
                   <tr key={member.userId}>
-                    <TableCell style={{ fontWeight: typography.fontWeight.medium }}>
+                    <TableCell style={{ fontWeight: 'var(--font-weight-medium)' }}>
                       {member.name}
                     </TableCell>
                     <TableCell>{member.reportCount}</TableCell>
                     <TableCell>{member.completedCount}</TableCell>
                     <TableCell>{member.completionRate}%</TableCell>
                     <TableCell>{member.customerCount}</TableCell>
-                    <TableCell style={{ color: colors.success[600], fontWeight: typography.fontWeight.medium }}>
+                    <TableCell style={{ color: 'var(--color-success)', fontWeight: 'var(--font-weight-medium)' }}>
                       {memberCompletedActions.length}
                     </TableCell>
-                    <TableCell style={{ color: colors.warning[600], fontWeight: typography.fontWeight.medium }}>
+                    <TableCell style={{ color: 'var(--color-warning)', fontWeight: 'var(--font-weight-medium)' }}>
                       {memberActions.length - memberCompletedActions.length}
                     </TableCell>
                     <TableCell style={{ 
-                      color: memberActionCompletionRate >= 80 ? colors.success[600] : 
-                             memberActionCompletionRate >= 50 ? colors.warning[600] : colors.error[600],
-                      fontWeight: typography.fontWeight.medium 
+                      color: memberActionCompletionRate >= 80 ? 'var(--color-success)' : 
+                             memberActionCompletionRate >= 50 ? 'var(--color-warning)' : 'var(--color-error)',
+                      fontWeight: 'var(--font-weight-medium)' 
                     }}>
                       {memberActionCompletionRate}%
                     </TableCell>
@@ -591,7 +647,7 @@ const TeamAnalyticsPage = () => {
             </MemberStatsTable>
           </TableContainer>
         ) : (
-          <div style={{ padding: '20px', textAlign: 'center', color: colors.neutral[500] }}>
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
             データがありません
           </div>
         )}
@@ -696,12 +752,12 @@ const TeamAnalyticsPage = () => {
                       alignItems: 'center',
                       marginBottom: '8px'
                     }}>
-                      <span style={{ fontWeight: '600', color: colors.neutral[800] }}>
+                      <span style={{ fontWeight: '600', color: 'var(--color-text-primary)' }}>
                         {item.customer}
                       </span>
                       <span style={{ 
                         fontWeight: 'bold', 
-                        color: colors.primary[600],
+                        color: 'var(--color-primary)',
                         fontSize: '18px'
                       }}>
                         {item.reportCount}件
@@ -710,14 +766,14 @@ const TeamAnalyticsPage = () => {
                     <div style={{ 
                       width: '100%', 
                       height: '12px', 
-                      backgroundColor: colors.neutral[200],
+                      backgroundColor: 'var(--color-border)',
                       borderRadius: '6px',
                       overflow: 'hidden'
                     }}>
                       <div style={{ 
                         width: `${(item.reportCount / maxCount) * 100}%`, 
                         height: '100%', 
-                        backgroundColor: colors.primary[500],
+                        backgroundColor: 'var(--color-primary)',
                         borderRadius: '6px',
                         transition: 'width 0.3s ease'
                       }} />
@@ -736,39 +792,39 @@ const TeamAnalyticsPage = () => {
 
       {/* チーム課題・リスク分析 */}
       {issuesAnalysis && issuesAnalysis.length > 0 && (
-        <ChartCard style={{ marginTop: spacing[8] }}>
+        <ChartCard style={{ marginTop: 'var(--space-6)' }}>
           <ChartTitle>チームでよく使われる課題キーワード</ChartTitle>
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-            gap: spacing[4],
-            padding: spacing[4]
+            gap: 'var(--space-4)',
+            padding: 'var(--space-4)'
           }}>
             {issuesAnalysis.map((item, index) => (
               <div key={index} style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: `${spacing[3]} ${spacing[4]}`,
-                backgroundColor: colors.neutral[50],
-                borderRadius: borderRadius.md,
-                border: `1px solid ${colors.neutral[200]}`,
+                padding: 'var(--space-3) var(--space-4)',
+                backgroundColor: 'var(--color-surface)',
+                borderRadius: 'var(--radius-none)',
+                border: '2px solid var(--color-border)',
                 transition: 'all 0.2s'
               }}>
                 <span style={{
-                  fontWeight: typography.fontWeight.medium,
-                  color: colors.neutral[800],
-                  fontSize: typography.fontSize.sm
+                  fontWeight: 'var(--font-weight-medium)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-small)'
                 }}>
                   {item.keyword}
                 </span>
                 <span style={{
-                  backgroundColor: colors.primary[500],
-                  color: 'white',
-                  padding: `${spacing[1]} ${spacing[2]}`,
-                  borderRadius: borderRadius.sm,
-                  fontSize: typography.fontSize.xs,
-                  fontWeight: typography.fontWeight.bold,
+                  backgroundColor: 'var(--color-primary)',
+                  color: 'var(--color-text-inverse)',
+                  padding: 'var(--space-1) var(--space-2)',
+                  borderRadius: 'var(--radius-none)',
+                  fontSize: 'var(--font-size-micro)',
+                  fontWeight: 'var(--font-weight-bold)',
                   minWidth: '24px',
                   textAlign: 'center'
                 }}>
@@ -782,21 +838,21 @@ const TeamAnalyticsPage = () => {
 
       {/* チームアクション一覧 */}
       {teamActionsList && teamActionsList.length > 0 && (
-        <ChartCard style={{ marginTop: spacing[8] }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[4] }}>
+        <ChartCard style={{ marginTop: 'var(--space-6)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
             <ChartTitle style={{ marginBottom: 0 }}>チーム全体のアクション一覧</ChartTitle>
-            <div style={{ display: 'flex', gap: spacing[2] }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
               <select
                 value={actionGroupBy}
                 onChange={(e) => setActionGroupBy(e.target.value)}
                 style={{
-                  padding: `${spacing[2]} ${spacing[3]}`,
-                  borderRadius: borderRadius.md,
-                  border: `1px solid ${colors.neutral[300]}`,
-                  backgroundColor: 'white',
-                  fontSize: typography.fontSize.sm,
-                  fontWeight: typography.fontWeight.medium,
-                  color: colors.neutral[700],
+                  padding: 'var(--space-2) var(--space-3)',
+                  borderRadius: 'var(--radius-none)',
+                  border: '2px solid var(--color-border)',
+                  backgroundColor: 'var(--color-background)',
+                  fontSize: 'var(--font-size-small)',
+                  fontWeight: 'var(--font-weight-medium)',
+                  color: 'var(--color-text-secondary)',
                   cursor: 'pointer'
                 }}
               >
@@ -807,7 +863,7 @@ const TeamAnalyticsPage = () => {
               </select>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[4], maxHeight: '600px', overflowY: 'auto', padding: spacing[1] }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', maxHeight: '600px', overflowY: 'auto', padding: 'var(--space-1)' }}>
             {(() => {
               // グループ化のロジック
               const groupedActions = {};
@@ -850,37 +906,37 @@ const TeamAnalyticsPage = () => {
               
               return sortedGroups.map(([groupKey, actions], groupIndex) => (
                 <div key={groupIndex} style={{
-                  background: colors.neutral[50],
-                  borderRadius: borderRadius.lg,
-                  padding: spacing[4],
-                  border: `1px solid ${colors.neutral[200]}`
+                  background: 'var(--color-surface)',
+                  borderRadius: 'var(--radius-none)',
+                  padding: 'var(--space-4)',
+                  border: '2px solid var(--color-border)'
                 }}>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    marginBottom: spacing[3],
-                    gap: spacing[2]
+                    marginBottom: 'var(--space-3)',
+                    gap: 'var(--space-2)'
                   }}>
                     <h4 style={{
-                      fontSize: typography.fontSize.md,
-                      fontWeight: typography.fontWeight.semibold,
-                      color: colors.neutral[800],
+                      fontSize: 'var(--font-size-title)',
+                      fontWeight: 'var(--font-weight-bold)',
+                      color: 'var(--color-text-primary)',
                       margin: 0
                     }}>
                       {groupKey}
                     </h4>
                     <span style={{
-                      backgroundColor: colors.primary[100],
-                      color: colors.primary[700],
-                      padding: `${spacing[1]} ${spacing[2]}`,
-                      borderRadius: borderRadius.full,
-                      fontSize: typography.fontSize.xs,
-                      fontWeight: typography.fontWeight.bold
+                      backgroundColor: 'var(--color-surface-alt)',
+                      color: 'var(--color-accent)',
+                      padding: 'var(--space-1) var(--space-2)',
+                      borderRadius: 'var(--radius-none)',
+                      fontSize: 'var(--font-size-micro)',
+                      fontWeight: 'var(--font-weight-bold)'
                     }}>
                       {actions.length}件
                     </span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[2] }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                     {actions.map((action, index) => {
                       const actionKey = `${action.reportId}_${action.text}`;
                       const isCompleted = individualActionStates[actionKey] || false;
@@ -891,11 +947,11 @@ const TeamAnalyticsPage = () => {
                           style={{ 
                             display: 'flex', 
                             alignItems: 'flex-start',
-                            padding: spacing[3], 
-                            background: 'white',
-                            border: `1px solid ${isCompleted ? colors.success[300] : colors.neutral[300]}`,
-                            borderRadius: borderRadius.md,
-                            gap: spacing[3],
+                            padding: 'var(--space-3)', 
+                            background: 'var(--color-background)',
+                            border: `2px solid ${isCompleted ? 'var(--color-success)' : 'var(--color-border)'}`,
+                            borderRadius: 'var(--radius-none)',
+                            gap: 'var(--space-3)',
                             transition: 'all 0.2s',
                             boxShadow: isCompleted ? 'none' : '0 1px 3px rgba(0,0,0,0.1)'
                           }}
@@ -904,7 +960,7 @@ const TeamAnalyticsPage = () => {
                     width: '24px',
                     height: '24px',
                     borderRadius: '50%',
-                    background: isCompleted ? colors.success[500] : colors.warning[500],
+                    background: isCompleted ? 'var(--color-success)' : 'var(--color-warning)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -923,53 +979,53 @@ const TeamAnalyticsPage = () => {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ 
-                      fontSize: typography.fontSize.sm, 
-                      fontWeight: typography.fontWeight.medium,
-                      color: isCompleted ? colors.success[800] : colors.warning[800],
+                      fontSize: 'var(--font-size-small)', 
+                      fontWeight: 'var(--font-weight-medium)',
+                      color: isCompleted ? 'var(--color-success)' : 'var(--color-warning)',
                       textDecoration: isCompleted ? 'line-through' : 'none',
-                      marginBottom: spacing[2]
+                      marginBottom: 'var(--space-2)'
                     }}>
                       {action.text}
                     </div>
                     <div style={{ 
                       display: 'flex', 
-                      gap: spacing[4], 
+                      gap: 'var(--space-4)', 
                       alignItems: 'center',
                       flexWrap: 'wrap'
                     }}>
                       <span style={{
-                        fontSize: typography.fontSize.xs,
-                        color: colors.primary[700],
-                        background: colors.primary[100],
-                        padding: `${spacing[1]} ${spacing[2]}`,
-                        borderRadius: borderRadius.sm,
-                        fontWeight: typography.fontWeight.medium
+                        fontSize: 'var(--font-size-micro)',
+                        color: 'var(--color-primary)',
+                        background: 'var(--color-accent-light)',
+                        padding: 'var(--space-1) var(--space-2)',
+                        borderRadius: 'var(--radius-none)',
+                        fontWeight: 'var(--font-weight-medium)'
                       }}>
                         {action.customer}
                       </span>
                       <span style={{
-                        fontSize: typography.fontSize.xs,
-                        color: colors.secondary[700],
-                        background: colors.secondary[100],
-                        padding: `${spacing[1]} ${spacing[2]}`,
-                        borderRadius: borderRadius.sm,
-                        fontWeight: typography.fontWeight.medium
+                        fontSize: 'var(--font-size-micro)',
+                        color: 'var(--color-text-primary)',
+                        background: 'var(--color-surface)',
+                        padding: 'var(--space-1) var(--space-2)',
+                        borderRadius: 'var(--radius-none)',
+                        fontWeight: 'var(--font-weight-medium)'
                       }}>
                         {action.userName}
                       </span>
                       <span style={{
-                        fontSize: typography.fontSize.xs,
-                        color: colors.neutral[600]
+                        fontSize: 'var(--font-size-micro)',
+                        color: 'var(--color-text-tertiary)'
                       }}>
                         {new Date(action.reportDate).toLocaleDateString('ja-JP')}
                       </span>
                       <span style={{
-                        fontSize: typography.fontSize.xs,
-                        color: isCompleted ? colors.success[700] : colors.warning[700],
-                        background: isCompleted ? colors.success[100] : colors.warning[100],
-                        padding: `${spacing[1]} ${spacing[2]}`,
-                        borderRadius: borderRadius.sm,
-                        fontWeight: typography.fontWeight.bold
+                        fontSize: 'var(--font-size-micro)',
+                        color: isCompleted ? 'var(--color-success)' : 'var(--color-warning)',
+                        background: isCompleted ? 'var(--color-surface-alt)' : 'var(--color-accent-light)',
+                        padding: 'var(--space-1) var(--space-2)',
+                        borderRadius: 'var(--radius-none)',
+                        fontWeight: 'var(--font-weight-bold)'
                       }}>
                         {isCompleted ? '✅ 完了済み' : '⏳ 未完了'}
                       </span>

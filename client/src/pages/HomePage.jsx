@@ -7,129 +7,239 @@ import styled from '@emotion/styled';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { colors, typography, spacing, borderRadius, shadows, transitions } from '../styles/designSystem';
-import { PrimaryButton, SecondaryButton, Card, Badge, LoadingContainer, Spinner } from '../styles/componentStyles';
 
 const Container = styled.div`
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 ${spacing[4]};
+  padding: 0 var(--space-6);
+  position: relative;
+  z-index: 1;
 
   @media (max-width: 768px) {
-    padding: 0;
+    padding: 0 var(--space-4);
   }
 `;
 
-const WelcomeSection = styled(Card)`
-  padding: ${spacing[8]};
-  margin-bottom: ${spacing[8]};
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+const WelcomeSection = styled.div`
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-structure);
+  position: relative;
+  
+  /* Removed excessive corner details */
   
   @media (max-width: 768px) {
-    padding: ${spacing[6]};
-    border-radius: ${borderRadius.lg};
-    margin-bottom: ${spacing[4]};
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.3);
+    padding: var(--space-6);
+    margin-bottom: var(--space-6);
+    
+    &::before,
+    &::after {
+      width: 12px;
+      height: 12px;
+    }
   }
 `;
 
 const WelcomeTitle = styled.h1`
-  font-size: ${typography.fontSize['3xl']};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[900]};
-  margin-bottom: ${spacing[4]};
-  letter-spacing: ${typography.letterSpacing.tight};
-  line-height: ${typography.lineHeight.tight};
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-thin);
+  color: var(--color-primary);
+  margin-bottom: var(--space-5);
+  letter-spacing: -0.025em;
+  line-height: var(--line-height-compressed);
+  position: relative;
+  
+  /* Removed excessive underline accent */
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize['2xl']};
+    font-size: var(--font-size-heading);
+    
+    &::after {
+      width: 40px;
+    }
   }
 `;
 
 const ActionButtons = styled.div`
-  display: flex;
-  gap: ${spacing[4]};
-  margin-top: ${spacing[6]};
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  position: relative;
+  
+  /* Central divider line */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1px;
+    height: 60%;
+    background: var(--color-border);
+    transform: translate(-50%, -50%);
+  }
 
   @media (max-width: 768px) {
-    flex-direction: column;
-    gap: ${spacing[3]};
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+    
+    &::before {
+      display: none;
+    }
   }
 `;
 
-const StyledPrimaryButton = styled(PrimaryButton)`
-  padding: ${spacing[3]} ${spacing[6]};
-  font-size: ${typography.fontSize.base};
+const StyledPrimaryButton = styled.button`
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border: 2px solid var(--color-primary);
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-none);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  box-shadow: var(--shadow-elevation);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
+  min-height: 56px;
+  
+  &:hover:not(:disabled) {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-structure);
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    background-color: var(--color-text-tertiary);
+    border-color: var(--color-text-tertiary);
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  /* Removed excessive corner accent */
   
   @media (max-width: 768px) {
-    width: 100%;
-    padding: ${spacing[3]} ${spacing[4]};
-    font-size: ${typography.fontSize.sm};
+    padding: var(--space-4) var(--space-5);
+    font-size: var(--font-size-micro);
+    min-height: 48px;
   }
 `;
 
-const StyledSecondaryButton = styled(SecondaryButton)`
-  padding: ${spacing[3]} ${spacing[6]};
-  font-size: ${typography.fontSize.base};
+const StyledSecondaryButton = styled.button`
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-border);
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-none);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
+  min-height: 56px;
+  
+  &:hover {
+    background-color: var(--color-surface);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    box-shadow: var(--shadow-elevation);
+    transform: translateY(-1px);
+  }
+  
+  /* Removed excessive corner accent */
   
   @media (max-width: 768px) {
-    width: 100%;
-    padding: ${spacing[3]} ${spacing[4]};
-    font-size: ${typography.fontSize.sm};
+    padding: var(--space-4) var(--space-5);
+    font-size: var(--font-size-micro);
+    min-height: 48px;
   }
 `;
 
-const ReportsSection = styled(Card)`
-  padding: ${spacing[8]};
-  margin-top: ${spacing[8]};
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+const ReportsSection = styled.div`
+  padding: var(--space-6);
+  margin-top: var(--space-5);
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-structure);
+  position: relative;
+
+  /* Removed excessive corner details */
 
   @media (max-width: 768px) {
-    padding: ${spacing[6]};
-    border-radius: ${borderRadius.lg};
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.3);
+    padding: var(--space-6);
+    
+    &::before,
+    &::after {
+      width: 10px;
+      height: 10px;
+    }
   }
 `;
 
 const SectionTitle = styled.h2`
-  font-size: ${typography.fontSize['2xl']};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[900]};
-  margin-bottom: ${spacing[6]};
-  letter-spacing: ${typography.letterSpacing.tight};
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: var(--space-6);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  position: relative;
+  
+  /* Removed excessive underline accent */
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.xl};
-    margin-bottom: ${spacing[4]};
+    font-size: var(--font-size-title);
+    margin-bottom: var(--space-5);
+    
+    &::after {
+      width: 30px;
+    }
   }
 `;
 
 const ReportList = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${spacing[4]};
+  gap: var(--space-5);
 `;
 
-const ReportCard = styled(Card)`
+const ReportCard = styled.div`
+  padding: var(--space-5);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-none);
   cursor: pointer;
-  transition: all ${transitions.fast};
+  transition: all 0.2s ease-in-out;
+  box-shadow: var(--shadow-paper);
+  position: relative;
 
   &:hover {
-    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevation);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
   }
+  
+  /* Removed excessive corner accent */
 
   @media (max-width: 768px) {
-    padding: ${spacing[4]};
+    padding: var(--space-4);
   }
 `;
 
@@ -137,113 +247,146 @@ const ReportHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: ${spacing[2]};
+  margin-bottom: var(--space-3);
   flex-wrap: wrap;
-  gap: ${spacing[2]};
+  gap: var(--space-3);
 
   @media (max-width: 768px) {
-    margin-bottom: ${spacing[3]};
+    margin-bottom: var(--space-4);
   }
 `;
 
 const ReportDate = styled.div`
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[900]};
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.sm};
+    font-size: var(--font-size-small);
   }
 `;
 
-const ReportStatus = styled(Badge)`
-  padding: ${spacing[1]} ${spacing[3]};
-  font-size: ${typography.fontSize.xs};
+const ReportStatus = styled.span`
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-none);
+  border: 1px solid;
   background-color: ${props => props.status === 'completed' ? 
-    'rgba(34, 197, 94, 0.1)' : 
-    'rgba(245, 158, 11, 0.1)'};
-  color: ${props => props.status === 'completed' ? colors.success.dark : colors.warning.dark};
-  border-color: ${props => props.status === 'completed' ? colors.success.light : colors.warning.light};
+    'rgba(45, 125, 50, 0.1)' : 
+    'rgba(245, 124, 0, 0.1)'};
+  color: ${props => props.status === 'completed' ? 'var(--color-success)' : 'var(--color-warning)'};
+  border-color: ${props => props.status === 'completed' ? 'var(--color-success)' : 'var(--color-warning)'};
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 `;
 
 const ReportInfo = styled.div`
-  color: ${colors.neutral[600]};
-  line-height: ${typography.lineHeight.normal};
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-standard);
+  font-size: var(--font-size-small);
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.sm};
+    font-size: var(--font-size-small);
   }
 `;
 
 const EmptyState = styled.div`
   text-align: center;
-  padding: ${spacing[12]};
-  color: ${colors.neutral[500]};
+  padding: var(--space-8);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
 `;
 
 const CoachAdvice = styled.div`
-  background-color: ${colors.neutral[50]};
-  border: 1px solid ${colors.neutral[200]};
-  padding: ${spacing[4]};
-  border-radius: ${borderRadius.lg};
-  margin-bottom: ${spacing[6]};
-  display: flex;
-  align-items: center;
-  gap: ${spacing[3]};
-  color: ${colors.neutral[700]};
-  font-size: ${typography.fontSize.sm};
-  font-weight: ${typography.fontWeight.medium};
-  box-shadow: ${shadows.xs};
+  background-color: var(--color-accent-light);
+  border: 2px solid var(--color-accent);
+  border-left: 6px solid var(--color-accent);
+  padding: var(--space-5);
+  border-radius: var(--radius-none);
+  margin-bottom: var(--space-6);
+  color: var(--color-primary);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  box-shadow: var(--shadow-elevation);
+  position: relative;
+  line-height: var(--line-height-comfortable);
+  
+  /* Removed quote mark and corner detail for cleaner look */
 
   @media (max-width: 768px) {
-    padding: ${spacing[3]};
-    font-size: ${typography.fontSize.sm};
+    padding: var(--space-4);
+    font-size: var(--font-size-small);
+    border-left-width: 4px;
+    
+    &::before {
+      font-size: var(--font-size-title);
+    }
+    
+    &::after {
+      width: 8px;
+      height: 8px;
+    }
   }
 `;
 
 const ManagerTabs = styled.div`
   display: flex;
-  gap: ${spacing[2]};
-  margin-bottom: ${spacing[6]};
-  border-bottom: 1px solid ${colors.neutral[200]};
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  border-bottom: 2px solid var(--color-border);
+  position: relative;
+  
+  /* Removed excessive accent line */
 `;
 
 const TabButton = styled.button`
-  padding: ${spacing[3]} ${spacing[4]};
+  padding: var(--space-4) var(--space-5);
   border: none;
   background: none;
-  font-size: ${typography.fontSize.sm};
-  font-weight: ${typography.fontWeight.medium};
-  color: ${props => props.active ? colors.primary[600] : colors.neutral[600]};
-  border-bottom: 2px solid ${props => props.active ? colors.primary[600] : 'transparent'};
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  color: ${props => props.active ? 'var(--color-primary)' : 'var(--color-text-secondary)'};
+  border-bottom: 3px solid ${props => props.active ? 'var(--color-accent)' : 'transparent'};
   cursor: pointer;
-  transition: all ${transitions.fast};
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 
   &:hover {
-    color: ${colors.primary[600]};
+    color: var(--color-accent);
   }
 `;
 
 const TeamSelector = styled.div`
   display: flex;
-  gap: ${spacing[3]};
-  margin-bottom: ${spacing[4]};
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
   flex-wrap: wrap;
 `;
 
 const MemberButton = styled.button`
-  padding: ${spacing[2]} ${spacing[3]};
-  border: 1px solid ${props => props.selected ? colors.primary[500] : colors.neutral[300]};
-  background: ${props => props.selected ? colors.primary[50] : 'white'};
-  color: ${props => props.selected ? colors.primary[700] : colors.neutral[700]};
-  border-radius: ${borderRadius.md};
-  font-size: ${typography.fontSize.sm};
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid ${props => props.selected ? 'var(--color-accent)' : 'var(--color-border)'};
+  background-color: ${props => props.selected ? 'var(--color-accent-light)' : 'var(--color-background)'};
+  color: ${props => props.selected ? 'var(--color-primary)' : 'var(--color-text-primary)'};
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all ${transitions.fast};
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
 
   &:hover {
-    border-color: ${colors.primary[500]};
-    background: ${colors.primary[50]};
+    border-color: var(--color-accent);
+    background-color: var(--color-accent-light);
+    color: var(--color-primary);
+    transform: translateY(-1px);
   }
+  
+  /* Removed excessive corner accent */
 `;
 
 const HomePage = () => {
@@ -335,24 +478,51 @@ const HomePage = () => {
     const checkActionReminders = () => {
       try {
         const savedStates = localStorage.getItem('actionCompletionStates');
-        if (savedStates) {
+        const currentActions = localStorage.getItem('currentActionsList');
+        
+        if (currentActions) {
+          // 現在のアクションリストがある場合は、それを基準にカウント
+          try {
+            const actionsList = JSON.parse(currentActions);
+            const actionStates = savedStates ? JSON.parse(savedStates) : {};
+            
+            let pendingCount = 0;
+            let completedCount = 0;
+            
+            actionsList.forEach(action => {
+              const actionKey = `${action.reportId}_${action.text}`;
+              const isCompleted = actionStates[actionKey] !== undefined ? actionStates[actionKey] : action.completed;
+              
+              if (isCompleted) {
+                completedCount++;
+              } else {
+                pendingCount++;
+              }
+            });
+            
+            const totalActions = actionsList.length;
+            
+            if (pendingCount > 0) {
+              if (pendingCount === 1) {
+                advices.push('未完了のアクションが1件あります。マイ分析ページで確認してください');
+              } else if (pendingCount <= 3) {
+                advices.push(`未完了のアクションが${pendingCount}件あります。忘れずに対応しましょう`);
+              } else {
+                advices.push(`未完了のアクションが${pendingCount}件溜まっています。優先順位をつけて進めましょう`);
+              }
+            } else if (totalActions > 0) {
+              advices.push(`全${totalActions}件のアクションが完了しています！素晴らしい進捗です`);
+            }
+          } catch (err) {
+            console.error('Error parsing actions list:', err);
+          }
+        } else if (savedStates) {
+          // フォールバック：古い方法（精度は低い）
           const actionStates = JSON.parse(savedStates);
           const pendingActions = Object.entries(actionStates).filter(([key, completed]) => !completed);
           
           if (pendingActions.length > 0) {
-            if (pendingActions.length === 1) {
-              advices.push('未完了のアクションが1件あります。マイ分析ページで確認してください');
-            } else if (pendingActions.length <= 3) {
-              advices.push(`未完了のアクションが${pendingActions.length}件あります。忘れずに対応しましょう`);
-            } else {
-              advices.push(`未完了のアクションが${pendingActions.length}件溜まっています。優先順位をつけて進めましょう`);
-            }
-          } else {
-            // アクションが全て完了している場合の励ましメッセージ
-            const totalActions = Object.keys(actionStates).length;
-            if (totalActions > 0) {
-              advices.push(`全${totalActions}件のアクションが完了しています！素晴らしい進捗です`);
-            }
+            advices.push(`未完了のアクションがあります。マイ分析ページで確認してください`);
           }
         }
       } catch (error) {
@@ -513,7 +683,7 @@ const HomePage = () => {
         )}
 
         {(activeTab === 'team' || activeTab === 'individual') && (
-          <div style={{ padding: '20px', textAlign: 'center', color: colors.neutral[600] }}>
+          <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-small)' }}>
             {activeTab === 'team' ? 'チーム全体の日報を表示しています' : 
              selectedMembers.length === 0 ? 'メンバーを選択してください' : 
              `選択した${selectedMembers.length}名の日報を表示しています`}
@@ -525,9 +695,16 @@ const HomePage = () => {
         <SectionTitle>最近の日報</SectionTitle>
         
         {isLoading ? (
-          <LoadingContainer>
-            <Spinner />
-          </LoadingContainer>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-8)' }}>
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              border: '3px solid var(--color-border)', 
+              borderTop: '3px solid var(--color-accent)', 
+              borderRadius: '50%', 
+              animation: 'spin 1s infinite linear' 
+            }}></div>
+          </div>
         ) : reports && reports.length > 0 ? (
           <ReportList>
             {reports.map((report) => (

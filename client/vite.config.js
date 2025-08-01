@@ -8,6 +8,23 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/salesdaily-web\.azurewebsites\.net\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'all-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 // 1 hour
+              }
+            }
+          }
+        ]
+      },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: '建築営業日報',

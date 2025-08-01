@@ -154,6 +154,7 @@ export const transitions = {
 };
 
 export const breakpoints = {
+  xs: '400px',
   sm: '640px',
   md: '768px',
   lg: '1024px',
@@ -163,11 +164,16 @@ export const breakpoints = {
 
 // Helper function to create media queries
 export const media = {
+  xs: `@media (min-width: ${breakpoints.xs})`,
   sm: `@media (min-width: ${breakpoints.sm})`,
   md: `@media (min-width: ${breakpoints.md})`,
   lg: `@media (min-width: ${breakpoints.lg})`,
   xl: `@media (min-width: ${breakpoints.xl})`,
-  '2xl': `@media (min-width: ${breakpoints['2xl']})`
+  '2xl': `@media (min-width: ${breakpoints['2xl']})`,
+  // Max-width queries for mobile-first approach
+  maxXs: `@media (max-width: ${breakpoints.xs})`,
+  maxSm: `@media (max-width: ${breakpoints.sm})`,
+  maxMd: `@media (max-width: ${breakpoints.md})`
 };
 
 // Common component styles

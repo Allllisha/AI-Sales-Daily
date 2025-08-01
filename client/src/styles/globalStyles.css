@@ -1,0 +1,130 @@
+/* グローバルスタイル - 建築デザイン事務所向け */
+
+/* スピンアニメーション */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ボタン共通スタイル */
+.btn-primary {
+  background-color: var(--color-accent);
+  color: var(--color-text-inverse);
+  border: none;
+  padding: var(--space-md) var(--space-2xl);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  box-shadow: var(--shadow-subtle);
+  min-height: 48px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  background-color: var(--color-text-tertiary);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  padding: var(--space-md) var(--space-2xl);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 48px;
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-surface-alt);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+/* カード共通スタイル */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-subtle);
+  transition: all 0.2s ease-in-out;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card);
+}
+
+/* フォーカススタイル */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focused);
+}
+
+/* スクロールバースタイル */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s ease-in-out;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
+/* 選択テキストスタイル */
+::selection {
+  background-color: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+/* レスポンシブ画像 */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* アクセシビリティ - モーション削減 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ダークモード対応（将来用） */
+@media (prefers-color-scheme: dark) {
+  /* ダークモード時のCSS変数オーバーライド（将来実装） */
+}

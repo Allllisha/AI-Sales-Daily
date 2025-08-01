@@ -914,8 +914,26 @@ async function getTeamActionsList(userIds, startDate, endDate) {
       if (row.next_action && typeof row.next_action === 'string') {
         const actionStr = row.next_action.trim();
         
-        // カンマ区切りで分割してアクションを個別に追加
-        const nextActions = actionStr.split(',').map(item => item.trim()).filter(item => item.length > 0);
+        // アクションを分割（括弧付きのフォーマットにも対応）
+        let nextActions = [];
+        
+        // 括弧内にカンマ区切りのアクションがある場合の処理
+        const parenthesesMatch = actionStr.match(/([^（(]+)[（(](.+)[）)]/u);
+        if (parenthesesMatch) {
+          // メインアクション + 括弧内のサブアクション
+          const mainAction = parenthesesMatch[1].trim();
+          const subActions = parenthesesMatch[2].split(/[、,]/).map(item => item.trim()).filter(item => item.length > 0);
+          
+          if (mainAction) {
+            // メインアクションとサブアクションを結合して個別のアクションとして扱う
+            subActions.forEach(subAction => {
+              nextActions.push(`${mainAction}：${subAction}`);
+            });
+          }
+        } else {
+          // 通常のカンマ区切り形式
+          nextActions = actionStr.split(/[、,]/).map(item => item.trim()).filter(item => item.length > 0);
+        }
         
         nextActions.forEach(actionText => {
           actions.push({
@@ -964,8 +982,26 @@ async function getActionsList(userId, startDate, endDate) {
         if (row.next_action && typeof row.next_action === 'string') {
           const actionStr = row.next_action.trim();
           
-          // カンマ区切りで分割してアクションを個別に追加
-          const nextActions = actionStr.split(',').map(item => item.trim()).filter(item => item.length > 0);
+          // アクションを分割（括弧付きのフォーマットにも対応）
+          let nextActions = [];
+          
+          // 括弧内にカンマ区切りのアクションがある場合の処理
+          const parenthesesMatch = actionStr.match(/([^（(]+)[（(](.+)[）)]/u);
+          if (parenthesesMatch) {
+            // メインアクション + 括弧内のサブアクション
+            const mainAction = parenthesesMatch[1].trim();
+            const subActions = parenthesesMatch[2].split(/[、,]/).map(item => item.trim()).filter(item => item.length > 0);
+            
+            if (mainAction) {
+              // メインアクションとサブアクションを結合して個別のアクションとして扱う
+              subActions.forEach(subAction => {
+                nextActions.push(`${mainAction}：${subAction}`);
+              });
+            }
+          } else {
+            // 通常のカンマ区切り形式
+            nextActions = actionStr.split(/[、,]/).map(item => item.trim()).filter(item => item.length > 0);
+          }
           
           nextActions.forEach(action => {
             if (action) {

@@ -1,3 +1,75 @@
+/* 建築デザイン事務所 - ウルトラミニマル パレット */
+:root {
+  /* Core Architecture Colors - Pure Minimalism */
+  --color-primary: #000000;          /* Pure Black - Strong statements */
+  --color-secondary: #1A1A1A;        /* Dark Charcoal - Primary text */
+  --color-tertiary: #333333;         /* Medium Gray - Subtle elements */
+  
+  /* Neutral Foundation - Paper White to Concrete */
+  --color-background: #FFFFFF;       /* Pure Paper White */
+  --color-surface: #FAFAFA;         /* Subtle Off-White - Cards */
+  --color-surface-alt: #F5F5F5;     /* Light Concrete - Divisions */
+  --color-border: #E8E8E8;          /* Hairline Gray - Precise lines */
+  --color-border-light: #F2F2F2;    /* Barely visible separations */
+  
+  /* Accent - Single Bold Color */
+  --color-accent: #FF6B00;          /* Architectural Orange - Bold accent */
+  --color-accent-light: #FFF4F0;   /* Warm Paper - Accent backgrounds */
+  --color-success: #00C851;        /* Pure Green - Success */
+  --color-warning: #FF8A00;        /* Warm Orange - Warnings */
+  --color-error: #FF4444;          /* Pure Red - Errors */
+  
+  /* Text Hierarchy - High Contrast */
+  --color-text-primary: #000000;   /* Pure Black - Maximum impact */
+  --color-text-secondary: #4A4A4A; /* Medium Gray - Supporting text */
+  --color-text-tertiary: #888888;  /* Light Gray - Subtle information */
+  --color-text-inverse: #FFFFFF;   /* Pure White - Dark backgrounds */
+  
+  /* Shadows - Architectural Precision */
+  --shadow-paper: 0 1px 2px rgba(0, 0, 0, 0.02);        /* Paper on desk */
+  --shadow-elevation: 0 4px 8px rgba(0, 0, 0, 0.04);    /* Floating elements */
+  --shadow-structure: 0 8px 24px rgba(0, 0, 0, 0.06);   /* Major components */
+  --shadow-focused: 0 0 0 2px rgba(255, 107, 0, 0.2);   /* Focus state */
+  
+  /* Border Radius - Architectural Precision */
+  --radius-none: 0px;        /* Pure geometric */
+  --radius-subtle: 2px;      /* Minimal softening */
+  --radius-standard: 4px;    /* Standard corners */
+  --radius-prominent: 8px;   /* Visible rounding */
+  
+  /* Spacing Scale - Golden Ratio Based (1.618) */
+  --space-1: 4px;      /* 4px */
+  --space-2: 6px;      /* 6px */
+  --space-3: 10px;     /* 10px */
+  --space-4: 16px;     /* 16px - Base unit */
+  --space-5: 26px;     /* 26px */
+  --space-6: 42px;     /* 42px */
+  --space-7: 68px;     /* 68px */
+  --space-8: 110px;    /* 110px */
+  
+  /* Typography Scale - Architectural Hierarchy */
+  --font-size-micro: 0.6875rem;  /* 11px - Fine print */
+  --font-size-small: 0.8125rem;  /* 13px - Supporting text */
+  --font-size-body: 0.9375rem;   /* 15px - Body text */
+  --font-size-lead: 1.0625rem;   /* 17px - Lead paragraphs */
+  --font-size-title: 1.25rem;    /* 20px - Section titles */
+  --font-size-heading: 1.625rem; /* 26px - Page headings */
+  --font-size-display: 2.375rem; /* 38px - Display text */
+  --font-size-hero: 3.75rem;     /* 60px - Hero text */
+  
+  /* Line Heights - Architectural Precision */
+  --line-height-compressed: 1.1;  /* Tight spacing */
+  --line-height-standard: 1.4;    /* Reading optimized */
+  --line-height-comfortable: 1.6; /* Relaxed reading */
+  --line-height-spacious: 1.8;    /* Editorial spacing */
+  
+  /* Font Weights - Minimal Hierarchy */
+  --font-weight-thin: 200;        /* Ultra light - Display */
+  --font-weight-regular: 400;     /* Regular - Body */
+  --font-weight-medium: 500;      /* Medium - Emphasis */
+  --font-weight-bold: 700;        /* Bold - Headings */
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,32 +77,46 @@
 }
 
 html {
-  /* Prevent text size adjustment on orientation change in iOS */
   -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  /* Architectural Typography Stack */
+  font-family: 'Inter', 'Helvetica Neue', 'Arial', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #FAFAFA;
-  color: #171717;
-  line-height: 1.5;
-  font-size: 16px;
-  font-weight: 400;
-  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  
+  /* Pure Minimalist Foundation */
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-standard);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: -0.015em;
+  
+  /* Architectural Grid Foundation */
   min-width: 320px;
   overflow-x: hidden;
-  /* Prevent bounce scrolling on iOS */
   -webkit-overflow-scrolling: touch;
+  
+  /* Subtle grid background for architectural feel */
+  background-image: 
+    linear-gradient(rgba(0,0,0,0.01) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.01) 1px, transparent 1px);
+  background-size: var(--space-4) var(--space-4);
 }
 
 code {
-  font-family: 'SF Mono', Monaco, Inconsolata, 'Fira Code', Consolas, monospace;
-  font-size: 0.875em;
-  background-color: #F5F5F5;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
+  font-family: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: var(--font-size-sm);
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
 }
 
 /* Prevent iOS zoom on input focus */
@@ -51,21 +137,162 @@ code {
   }
 }
 
-/* Responsive font sizes */
+/* Professional Input Styling */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="number"],
+input[type="search"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="url"],
+textarea,
+select {
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  padding: var(--space-md);
+  transition: all 0.2s ease-in-out;
+  width: 100%;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-focused);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-normal);
+}
+
+/* Professional Button Base */
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  text-decoration: none;
+  min-height: 48px;
+}
+
+/* Architectural Typography System */
+.text-hero {
+  font-size: var(--font-size-hero);
+  font-weight: var(--font-weight-thin);
+  line-height: var(--line-height-compressed);
+  letter-spacing: -0.03em;
+  color: var(--color-primary);
+}
+
+.text-display {
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-thin);
+  line-height: var(--line-height-compressed);
+  letter-spacing: -0.025em;
+  color: var(--color-primary);
+}
+
+.text-heading {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-compressed);
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+  text-transform: uppercase;
+}
+
+.text-title {
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-standard);
+  letter-spacing: -0.01em;
+  color: var(--color-secondary);
+}
+
+.text-lead {
+  font-size: var(--font-size-lead);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-comfortable);
+  letter-spacing: -0.01em;
+  color: var(--color-secondary);
+}
+
+.text-body {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-standard);
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.text-small {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-standard);
+  color: var(--color-text-secondary);
+}
+
+.text-micro {
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-standard);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Responsive Typography Scale */
 @media (max-width: 640px) {
-  html {
-    font-size: 14px;
+  :root {
+    --font-size-micro: 0.625rem;   /* 10px */
+    --font-size-small: 0.75rem;    /* 12px */
+    --font-size-body: 0.875rem;    /* 14px */
+    --font-size-lead: 0.9375rem;   /* 15px */
+    --font-size-title: 1.125rem;   /* 18px */
+    --font-size-heading: 1.375rem; /* 22px */
+    --font-size-display: 1.875rem; /* 30px */
+    --font-size-hero: 2.5rem;      /* 40px */
   }
 }
 
 @media (min-width: 641px) and (max-width: 768px) {
-  html {
-    font-size: 15px;
+  :root {
+    --font-size-micro: 0.65625rem; /* 10.5px */
+    --font-size-small: 0.78125rem; /* 12.5px */
+    --font-size-body: 0.90625rem;  /* 14.5px */
+    --font-size-lead: 1rem;        /* 16px */
+    --font-size-title: 1.1875rem;  /* 19px */
+    --font-size-heading: 1.5rem;   /* 24px */
+    --font-size-display: 2.125rem; /* 34px */
+    --font-size-hero: 3.125rem;    /* 50px */
   }
 }
 
-@media (min-width: 769px) {
-  html {
-    font-size: 16px;
+@media (min-width: 1200px) {
+  :root {
+    --font-size-display: 2.75rem;  /* 44px */
+    --font-size-hero: 4.25rem;     /* 68px */
   }
 }

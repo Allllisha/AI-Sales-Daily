@@ -5,40 +5,37 @@ import { reportAPI } from '../services/api';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
-import { colors, typography, spacing, borderRadius, shadows, transitions } from '../styles/designSystem';
-import { Card as BaseCard, PrimaryButton, SecondaryButton, FormGroup as BaseFormGroup, Label as BaseLabel, Input as BaseInput, TextArea as BaseTextArea, LoadingContainer as BaseLoadingContainer, Spinner } from '../styles/componentStyles';
+// Using architectural design system variables from CSS
 
 const Container = styled.div`
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 ${spacing[8]};
+  padding: 0 var(--space-6);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-
-  @media (max-width: 1024px) {
-    max-width: 900px;
-    padding: 0 ${spacing[6]};
-  }
+  position: relative;
+  z-index: 1;
 
   @media (max-width: 768px) {
-    padding: 0 ${spacing[4]};
+    padding: 0 var(--space-4);
   }
 `;
 
-const Card = styled(BaseCard)`
+const Card = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-
-  @media (max-width: 1024px) {
-    padding: ${spacing[10]};
-  }
+  background-color: var(--color-surface);
+  padding: var(--space-6);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-structure);
+  transition: all 0.2s ease-in-out;
 
   @media (max-width: 768px) {
-    padding: ${spacing[6]};
-    border-radius: ${borderRadius.lg};
+    padding: var(--space-5);
   }
 `;
 
@@ -46,47 +43,51 @@ const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: ${spacing[10]};
-  padding-bottom: ${spacing[8]};
-  border-bottom: 1px solid ${colors.neutral[200]};
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 2px solid var(--color-border);
   flex-shrink: 0;
   position: relative;
 
   @media (max-width: 768px) {
     flex-direction: column;
     align-items: flex-start;
-    gap: ${spacing[4]};
-    margin-bottom: ${spacing[6]};
-    padding-bottom: ${spacing[4]};
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
   }
 `;
 
 const Title = styled.h1`
-  font-size: ${typography.fontSize['3xl']};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[900]};
-  letter-spacing: ${typography.letterSpacing.tight};
-  line-height: ${typography.lineHeight.tight};
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-thin);
+  color: var(--color-primary);
+  letter-spacing: -0.025em;
+  line-height: var(--line-height-compressed);
+  text-transform: uppercase;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize['2xl']};
+    font-size: var(--font-size-heading);
   }
 `;
 
 const ButtonGroup = styled.div`
   display: flex;
-  gap: ${spacing[2]};
+  gap: var(--space-2);
 `;
 
 const Button = styled.button`
-  padding: ${spacing[3]} ${spacing[5]};
+  padding: var(--space-3) var(--space-5);
   border: none;
-  border-radius: ${borderRadius.md};
-  font-weight: ${typography.fontWeight.medium};
+  border-radius: var(--radius-none);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all ${transitions.fast};
-  font-size: ${typography.fontSize.sm};
-  font-family: ${typography.fontFamily.sans};
+  transition: all 0.2s ease-in-out;
+  font-size: var(--font-size-small);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 
   &:disabled {
     opacity: 0.6;
@@ -94,28 +95,72 @@ const Button = styled.button`
   }
 
   @media (max-width: 768px) {
-    padding: ${spacing[2]} ${spacing[4]};
-    font-size: ${typography.fontSize.sm};
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-small);
   }
 `;
 
-const SaveButton = styled(PrimaryButton)`
-  background-color: ${colors.success.main};
-  border-color: ${colors.success.main};
-
+const SaveButton = styled.button`
+  background-color: var(--color-success);
+  color: var(--color-text-inverse);
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-success);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  
   &:hover:not(:disabled) {
-    background-color: ${colors.success.dark};
-    border-color: ${colors.success.dark};
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    background-color: var(--color-text-tertiary);
+    border-color: var(--color-text-tertiary);
+    cursor: not-allowed;
+  }
+  
+  @media (max-width: 768px) {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-small);
   }
 `;
 
-const CancelButton = styled(SecondaryButton)``;
+const CancelButton = styled.button`
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  
+  &:hover {
+    background-color: var(--color-surface);
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+  }
+  
+  @media (max-width: 768px) {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-small);
+  }
+`;
 
 const FormContainer = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding-right: ${spacing[2]};
-  margin-right: -${spacing[2]};
+  padding-right: var(--space-2);
+  margin-right: -var(--space-2);
 
   /* Custom scrollbar for better appearance */
   &::-webkit-scrollbar {
@@ -123,17 +168,17 @@ const FormContainer = styled.div`
   }
 
   &::-webkit-scrollbar-track {
-    background: ${colors.neutral[100]};
+    background: var(--color-surface);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: ${colors.neutral[400]};
+    background: var(--color-text-secondary);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background: ${colors.neutral[500]};
+    background: var(--color-text-tertiary);
   }
 
   @media (max-width: 768px) {
@@ -150,12 +195,12 @@ const FormContainer = styled.div`
 const Form = styled.form`
   display: grid;
   grid-template-columns: 1fr;
-  gap: ${spacing[6]};
-  padding-bottom: ${spacing[8]};
+  gap: var(--space-6);
+  padding-bottom: var(--space-8);
 
   @media (min-width: 1024px) {
     grid-template-columns: repeat(2, 1fr);
-    gap: ${spacing[8]};
+    gap: var(--space-8);
   }
 
   /* 長いテキストエリアは全幅を使用 */
@@ -164,27 +209,88 @@ const Form = styled.form`
   }
 `;
 
-const FormGroup = styled(BaseFormGroup)``;
-
-const Label = styled(BaseLabel)`
-  color: ${colors.neutral[800]};
-  letter-spacing: ${typography.letterSpacing.tight};
+const FormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 `;
 
-const Input = styled(BaseInput)`
-  padding: ${spacing[3]} ${spacing[4]};
-  font-size: ${typography.fontSize.sm};
+const Label = styled.label`
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 `;
 
-const TextArea = styled(BaseTextArea)`
-  padding: ${spacing[3]} ${spacing[4]};
-  font-size: ${typography.fontSize.sm};
+const Input = styled.input`
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  background-color: var(--color-background);
+  transition: all 0.2s ease-in-out;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  
+  &::placeholder {
+    color: var(--color-text-tertiary);
+  }
+  
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background-color: var(--color-background);
+    box-shadow: var(--shadow-focused);
+  }
+  
+  &:disabled {
+    background-color: var(--color-surface-alt);
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+`;
+
+const TextArea = styled.textarea`
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
   min-height: 120px;
-  line-height: ${typography.lineHeight.normal};
+  line-height: var(--line-height-standard);
+  background-color: var(--color-background);
+  transition: all 0.2s ease-in-out;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  resize: vertical;
+  
+  &::placeholder {
+    color: var(--color-text-tertiary);
+  }
+  
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background-color: var(--color-background);
+    box-shadow: var(--shadow-focused);
+  }
+  
+  &:disabled {
+    background-color: var(--color-surface-alt);
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
 `;
 
-const LoadingContainer = styled(BaseLoadingContainer)`
+const LoadingContainer = styled.div`
   min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const ReportEditPage = () => {
@@ -244,7 +350,21 @@ const ReportEditPage = () => {
       <Container>
         <Card>
           <LoadingContainer>
-            <Spinner />
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              border: '3px solid var(--color-border)', 
+              borderTopColor: 'var(--color-primary)', 
+              borderRadius: '50%', 
+              animation: 'spin 1s linear infinite' 
+            }}>
+              <style>{`
+                @keyframes spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
           </LoadingContainer>
         </Card>
       </Container>

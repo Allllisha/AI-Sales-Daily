@@ -7,47 +7,49 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
-import { colors, typography, spacing, borderRadius, shadows, transitions } from '../styles/designSystem';
-import { Card as BaseCard, PrimaryButton, SecondaryButton, SuccessBadge, WarningBadge, LoadingContainer as BaseLoadingContainer, Spinner } from '../styles/componentStyles';
+// Using architectural design system variables from CSS
 
 const Container = styled.div`
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 ${spacing[8]};
-
-  @media (max-width: 1024px) {
-    max-width: 900px;
-    padding: 0 ${spacing[6]};
-  }
+  padding: 0 var(--space-6);
+  position: relative;
+  z-index: 1;
 
   @media (max-width: 768px) {
-    padding: 0 ${spacing[4]};
+    padding: 0 var(--space-4);
   }
 `;
 
-const Card = styled(BaseCard)`
-  margin-bottom: ${spacing[8]};
-
-  @media (max-width: 1024px) {
-    padding: ${spacing[10]};
+const Card = styled.div`
+  background-color: var(--color-surface);
+  padding: var(--space-6);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-structure);
+  margin-bottom: var(--space-6);
+  position: relative;
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    box-shadow: var(--shadow-elevation);
   }
 
   @media (max-width: 768px) {
-    padding: ${spacing[6]};
-    border-radius: ${borderRadius.lg};
-    margin-bottom: ${spacing[4]};
+    padding: var(--space-5);
+    margin-bottom: var(--space-4);
   }
 `;
 
 const Header = styled.div`
-  margin-bottom: ${spacing[10]};
-  padding-bottom: ${spacing[8]};
-  border-bottom: 1px solid ${colors.neutral[200]};
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 2px solid var(--color-border);
   position: relative;
 
   @media (max-width: 768px) {
-    margin-bottom: ${spacing[6]};
-    padding-bottom: ${spacing[4]};
+    margin-bottom: var(--space-5);
+    padding-bottom: var(--space-4);
   }
 `;
 
@@ -55,31 +57,31 @@ const HeaderTop = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: ${spacing[4]};
-  gap: ${spacing[4]};
+  margin-bottom: var(--space-4);
+  gap: var(--space-4);
 
   @media (max-width: 768px) {
     flex-direction: column;
-    gap: ${spacing[3]};
+    gap: var(--space-3);
   }
 `;
 
 const TitleSection = styled.div`
   display: flex;
   align-items: center;
-  gap: ${spacing[4]};
+  gap: var(--space-4);
   flex: 1;
 
   @media (max-width: 768px) {
     flex-direction: column;
     align-items: flex-start;
-    gap: ${spacing[2]};
+    gap: var(--space-2);
   }
 `;
 
 const ActionButtons = styled.div`
   display: flex;
-  gap: ${spacing[3]};
+  gap: var(--space-3);
   flex-wrap: wrap;
 
   @media (max-width: 768px) {
@@ -89,54 +91,75 @@ const ActionButtons = styled.div`
 `;
 
 const Title = styled.h1`
-  font-size: ${typography.fontSize['3xl']};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[900]};
-  line-height: ${typography.lineHeight.tight};
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-thin);
+  color: var(--color-primary);
+  line-height: var(--line-height-compressed);
   margin: 0;
-  letter-spacing: ${typography.letterSpacing.tight};
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize['2xl']};
+    font-size: var(--font-size-heading);
   }
 `;
 
-const BackButton = styled(SecondaryButton)`
+const BackButton = styled.button`
   display: flex;
   align-items: center;
-  gap: ${spacing[2]};
+  gap: var(--space-2);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-none);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  
+  &:hover {
+    background-color: var(--color-surface);
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+  }
 
   @media (max-width: 768px) {
-    padding: ${spacing[2]} ${spacing[4]};
-    font-size: ${typography.fontSize.sm};
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-micro);
   }
 `;
 
 const Section = styled.div`
-  margin-bottom: ${spacing[8]};
+  margin-bottom: var(--space-6);
 
   @media (max-width: 768px) {
-    margin-bottom: ${spacing[6]};
+    margin-bottom: var(--space-5);
   }
 `;
 
 const SectionTitle = styled.h2`
-  font-size: ${typography.fontSize.xl};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[800]};
-  margin-bottom: ${spacing[6]};
-  letter-spacing: ${typography.letterSpacing.tight};
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: var(--space-5);
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.lg};
-    margin-bottom: ${spacing[4]};
+    font-size: var(--font-size-lead);
+    margin-bottom: var(--space-4);
   }
 `;
 
 const InfoGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: ${spacing[6]};
+  gap: var(--space-5);
 
   @media (min-width: 1200px) {
     grid-template-columns: repeat(3, 1fr);
@@ -144,190 +167,243 @@ const InfoGrid = styled.div`
 
   @media (max-width: 1024px) {
     grid-template-columns: repeat(2, 1fr);
-    gap: ${spacing[5]};
+    gap: var(--space-4);
   }
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
-    gap: ${spacing[4]};
+    gap: var(--space-4);
   }
 `;
 
 const InfoItem = styled.div`
-  padding: ${spacing[6]};
-  background: white;
-  border-radius: ${borderRadius.xl};
-  border: 1px solid ${colors.neutral[200]};
-  transition: all ${transitions.fast};
+  padding: var(--space-5);
+  background: var(--color-background);
+  border-radius: var(--radius-none);
+  border: 2px solid var(--color-border);
+  transition: all 0.2s ease-in-out;
 
   &:hover {
-    background: ${colors.neutral[50]};
-    border-color: ${colors.neutral[300]};
-    box-shadow: ${shadows.sm};
+    background: var(--color-surface);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-elevation);
+    transform: translateY(-1px);
   }
 
   @media (max-width: 768px) {
-    padding: ${spacing[4]};
+    padding: var(--space-4);
   }
 `;
 
 const InfoLabel = styled.div`
-  font-size: ${typography.fontSize.xs};
-  color: ${colors.neutral[600]};
-  margin-bottom: ${spacing[2]};
-  font-weight: ${typography.fontWeight.medium};
+  font-size: var(--font-size-micro);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: ${typography.letterSpacing.wide};
+  letter-spacing: 0.08em;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.xs};
+    font-size: var(--font-size-micro);
   }
 `;
 
 const InfoValue = styled.div`
-  font-weight: ${typography.fontWeight.medium};
-  color: ${colors.neutral[900]};
-  font-size: ${typography.fontSize.base};
-  line-height: ${typography.lineHeight.normal};
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-standard);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.sm};
+    font-size: var(--font-size-small);
   }
 `;
 
 const QASection = styled.div`
-  margin-top: ${spacing[6]};
+  margin-top: var(--space-5);
   display: grid;
   grid-template-columns: 1fr;
-  gap: ${spacing[6]};
+  gap: var(--space-5);
 
   @media (min-width: 1024px) {
     grid-template-columns: repeat(2, 1fr);
-    gap: ${spacing[8]};
+    gap: var(--space-6);
   }
 `;
 
 const QAItem = styled.div`
   margin-bottom: 0;
-  padding: ${spacing[6]};
-  background: white;
-  border-radius: ${borderRadius.xl};
-  border: 1px solid ${colors.neutral[200]};
-  border-left: 3px solid ${colors.neutral[700]};
-  transition: all ${transitions.fast};
+  padding: var(--space-5);
+  background: var(--color-background);
+  border-radius: var(--radius-none);
+  border: 2px solid var(--color-border);
+  border-left: 6px solid var(--color-primary);
+  transition: all 0.2s ease-in-out;
 
   &:hover {
-    background: ${colors.neutral[50]};
-    border-color: ${colors.neutral[300]};
-    border-left-color: ${colors.neutral[600]};
-    box-shadow: ${shadows.sm};
+    background: var(--color-surface);
+    border-color: var(--color-accent);
+    border-left-color: var(--color-accent);
+    box-shadow: var(--shadow-elevation);
+    transform: translateY(-1px);
   }
 
   @media (max-width: 768px) {
-    padding: ${spacing[4]};
+    padding: var(--space-4);
   }
 `;
 
 const Question = styled.div`
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[800]};
-  margin-bottom: ${spacing[3]};
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
   display: flex;
   align-items: flex-start;
-  gap: ${spacing[2]};
-  line-height: ${typography.lineHeight.normal};
+  gap: var(--space-2);
+  line-height: var(--line-height-standard);
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.sm};
+    font-size: var(--font-size-small);
   }
 `;
 
 const Answer = styled.div`
-  color: ${colors.neutral[600]};
-  margin-left: ${spacing[6]};
-  line-height: ${typography.lineHeight.relaxed};
+  color: var(--color-text-secondary);
+  margin-left: var(--space-6);
+  line-height: var(--line-height-comfortable);
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.sm};
-    margin-left: ${spacing[5]};
+    font-size: var(--font-size-small);
+    margin-left: var(--space-5);
   }
 `;
 
-const LoadingContainer = styled(BaseLoadingContainer)`
+const LoadingContainer = styled.div`
   min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const ErrorContainer = styled.div`
   text-align: center;
-  padding: ${spacing[12]};
-  color: ${colors.error.main};
+  padding: var(--space-12);
+  color: var(--color-error);
 `;
 
-const EditButton = styled(PrimaryButton)`
-  @media (max-width: 768px) {
-    padding: ${spacing[2]} ${spacing[4]};
-    font-size: ${typography.fontSize.sm};
-  }
-`;
-
-const CompleteButton = styled(PrimaryButton)`
-  background-color: ${colors.success.main};
-  border-color: ${colors.success.main};
-
+const EditButton = styled.button`
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  
   &:hover:not(:disabled) {
-    background-color: ${colors.success.dark};
-    border-color: ${colors.success.dark};
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
   }
-
+  
   &:disabled {
-    background-color: ${colors.neutral[400]};
-    border-color: ${colors.neutral[400]};
+    background-color: var(--color-text-tertiary);
+    border-color: var(--color-text-tertiary);
+    cursor: not-allowed;
   }
-
+  
   @media (max-width: 768px) {
-    padding: ${spacing[2]} ${spacing[4]};
-    font-size: ${typography.fontSize.sm};
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-small);
   }
 `;
 
-const DeleteButton = styled(PrimaryButton)`
-  background-color: ${colors.error.main};
-  border-color: ${colors.error.main};
-
+const CompleteButton = styled.button`
+  background-color: var(--color-success);
+  color: var(--color-text-inverse);
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-success);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  
   &:hover:not(:disabled) {
-    background-color: ${colors.error.dark};
-    border-color: ${colors.error.dark};
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+    transform: translateY(-1px);
   }
-
+  
   &:disabled {
-    background-color: ${colors.neutral[400]};
-    border-color: ${colors.neutral[400]};
+    background-color: var(--color-text-secondary);
+    border-color: var(--color-text-secondary);
+    cursor: not-allowed;
   }
-
+  
   @media (max-width: 768px) {
-    padding: ${spacing[2]} ${spacing[4]};
-    font-size: ${typography.fontSize.sm};
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-small);
+  }
+`;
+
+const DeleteButton = styled.button`
+  background-color: var(--color-error);
+  color: var(--color-text-inverse);
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-error);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  
+  &:hover:not(:disabled) {
+    background-color: var(--color-error);
+    border-color: var(--color-error);
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    background-color: var(--color-text-secondary);
+    border-color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+  
+  @media (max-width: 768px) {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-small);
   }
 `;
 
 const StatusBadge = styled.span`
-  padding: ${spacing[2]} ${spacing[4]};
-  border-radius: ${borderRadius.md};
-  font-size: ${typography.fontSize.xs};
-  font-weight: ${typography.fontWeight.medium};
-  letter-spacing: ${typography.letterSpacing.wide};
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.08em;
   background: ${props => props.status === 'completed' ? 
-    colors.success.light : 
-    colors.warning.light};
+    'var(--color-success-light)' : 
+    'var(--color-warning-light)'};
   color: ${props => props.status === 'completed' ? 
-    colors.success.dark : 
-    colors.warning.dark};
+    'var(--color-success)' : 
+    'var(--color-warning)'};
   border: 1px solid transparent;
   white-space: nowrap;
 
   @media (max-width: 768px) {
-    font-size: ${typography.fontSize.xs};
-    padding: ${spacing[1]} ${spacing[3]};
+    font-size: var(--font-size-micro);
+    padding: var(--space-1) var(--space-3);
   }
 `;
 
@@ -343,16 +419,16 @@ const ModalOverlay = styled.div`
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: ${spacing[4]};
+  padding: var(--space-4);
 `;
 
 const ModalContent = styled.div`
   background: white;
-  border-radius: ${borderRadius.xl};
-  padding: ${spacing[8]};
+  border-radius: var(--radius-none);
+  padding: var(--space-8);
   max-width: 500px;
   width: 100%;
-  box-shadow: ${shadows.xl};
+  box-shadow: var(--shadow-structure);
   animation: slideIn 0.2s ease-out;
 
   @keyframes slideIn {
@@ -367,38 +443,78 @@ const ModalContent = styled.div`
   }
 
   @media (max-width: 768px) {
-    padding: ${spacing[6]};
+    padding: var(--space-6);
   }
 `;
 
 const ModalTitle = styled.h3`
-  font-size: ${typography.fontSize.xl};
-  font-weight: ${typography.fontWeight.semibold};
-  color: ${colors.neutral[900]};
-  margin-bottom: ${spacing[4]};
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
   text-align: center;
 `;
 
 const ModalMessage = styled.p`
-  font-size: ${typography.fontSize.base};
-  color: ${colors.neutral[600]};
-  margin-bottom: ${spacing[6]};
+  font-size: var(--font-size-body);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-6);
   text-align: center;
-  line-height: ${typography.lineHeight.relaxed};
+  line-height: var(--line-height-comfortable);
 `;
 
 const ModalButtons = styled.div`
   display: flex;
-  gap: ${spacing[3]};
+  gap: var(--space-3);
   justify-content: center;
 `;
 
-const ModalButton = styled(PrimaryButton)`
+const ModalButton = styled.button`
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   min-width: 120px;
+  
+  &:hover:not(:disabled) {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    background-color: var(--color-text-tertiary);
+    border-color: var(--color-text-tertiary);
+    cursor: not-allowed;
+  }
 `;
 
-const ModalCancelButton = styled(SecondaryButton)`
+const ModalCancelButton = styled.button`
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   min-width: 120px;
+  
+  &:hover {
+    background-color: var(--color-surface);
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+  }
 `;
 
 const ReportDetailPage = () => {
@@ -443,7 +559,21 @@ const ReportDetailPage = () => {
       <Container>
         <Card>
           <LoadingContainer>
-            <Spinner />
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              border: '3px solid var(--color-border)', 
+              borderTopColor: 'var(--color-primary)', 
+              borderRadius: '50%', 
+              animation: 'spin 1s linear infinite' 
+            }}>
+              <style>{`
+                @keyframes spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
           </LoadingContainer>
         </Card>
       </Container>
@@ -583,7 +713,7 @@ const ReportDetailPage = () => {
               <InfoValue>
                 {slots.next_action.split(',').map((action, index) => (
                   <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
-                    <span style={{ marginRight: '8px', color: colors.primary[500], fontWeight: 'bold' }}>•</span>
+                    <span style={{ marginRight: '8px', color: 'var(--color-accent)', fontWeight: 'bold' }}>•</span>
                     <span>{action.trim()}</span>
                   </div>
                 ))}
@@ -599,7 +729,7 @@ const ReportDetailPage = () => {
               <InfoValue>
                 {slots.issues.split(',').map((issue, index) => (
                   <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
-                    <span style={{ marginRight: '8px', color: colors.error[500], fontWeight: 'bold' }}>•</span>
+                    <span style={{ marginRight: '8px', color: 'var(--color-error)', fontWeight: 'bold' }}>•</span>
                     <span>{issue.trim()}</span>
                   </div>
                 ))}
@@ -639,7 +769,7 @@ const ReportDetailPage = () => {
               <ModalButton
                 onClick={handleConfirmComplete}
                 disabled={completeMutation.isPending}
-                style={{ backgroundColor: colors.success.main, borderColor: colors.success.main }}
+                style={{ backgroundColor: 'var(--color-success)', borderColor: 'var(--color-success)' }}
               >
                 {completeMutation.isPending ? '処理中...' : '完了する'}
               </ModalButton>
@@ -664,7 +794,7 @@ const ReportDetailPage = () => {
               <ModalButton
                 onClick={handleConfirmDelete}
                 disabled={deleteMutation.isPending}
-                style={{ backgroundColor: colors.error.main, borderColor: colors.error.main }}
+                style={{ backgroundColor: 'var(--color-error)', borderColor: 'var(--color-error)' }}
               >
                 {deleteMutation.isPending ? '削除中...' : '削除する'}
               </ModalButton>

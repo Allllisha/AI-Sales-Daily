@@ -168,8 +168,15 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
     // 抽出された情報をスロットに追加（上書きも許可）
     Object.keys(extractedInfo).forEach(key => {
       if (extractedInfo[key]) {
+        // customer_personは特別処理（participantsに含める）
+        if (key === 'customer_person') {
+          if (!updatedSlots.participants || !updatedSlots.participants.includes(extractedInfo[key])) {
+            updatedSlots.participants = updatedSlots.participants 
+              ? `${updatedSlots.participants}, ${extractedInfo[key]}` 
+              : extractedInfo[key];
+          }
         // projectとlocationは常に最新の情報で更新
-        if (key === 'project' || key === 'location') {
+        } else if (key === 'project' || key === 'location') {
           updatedSlots[key] = extractedInfo[key];
         } else if (!updatedSlots[key]) {
           // その他のスロットは既存の値がない場合のみ更新
@@ -877,12 +884,13 @@ async function extractInformationWithAI(answer, currentSlots, lastQuestion = '')
             content: `あなたは営業日報作成支援AIです。ユーザーの回答から重要な情報を抽出し、日報として適切な形に要約・構造化してJSON形式で返してください。
 
 抽出する情報：
-- customer: 顧客名・会社名（「大成建設」「ABC株式会社」「田中さん」「山田部長」など、会社名や個人名を抽出）
+- customer: 顧客企業名（必ず会社名を抽出。「大成建設」「ABC株式会社」など。個人名のみの場合は空にする）
+- customer_person: 顧客担当者名（個人名がある場合のみ。「田中さん」「山田部長」など）
 - project: 案件名・プロジェクト内容（これまでの会話全体から推測。商談内容・提案内容・顧客の課題などから案件名を生成）
 - next_action: 次のアクション・やるべきこと（「見積もり作成」「提案書準備」「次回会議設定」など、営業担当者の未来の行動のみ）
 - budget: 予算・金額（「1000万円」「年間500万」「月額10万」「予算は未定」など、金額に関する情報）
 - schedule: スケジュール・納期・期間（「来月まで」「3月着工」「年度内」「2025年4月から」など、時期に関する情報）
-- participants: 参加者・出席者（「山田部長」「田中さん」「先方3名」など、商談参加者の名前や人数）
+- participants: 参加者・出席者（「ABC株式会社の山田部長」「XYZ建設の田中さん」など、会社名と名前を含めて抽出。会社名が不明な場合は名前のみ）
 - location: 場所・会場（必ず抽出！「新宿」「渋谷」「お客様オフィス」「〇〇で行われた」「〇〇にて」など、どこで商談したかの情報）
 - issues: 課題・問題・懸念事項（「人手不足」「コスト削減が課題」「システム老朽化」など、顧客の抱える問題）
 - industry: 顧客の業界・分野（会社名や会話内容から推測。建設業、保険業、製造業、IT業、金融業、医療・介護、教育、小売業、不動産業など）
@@ -1229,6 +1237,9 @@ ${askedQuestions.map((q, i) => `質問${i+1}: ${q}`).join('\n')}
 - 懸念事項の温度感: ${slots.concerns_mood || '未確認'}
 - 次ステップへの確度: ${slots.next_step_mood || '未確認'}
 - 最も興味を示した点: ${slots.strongest_interest || '未確認'}
+
+${(!slots.customer && slots.participants) ? 
+'★★★重要な確認事項★★★\n参加者の名前（' + slots.participants + '）は判明していますが、顧客企業名が不明です。必ず会社名を確認してください。' : ''}
 - 身を乗り出した瞬間: ${slots.body_language || '未確認'}
 - 成約可能性: ${slots.closing_possibility || '未確認'}
 - 他社との差別化: ${slots.differentiation || '未確認'}
@@ -1307,7 +1318,18 @@ ${askedQuestions.map((q, i) => {
 - ユーザーが「終わりたい」系の発言をした場合は即座に終了
 
 重要：7回目以降は、上記の✗未確認の項目を必ず聞いてください。
-特にスケジュール（いつまでに必要か、納期、工期等）は重要なので、未確認の場合は必ず質問してください。`
+特にスケジュール（いつまでに必要か、納期、工期等）は重要なので、未確認の場合は必ず質問してください。
+
+以下のJSON形式で回答してください：
+{
+  "isComplete": false,
+  "nextQuestion": "次に聞くべき質問を1つだけここに記載"
+}
+
+または終了の場合：
+{
+  "isComplete": true
+}`
           }
         ],
         max_tokens: 400,
