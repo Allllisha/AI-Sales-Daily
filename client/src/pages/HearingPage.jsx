@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { aiAPI, reportAPI } from '../services/api';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
 import VoiceInput from '../components/VoiceInput';
+import AnswerSuggestions from '../components/AnswerSuggestions';
 import { colors, typography, spacing, borderRadius, shadows, transitions } from '../styles/designSystem';
 import { Card as BaseCard, PrimaryButton, SecondaryButton, GhostButton } from '../styles/componentStyles';
 
@@ -234,6 +235,7 @@ const ActionButtons = styled.div`
   gap: var(--space-3);
   align-items: center;
   margin-top: var(--space-4);
+  flex-wrap: wrap;
   
   /* 固定フッター風のスタイル */
   position: sticky;
@@ -421,6 +423,46 @@ const BackButton = styled.button`
   }
 `;
 
+const CorrectionButton = styled.button`
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-accent);
+  background: var(--color-background);
+  color: var(--color-accent);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  -webkit-tap-highlight-color: transparent;
+  flex: 1;
+  min-height: 48px;
+
+  &:hover:not(:disabled) {
+    background: var(--color-accent-light);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  @media (max-width: 480px) {
+    min-height: 44px;
+    font-size: var(--font-size-micro);
+  }
+  
+  @media (max-width: 400px) {
+    padding: var(--space-2) var(--space-3);
+    min-height: 40px;
+    font-size: 11px;
+  }
+`;
+
 const CompletedSection = styled.div`
   text-align: center;
   padding: var(--space-6);
@@ -455,9 +497,14 @@ const CompletedText = styled.h2`
 const HearingPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const forceTextMode = searchParams.get('mode') === 'text';
+  const meetingMode = searchParams.get('mode') === 'meeting';
+  const dynamics365Mode = searchParams.get('mode') === 'dynamics365';
+  const salesforceMode = searchParams.get('mode') === 'salesforce';
+  const sessionIdFromParams = searchParams.get('sessionId');
   
-  const [sessionId, setSessionId] = useState(null);
+  const [sessionId, setSessionId] = useState(sessionIdFromParams || null);
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(5);
@@ -470,23 +517,69 @@ const HearingPage = () => {
   const [questionHistory, setQuestionHistory] = useState([]); // 質問履歴を保存
   const [askedQuestions, setAskedQuestions] = useState([]); // 重複防止用質問履歴
   const [isRevisiting, setIsRevisiting] = useState(false); // 戻って回答を修正中かどうか
+  const [extractedInfo, setExtractedInfo] = useState(null); // 議事録から抽出された情報
+  const [suggestions, setSuggestions] = useState([]); // 回答候補
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false); // 選択肢読み込み中
+  const [allowMultipleSuggestions, setAllowMultipleSuggestions] = useState(true); // 複数選択許可
+  const [isCorrecting, setIsCorrecting] = useState(false); // AI補正中フラグ
 
   // Start hearing session
   const startMutation = useMutation({
-    mutationFn: () => aiAPI.startHearing(),
+    mutationFn: (requestData = {}) => {
+      // パラメータとして渡された場合はそれを使用、そうでなければ従来の方法
+      if (Object.keys(requestData).length === 0) {
+        // 参考データとデータソースを送信
+        if (extractedInfo) {
+          requestData.referenceData = extractedInfo;
+          if (dynamics365Mode) {
+            requestData.dataSource = 'dynamics365';
+            requestData.crmType = 'dynamics365';
+          } else if (salesforceMode) {
+            requestData.dataSource = 'salesforce';
+            requestData.crmType = 'salesforce';
+          } else if (meetingMode) {
+            requestData.dataSource = 'meeting';
+          }
+        }
+      }
+      return aiAPI.startHearing(requestData);
+    },
     onSuccess: (data) => {
       setSessionId(data.sessionId);
       setCurrentQuestion(data.question);
       setQuestionIndex(data.questionIndex);
       setTotalQuestions(data.totalQuestions);
+      
+      // サーバーから返された初期スロットと参照データを設定
+      if (data.initialSlots) {
+        setSlots(data.initialSlots);
+        console.log('Setting initial slots from server:', data.initialSlots);
+      }
+      if (data.referenceData) {
+        setExtractedInfo(data.referenceData);
+        console.log('Setting extracted info from server:', data.referenceData);
+      }
+      
       // 初回の質問を履歴に追加
       setQuestionHistory([{
         question: data.question,
         questionIndex: data.questionIndex,
-        slots: {},
-        answer: '' // 初回の回答は空
+        slots: data.initialSlots || {},
+        answer: '', // 初回の回答は空
+        suggestions: data.suggestions || [], // 選択肢を保存
+        allowMultiple: data.allowMultiple || false // 複数選択設定を保存
       }]);
-      setAskedQuestions([data.question]);
+      setAskedQuestions(data.askedQuestions || [data.question]);
+      
+      // サーバーから返された選択肢があれば設定
+      if (data.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions);
+        setIsLoadingSuggestions(false);
+      }
+      // サーバーから複数選択の設定が返された場合
+      if (data.allowMultiple !== undefined) {
+        setAllowMultipleSuggestions(data.allowMultiple);
+      }
     },
     onError: () => {
       toast.error('セッションの開始に失敗しました');
@@ -500,7 +593,8 @@ const HearingPage = () => {
       if (data.completed) {
         setCompleted(true);
         setSlots(data.slots);
-        saveReport();
+        // slotsを直接渡して保存
+        saveReportWithSlots(data.slots);
       } else {
         setCurrentQuestion(data.question);
         setQuestionIndex(data.questionIndex);
@@ -513,13 +607,18 @@ const HearingPage = () => {
           const updatedHistory = [...prev];
           if (updatedHistory.length > 0) {
             updatedHistory[updatedHistory.length - 1].answer = answer;
+            // 現在の選択肢情報も保存
+            updatedHistory[updatedHistory.length - 1].suggestions = suggestions;
+            updatedHistory[updatedHistory.length - 1].allowMultiple = allowMultipleSuggestions;
           }
           // 新しい質問を追加
           return [...updatedHistory, {
             question: data.question,
             questionIndex: data.questionIndex,
             slots: data.slots,
-            answer: '' // 新しい質問の回答は空
+            answer: '', // 新しい質問の回答は空
+            suggestions: data.suggestions || [], // 新しい選択肢
+            allowMultiple: data.allowMultiple || false // 新しい複数選択設定
           }];
         });
         
@@ -527,6 +626,20 @@ const HearingPage = () => {
         setIsRevisiting(false); // 修正モードをリセット
         if (data.askedQuestions) {
           setAskedQuestions(data.askedQuestions);
+        }
+        
+        // サーバーから返された選択肢があれば即座に設定（先読みデータ）
+        if (data.suggestions && data.suggestions.length > 0) {
+          setSuggestions(data.suggestions);
+          setIsLoadingSuggestions(false);
+        } else {
+          // 選択肢がない場合はクリア
+          setSuggestions([]);
+          setIsLoadingSuggestions(false);
+        }
+        // サーバーから複数選択の設定が返された場合
+        if (data.allowMultiple !== undefined) {
+          setAllowMultipleSuggestions(data.allowMultiple);
         }
       }
     },
@@ -549,9 +662,261 @@ const HearingPage = () => {
 
   useEffect(() => {
     if (isOnline) {
-      startMutation.mutate();
+      if (meetingMode && sessionIdFromParams) {
+        // 議事録モードの場合は、既存のセッション情報を取得
+        handleMeetingModeInit();
+      } else if (dynamics365Mode) {
+        // Dynamics 365モードの場合
+        handleDynamics365ModeInit();
+      } else if (salesforceMode) {
+        // Salesforceモードの場合
+        handleSalesforceModeInit();
+      } else {
+        // 通常のヒアリングモード
+        startMutation.mutate();
+      }
     }
   }, []);
+
+  const handleMeetingModeInit = async () => {
+    try {
+      // location.stateから議事録データを優先的に取得
+      const stateExtractedInfo = location.state?.extractedInfo;
+      const stateMeetingContent = location.state?.meetingContent;
+      
+      let extractedInfoToUse = stateExtractedInfo;
+      
+      // stateにない場合は、サーバーからセッション情報を取得
+      if (!extractedInfoToUse && sessionIdFromParams) {
+        const sessionData = await aiAPI.getSession(sessionIdFromParams);
+        if (sessionData && sessionData.extractedInfo) {
+          extractedInfoToUse = sessionData.extractedInfo;
+        }
+      }
+      
+      if (extractedInfoToUse) {
+        setExtractedInfo(extractedInfoToUse);
+        setSlots(extractedInfoToUse);
+        
+        // AIヒアリングセッションを開始（議事録データを参考データとして送信）
+        const requestData = {
+          referenceData: extractedInfoToUse,
+          dataSource: 'meeting',
+          meetingContent: stateMeetingContent // 議事録の原文も送信
+        };
+        
+        console.log('Sending meeting data to server:', requestData);
+        startMutation.mutate(requestData);
+      } else {
+        toast.error('セッション情報が見つかりません');
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Failed to initialize meeting mode:', error);
+      toast.error('議事録セッションの初期化に失敗しました');
+      navigate('/');
+    }
+  };
+
+  const handleDynamics365ModeInit = async () => {
+    try {
+      // location.stateからDynamics 365データを取得
+      const dynamics365Data = location.state?.dynamics365Data;
+      if (!dynamics365Data) {
+        toast.error('Dynamics 365データが見つかりません');
+        navigate('/');
+        return;
+      }
+
+      // Dynamics 365データを基にスロットを初期化
+      const initialSlots = {
+        customer: dynamics365Data.customer || '',
+        project: dynamics365Data.project || '',
+        dynamics365_account_id: dynamics365Data.dynamics365_account_id,
+        dynamics365_opportunity_id: dynamics365Data.dynamics365_opportunity_id,
+        actionType: dynamics365Data.crmActionType || dynamics365Data.actionType || 'update'
+      };
+
+      setSlots(initialSlots);
+      setExtractedInfo(initialSlots);
+
+      // AIヒアリングセッションを開始（Dynamics 365データを参考データとして送信）
+      const requestData = {
+        referenceData: initialSlots,
+        dataSource: 'dynamics365',
+        crmType: 'dynamics365'
+      };
+      
+      startMutation.mutate(requestData);
+
+    } catch (error) {
+      console.error('Failed to initialize Dynamics 365 mode:', error);
+      toast.error('Dynamics 365セッションの初期化に失敗しました');
+      navigate('/');
+    }
+  };
+
+  const handleSalesforceModeInit = async () => {
+    try {
+      // location.stateからSalesforceデータを取得
+      const salesforceData = location.state?.salesforceData;
+      if (!salesforceData) {
+        toast.error('Salesforceデータが見つかりません');
+        navigate('/');
+        return;
+      }
+
+      // Salesforceデータを基にスロットを初期化
+      const initialSlots = {
+        customer: salesforceData.customer || '',
+        project: salesforceData.project || '',
+        salesforce_account_id: salesforceData.salesforce_account_id,
+        salesforce_opportunity_id: salesforceData.salesforce_opportunity_id,
+        // 選択された活動記録、メモ、会議情報を含める
+        selectedActivities: salesforceData.selectedActivities || [],
+        selectedNotes: salesforceData.selectedNotes || [],
+        selectedMeetings: salesforceData.selectedMeetings || [],
+        meetingContext: salesforceData.meetingContext || '',
+        actionType: salesforceData.crmActionType || salesforceData.actionType || 'update'
+      };
+
+      setSlots(initialSlots);
+      setExtractedInfo(initialSlots);
+
+      // AIヒアリングセッションを開始（Salesforceデータを参考データとして送信）
+      const requestData = {
+        referenceData: initialSlots,
+        dataSource: 'salesforce',
+        crmType: 'salesforce'
+      };
+      
+      startMutation.mutate(requestData);
+    } catch (error) {
+      console.error('Failed to initialize Salesforce mode:', error);
+      toast.error('Salesforceセッションの初期化に失敗しました');
+      navigate('/');
+    }
+  };
+
+  const generateFirstQuestionFromSalesforceData = (data) => {
+    if (data.customer && data.project) {
+      return `お疲れ様です！${data.customer}さんとの「${data.project}」の件ですね。今日の商談はいかがでしたか？`;
+    } else if (data.customer) {
+      return `お疲れ様です！${data.customer}さんとの商談の件ですね。今日はどのような話し合いでしたか？`;
+    } else {
+      return `お疲れ様です！Salesforceから選択された案件についてお聞かせください。今日の商談はいかがでしたか？`;
+    }
+  };
+
+  const generateFirstQuestionFromDynamics365Data = (data) => {
+    if (data.customer && data.project) {
+      return `お疲れ様です！${data.customer}さんとの「${data.project}」の件ですね。今日の商談はいかがでしたか？`;
+    } else if (data.customer) {
+      return `お疲れ様です！${data.customer}さんとの商談の件ですね。今日はどのような話し合いでしたか？`;
+    } else {
+      return `お疲れ様です！Dynamics 365から選択された案件についてお聞かせください。今日の商談はいかがでしたか？`;
+    }
+  };
+
+  const generateFirstQuestionFromExtractedInfo = (info) => {
+    const hasCustomer = info.customer;
+    const hasProject = info.project;
+    const hasKeyPoints = info.key_points && info.key_points.length > 0;
+
+    if (hasCustomer && hasProject) {
+      return `議事録を拝見しました。${info.customer}の${info.project}についてですね。${hasKeyPoints ? '重要なポイントも把握できました。' : ''}議事録に記載されていない詳細や、実際の雰囲気について教えてください。特に印象に残った点はありましたか？`;
+    } else if (hasCustomer) {
+      return `議事録を拝見しました。${info.customer}との商談についてですね。議事録に記載されていない詳細や、実際の商談の雰囲気について教えてください。`;
+    } else {
+      return `議事録を拝見しました。記載されている内容以外で、実際の商談の雰囲気や印象に残った点について教えてください。`;
+    }
+  };
+
+  // 選択肢を取得する関数
+  const fetchSuggestions = async () => {
+    if (!currentQuestion || inputMode !== 'text') return;
+    
+    // データソースを判定
+    let dataSource = null;
+    let referenceData = null;
+    
+    if (dynamics365Mode && extractedInfo) {
+      dataSource = 'dynamics365';
+      referenceData = extractedInfo;
+    } else if (salesforceMode && extractedInfo) {
+      dataSource = 'salesforce';
+      referenceData = extractedInfo;
+    } else if (meetingMode && extractedInfo) {
+      dataSource = 'meeting';
+      referenceData = extractedInfo;
+    }
+    
+    // 参考データがない場合でも、議事録モードで質問がある場合は選択肢を生成
+    if (!dataSource && !referenceData && !meetingMode) {
+      setSuggestions([]);
+      return;
+    }
+    
+    // 議事録モードの場合、dataSourceとreferenceDataを設定
+    if (meetingMode && !dataSource) {
+      dataSource = 'meeting';
+      referenceData = extractedInfo || {};
+    }
+    
+    setIsLoadingSuggestions(true);
+    console.log('Fetching suggestions with:', {
+      currentQuestion,
+      dataSource,
+      hasReferenceData: !!referenceData,
+      questionIndex,
+      inputMode
+    });
+    
+    try {
+      // 3問目以降は過去の質問・回答を含める
+      const requestData = {
+        currentQuestion,
+        referenceData,
+        currentSlots: slots,
+        dataSource
+      };
+      
+      // 3問目以降の場合、過去の会話履歴を追加
+      if (questionIndex >= 2 && questionHistory.length > 0) {
+        requestData.conversationHistory = questionHistory.map(h => ({
+          question: h.question,
+          answer: h.answer,
+          suggestions: h.suggestions || []
+        }));
+      }
+      
+      console.log('Requesting suggestions with data:', requestData);
+      const response = await aiAPI.getSuggestions(requestData);
+      console.log('Suggestions response:', response);
+      
+      if (response.suggestions && Array.isArray(response.suggestions)) {
+        setSuggestions(response.suggestions);
+      }
+    } catch (error) {
+      console.error('Failed to fetch suggestions:', error);
+      setSuggestions([]);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  // 質問が変わったときに選択肢を取得（サーバーから選択肢が返されていない場合のみ）
+  useEffect(() => {
+    // 既に選択肢が設定されている場合はスキップ（先読みデータ利用）
+    if (suggestions.length === 0 && !isLoadingSuggestions) {
+      fetchSuggestions();
+    }
+  }, [currentQuestion, inputMode]);
+
+  // 選択肢を選択したときの処理
+  const handleSuggestionSelect = (suggestion) => {
+    setAnswer(suggestion);
+  };
 
   const handleNext = () => {
     
@@ -597,13 +962,29 @@ const HearingPage = () => {
       setQuestionsAnswers([...questionsAnswers, newQA]);
     }
 
-    answerMutation.mutate({
+    // 参考データとデータソースも送信
+    const requestData = {
       sessionId,
       questionIndex,
       answer,
       currentSlots: slots,
       askedQuestions: isRevisiting ? askedQuestions.slice(0, questionIndex + 1) : askedQuestions
-    });
+    };
+    
+    if (extractedInfo) {
+      requestData.referenceData = extractedInfo;
+      if (dynamics365Mode) {
+        requestData.dataSource = 'dynamics365';
+        requestData.crmType = 'dynamics365';
+      } else if (salesforceMode) {
+        requestData.dataSource = 'salesforce';
+        requestData.crmType = 'salesforce';
+      } else if (meetingMode) {
+        requestData.dataSource = 'meeting';
+      }
+    }
+    
+    answerMutation.mutate(requestData);
   };
 
   const handleSkip = () => {
@@ -626,6 +1007,9 @@ const HearingPage = () => {
     const updatedHistory = [...questionHistory];
     if (updatedHistory.length > 0) {
       updatedHistory[updatedHistory.length - 1].answer = answer;
+      // 現在の選択肢情報も保存
+      updatedHistory[updatedHistory.length - 1].suggestions = suggestions;
+      updatedHistory[updatedHistory.length - 1].allowMultiple = allowMultipleSuggestions;
     }
 
     // 履歴から最後のエントリを削除し、前の質問に戻る
@@ -637,6 +1021,14 @@ const HearingPage = () => {
     setQuestionIndex(previousQuestion.questionIndex);
     setSlots(previousQuestion.slots);
     setAnswer(previousQuestion.answer || ''); // 履歴から前の回答を復元
+    
+    // 選択肢情報を復元
+    if (previousQuestion.suggestions) {
+      setSuggestions(previousQuestion.suggestions);
+      setAllowMultipleSuggestions(previousQuestion.allowMultiple || false);
+      setIsLoadingSuggestions(false);
+    }
+    
     setIsRevisiting(true); // 戻って修正モードをONにする
   };
 
@@ -644,20 +1036,239 @@ const HearingPage = () => {
     setAnswer(transcript);
   };
 
+  // AI補正処理
+  const handleCorrection = async () => {
+    if (!answer || isCorrecting) return;
+
+    console.log('Starting correction for:', answer);
+    setIsCorrecting(true);
+    try {
+      const result = await aiAPI.correctText(answer);
+      console.log('Correction result:', result);
+      
+      if (result && result.correctedText) {
+        setAnswer(result.correctedText);
+        toast.success('テキストを補正しました');
+      } else {
+        console.warn('No corrected text in response:', result);
+        toast.error('補正結果が取得できませんでした');
+      }
+    } catch (error) {
+      console.error('Correction error:', error);
+      toast.error('補正に失敗しました');
+    } finally {
+      setIsCorrecting(false);
+    }
+  };
+
   const saveReport = () => {
-    // Get current JST date (UTC+9)
-    const now = new Date();
-    const jstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-    const reportData = {
-      report_date: jstDate.toISOString().split('T')[0],
-      mode: 'hearing',
-      questions_answers: questionsAnswers,
-      slots: slots
-    };
-    saveReportMutation.mutate(reportData);
+    saveReportWithSlots(slots);
+  };
+
+  const saveReportWithSlots = (slotsData) => {
+    try {
+      // Get current JST date (UTC+9)
+      const now = new Date();
+      const jstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+      
+      // slotsDataの検証とクリーンアップ
+      const finalSlots = slotsData || slots || {};
+      
+      // オブジェクト配列を文字列に変換
+      const cleanedSlots = {};
+      Object.keys(finalSlots).forEach(key => {
+        const value = finalSlots[key];
+        if (Array.isArray(value)) {
+          // 配列の場合、各要素を適切に処理
+          cleanedSlots[key] = value.map(item => {
+            if (typeof item === 'object' && item !== null) {
+              // issues の場合
+              if (key === 'issues') {
+                return item.issue || item.description || item.text || item.content || '';
+              }
+              // next_action の場合
+              if (key === 'next_action') {
+                if (item.task) {
+                  const parts = [item.task];
+                  if (item.responsible) parts.push(`担当: ${item.responsible}`);
+                  if (item.deadline) parts.push(`期限: ${item.deadline}`);
+                  return parts.join(' ');
+                }
+                return item.action || item.text || item.content || '';
+              }
+              // schedule の場合
+              if (key === 'schedule') {
+                if (item.phase && item.due_date) {
+                  return `${item.phase}(${item.due_date})`;
+                }
+              }
+              // 参加者の場合
+              if (key === 'participants') {
+                if (item.name && item.company) {
+                  return `${item.name}(${item.company})`;
+                }
+                if (item.name) return item.name;
+                if (item.company && item.role) {
+                  return `${item.company} ${item.role}`;
+                }
+              }
+              // その他のオブジェクト
+              return item.name || item.title || item.label || item.value || '';
+            }
+            return String(item);
+          }).join(', ');
+        } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          // 単一のオブジェクトの場合
+          cleanedSlots[key] = value.name || value.title || value.label || value.value || JSON.stringify(value);
+        } else {
+          // その他の値はそのまま
+          cleanedSlots[key] = value;
+        }
+      });
+      
+      console.log('Saving report with cleaned slots:', cleanedSlots);
+      console.log('Questions and answers:', questionsAnswers);
+      
+      const reportData = {
+        report_date: jstDate.toISOString().split('T')[0],
+        mode: dynamics365Mode ? 'dynamics365' : salesforceMode ? 'salesforce' : 'hearing',
+        questions_answers: questionsAnswers || [],
+        slots: cleanedSlots
+      };
+
+      // CRM関連データがある場合は追加
+      if (dynamics365Mode) {
+        reportData.crm_data = {
+          type: 'dynamics365',
+          actionType: extractedInfo?.actionType || 'update',
+          account: { id: finalSlots.dynamics365_account_id },
+          opportunity: { id: finalSlots.dynamics365_opportunity_id }
+        };
+      } else if (salesforceMode) {
+        reportData.crm_data = {
+          type: 'salesforce',
+          actionType: extractedInfo?.actionType || 'update',
+          account: { id: finalSlots.salesforce_account_id },
+          opportunity: { id: finalSlots.salesforce_opportunity_id }
+        };
+      }
+
+      console.log('Final report data:', reportData);
+      saveReportMutation.mutate(reportData);
+    } catch (error) {
+      console.error('Error preparing report data:', error);
+      toast.error('日報データの準備に失敗しました');
+    }
   };
 
   const progress = ((questionIndex + 1) / totalQuestions) * 100;
+
+  // 値を安全にレンダリングするヘルパー関数
+  const renderValue = (value) => {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    
+    if (typeof value === 'string') {
+      return value;
+    }
+    
+    if (typeof value === 'number') {
+      return value.toString();
+    }
+    
+    // オブジェクトの場合（スケジュールなど）
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      // スケジュール関連のフィールドを日本語で表示
+      const scheduleFields = {
+        next_phase_deadline: '次フェーズ期限',
+        initial_release: '初期リリース',
+        customer_review_meeting: '顧客レビュー会議',
+        deadline: '締切',
+        start_date: '開始日',
+        end_date: '終了日',
+        kickoff: 'キックオフ',
+        milestone: 'マイルストーン'
+      };
+      
+      const entries = Object.entries(value);
+      if (entries.length === 0) return '';
+      
+      // スケジュールフィールドの場合は整形して表示
+      const formattedItems = entries.map(([key, val]) => {
+        const label = scheduleFields[key] || key;
+        // 日付形式の文字列の場合、読みやすく変換
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+          const date = new Date(val);
+          const formatted = date.toLocaleDateString('ja-JP', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          });
+          return `${label}: ${formatted}`;
+        }
+        return `${label}: ${val}`;
+      });
+      
+      return formattedItems.join('、');
+    }
+    
+    if (Array.isArray(value)) {
+      // 配列の要素がオブジェクトの場合の処理
+      return value.map(item => {
+        if (typeof item === 'object' && item !== null) {
+          // スケジュール項目の場合
+          if (item.phase && item.due_date) {
+            return `${item.phase}(${item.due_date})`;
+          }
+          // 成果物も含む場合
+          if (item.phase && item.due_date && item.deliverable) {
+            return `${item.phase}(${item.due_date}): ${item.deliverable}`;
+          }
+          // オブジェクトから表示可能な値を抽出
+          if (item.name) return item.name;
+          if (item.title) return item.title;
+          if (item.label) return item.label;
+          if (item.value) return item.value;
+          // その他のオブジェクトは文字列化
+          return JSON.stringify(item);
+        }
+        return item;
+      }).join(', ');
+    }
+    
+    if (typeof value === 'object') {
+      // オブジェクトの場合は、読みやすい形式で表示
+      try {
+        // 特定のプロパティを優先的に表示
+        if (value.name) return value.name;
+        if (value.title) return value.title;
+        if (value.label) return value.label;
+        if (value.value) return value.value;
+        
+        // それ以外の場合はキーと値を表示
+        const entries = Object.entries(value);
+        if (entries.length === 0) return '';
+        
+        return entries
+          .map(([key, val]) => {
+            if (val === null || val === undefined) return null;
+            if (typeof val === 'object' && val !== null) {
+              // ネストしたオブジェクトは再帰的に処理
+              return `${key}: ${renderValue(val)}`;
+            }
+            return `${key}: ${val}`;
+          })
+          .filter(item => item !== null)
+          .join(', ');
+      } catch (error) {
+        console.error('Error rendering object value:', error);
+        return '';
+      }
+    }
+    
+    return String(value);
+  };
 
   if (!isOnline && !forceTextMode) {
     return (
@@ -699,6 +1310,105 @@ const HearingPage = () => {
           <ProgressFill progress={progress} />
         </ProgressBar>
 
+        {(meetingMode || dynamics365Mode || salesforceMode) && extractedInfo && typeof extractedInfo === 'object' && (() => {
+          console.log('Rendering extractedInfo:', extractedInfo);
+          return true;
+        })() && (
+          <div style={{ 
+            marginBottom: 'var(--space-6)', 
+            padding: 'var(--space-4)', 
+            backgroundColor: 'var(--color-accent-light)', 
+            border: '2px solid var(--color-accent)',
+            borderRadius: 'var(--radius-none)'
+          }}>
+            <div style={{ 
+              fontSize: 'var(--font-size-small)', 
+              fontWeight: 'var(--font-weight-bold)', 
+              color: 'var(--color-primary)',
+              marginBottom: 'var(--space-3)'
+            }}>
+              {meetingMode ? '📄 議事録から抽出された情報' : 
+               dynamics365Mode ? '📊 Dynamics 365から取得した情報' :
+               '📊 Salesforceから取得した情報'}
+            </div>
+            <div style={{ fontSize: 'var(--font-size-micro)', color: 'var(--color-text-secondary)' }}>
+              {extractedInfo.customer && (
+                <div><strong>顧客:</strong> {renderValue(extractedInfo.customer)}</div>
+              )}
+              {extractedInfo.vendor_company && (
+                <div><strong>自社:</strong> {renderValue(extractedInfo.vendor_company)}</div>
+              )}
+              {extractedInfo.project && (
+                <div><strong>案件:</strong> {renderValue(extractedInfo.project)}</div>
+              )}
+              {extractedInfo.customer_participants && (
+                <div><strong>顧客側参加者:</strong> {renderValue(extractedInfo.customer_participants)}</div>
+              )}
+              {extractedInfo.vendor_participants && (
+                <div><strong>自社側参加者:</strong> {renderValue(extractedInfo.vendor_participants)}</div>
+              )}
+              {!extractedInfo.customer_participants && !extractedInfo.vendor_participants && extractedInfo.participants && (
+                <div><strong>参加者:</strong> {renderValue(extractedInfo.participants)}</div>
+              )}
+              {extractedInfo.location && (
+                <div><strong>場所:</strong> {renderValue(extractedInfo.location)}</div>
+              )}
+              {extractedInfo.budget && (
+                <div><strong>予算:</strong> {renderValue(extractedInfo.budget)}</div>
+              )}
+              {extractedInfo.schedule && (
+                <div><strong>スケジュール:</strong> {renderValue(extractedInfo.schedule)}</div>
+              )}
+              
+              {/* Salesforceから取得した活動記録・メモ・会議情報 */}
+              {extractedInfo.selectedActivities && extractedInfo.selectedActivities.length > 0 && (
+                <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--color-border)' }}>
+                  <div style={{ fontWeight: 'var(--font-weight-bold)', marginBottom: 'var(--space-2)' }}>📝 選択された活動記録:</div>
+                  {extractedInfo.selectedActivities.map((activity, index) => (
+                    <div key={index} style={{ marginLeft: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+                      <div><strong>{activity.subject}</strong></div>
+                      {activity.description && <div style={{ fontSize: 'var(--font-size-micro)', marginLeft: 'var(--space-2)' }}>{activity.description}</div>}
+                      <div style={{ fontSize: 'var(--font-size-micro)', color: 'var(--color-text-tertiary)', marginLeft: 'var(--space-2)' }}>
+                        {new Date(activity.createdOn).toLocaleDateString()} • {activity.status}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {extractedInfo.selectedNotes && extractedInfo.selectedNotes.length > 0 && (
+                <div style={{ marginTop: 'var(--space-3)' }}>
+                  <div style={{ fontWeight: 'var(--font-weight-bold)', marginBottom: 'var(--space-2)' }}>📋 選択されたメモ:</div>
+                  {extractedInfo.selectedNotes.map((note, index) => (
+                    <div key={index} style={{ marginLeft: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+                      <div><strong>{note.subject}</strong></div>
+                      {note.noteText && <div style={{ fontSize: 'var(--font-size-micro)', marginLeft: 'var(--space-2)' }}>{note.noteText}</div>}
+                      <div style={{ fontSize: 'var(--font-size-micro)', color: 'var(--color-text-tertiary)', marginLeft: 'var(--space-2)' }}>
+                        {new Date(note.createdOn).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {extractedInfo.selectedMeetings && extractedInfo.selectedMeetings.length > 0 && (
+                <div style={{ marginTop: 'var(--space-3)' }}>
+                  <div style={{ fontWeight: 'var(--font-weight-bold)', marginBottom: 'var(--space-2)' }}>🗓️ 選択された会議:</div>
+                  {extractedInfo.selectedMeetings.map((meeting, index) => (
+                    <div key={index} style={{ marginLeft: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+                      <div><strong>{meeting.subject}</strong></div>
+                      {meeting.description && <div style={{ fontSize: 'var(--font-size-micro)', marginLeft: 'var(--space-2)' }}>{meeting.description}</div>}
+                      <div style={{ fontSize: 'var(--font-size-micro)', color: 'var(--color-text-tertiary)', marginLeft: 'var(--space-2)' }}>
+                        {new Date(meeting.scheduledStart).toLocaleDateString()} {meeting.location && `• ${meeting.location}`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <QuestionSection>
           <QuestionText>{currentQuestion}</QuestionText>
         </QuestionSection>
@@ -736,12 +1446,68 @@ const HearingPage = () => {
               value={answer}
             />
           ) : (
-            <TextArea
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              placeholder="回答を入力してください..."
-              autoFocus
-            />
+            <>
+              {inputMode === 'text' && (
+                <AnswerSuggestions
+                  suggestions={suggestions}
+                  onSelect={handleSuggestionSelect}
+                  isLoading={isLoadingSuggestions}
+                  allowMultiple={allowMultipleSuggestions}
+                  initialSelected={
+                    // 現在の回答から選択済み項目を抽出
+                    answer && suggestions.length > 0
+                      ? suggestions.filter(s => answer.includes(s))
+                      : []
+                  }
+                />
+              )}
+              <TextArea
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                placeholder="回答を入力してください..."
+                autoFocus
+              />
+              {/* AI補正ボタンを追加（音声入力モード以外で表示） */}
+              {answer && (
+                <div style={{
+                  marginTop: 'var(--space-3)',
+                  display: 'flex',
+                  justifyContent: 'flex-end'
+                }}>
+                  <button
+                    onClick={handleCorrection}
+                    disabled={!answer || isCorrecting}
+                    style={{
+                      padding: 'var(--space-2) var(--space-4)',
+                      border: '2px solid var(--color-accent)',
+                      background: 'var(--color-background)',
+                      color: 'var(--color-accent)',
+                      borderRadius: 'var(--radius-none)',
+                      fontSize: 'var(--font-size-small)',
+                      fontWeight: 'var(--font-weight-medium)',
+                      cursor: answer && !isCorrecting ? 'pointer' : 'not-allowed',
+                      transition: 'all 0.2s ease-in-out',
+                      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      opacity: !answer || isCorrecting ? 0.6 : 1
+                    }}
+                    onMouseEnter={(e) => {
+                      if (answer && !isCorrecting) {
+                        e.target.style.background = 'var(--color-accent-light)';
+                        e.target.style.transform = 'translateY(-1px)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'var(--color-background)';
+                      e.target.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    {isCorrecting ? '補正中...' : 'AI補正する'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </AnswerSection>
 

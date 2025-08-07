@@ -136,7 +136,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
-    toast.success('ログアウトしました');
+    // 認証状態をクリアして完全リフレッシュ
+    window.location.href = '/login';
   };
 
   const value = {

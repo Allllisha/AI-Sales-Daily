@@ -1,4 +1,8 @@
 
+networks:
+  app-network:
+    driver: bridge
+
 services:
   postgres:
     image: postgres:14-alpine
@@ -12,6 +16,19 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: sales_daily_redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
 
   api:
     build: ./server
@@ -20,19 +37,26 @@ services:
       - .env.docker
     environment:
       - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
     ports:
       - "3001:3001"
     depends_on:
       - postgres
+      - redis
+    networks:
+      - app-network
     volumes:
       - ./server:/app
       - /app/node_modules
 
   frontend:
-    build: ./client
+    build: 
+      context: ./client
+      dockerfile: Dockerfile.dev
     container_name: sales_daily_frontend
     environment:
-      - VITE_API_URL=http://localhost:3001
+      - VITE_API_URL=http://api:3001
+      - NODE_ENV=development
     ports:
       - "5173:5173"
     depends_on:
@@ -40,6 +64,9 @@ services:
     volumes:
       - ./client:/app
       - /app/node_modules
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
+  redis_data:

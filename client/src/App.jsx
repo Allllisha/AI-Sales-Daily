@@ -14,6 +14,7 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import MyAnalyticsPage from './pages/MyAnalyticsPage';
 import TeamAnalyticsPage from './pages/TeamAnalyticsPage';
 import RegisterPage from './pages/RegisterPage';
+import OAuthCallbackPage from './pages/OAuthCallbackPage';
 
 // Components
 import Layout from './components/Layout';
@@ -30,6 +31,18 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  const [isOAuthCallback, setIsOAuthCallback] = React.useState(false);
+  
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isOAuth = 
+      urlParams.get('salesforce_auth') === 'success' || 
+      urlParams.get('dynamics365_auth') === 'success' ||
+      urlParams.has('code') || // OAuth authorization code
+      window.location.pathname.includes('/oauth/'); // OAuth callback URL
+    setIsOAuthCallback(isOAuth);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -38,17 +51,21 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route element={<PrivateRoute />}>
-              <Route element={<Layout />}>
-                <Route path="/" element={<HomePage />} />
+            {isOAuthCallback ? (
+              <Route path="/" element={<OAuthCallbackPage />} />
+            ) : (
+              <Route element={<PrivateRoute />}>
+                <Route element={<Layout />}>
+                  <Route path="/" element={<HomePage />} />
                 <Route path="/hearing" element={<HearingPage />} />
                 <Route path="/reports/:id" element={<ReportDetailPage />} />
                 <Route path="/reports/:id/edit" element={<ReportEditPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/my-analytics" element={<MyAnalyticsPage />} />
-                <Route path="/team-analytics" element={<TeamAnalyticsPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                  <Route path="/my-analytics" element={<MyAnalyticsPage />} />
+                  <Route path="/team-analytics" element={<TeamAnalyticsPage />} />
+                </Route>
               </Route>
-            </Route>
+            )}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>

@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
+import CRMIntegrationSection from '../components/CRMIntegrationSection';
 // Using architectural design system variables from CSS
 
 const Container = styled.div`
@@ -525,6 +526,7 @@ const ReportDetailPage = () => {
   const [isCompleting, setIsCompleting] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
 
   const { data: report, isLoading, error } = useQuery({
     queryKey: ['report', id],
@@ -551,6 +553,19 @@ const ReportDetailPage = () => {
     },
     onError: () => {
       toast.error('日報の削除に失敗しました');
+    }
+  });
+
+  const revertToDraftMutation = useMutation({
+    mutationFn: () => reportAPI.updateReportStatus(id, 'draft'),
+    onSuccess: () => {
+      toast.success('日報を下書きに戻しました');
+      queryClient.invalidateQueries(['report', id]);
+      navigate(`/reports/${id}/edit`);
+    },
+    onError: (error) => {
+      console.error('Revert to draft error:', error);
+      toast.error(error.response?.data?.error || '下書きに戻せませんでした');
     }
   });
 
@@ -616,6 +631,21 @@ const ReportDetailPage = () => {
     setShowDeleteModal(false);
   };
 
+  const handleEdit = () => {
+    if (report.status === 'completed') {
+      // 完了済みの場合は確認ダイアログを表示
+      setShowEditConfirmModal(true);
+    } else {
+      // 下書きの場合は直接編集画面へ
+      navigate(`/reports/${id}/edit`);
+    }
+  };
+
+  const handleConfirmEdit = () => {
+    setShowEditConfirmModal(false);
+    revertToDraftMutation.mutate();
+  };
+
   return (
     <Container>
       <Card>
@@ -631,25 +661,25 @@ const ReportDetailPage = () => {
             </TitleSection>
             <ActionButtons>
               {isOwner && report.status === 'draft' && (
-                <>
-                  <CompleteButton 
-                    onClick={handleComplete}
-                    disabled={completeMutation.isPending}
-                  >
-                    {completeMutation.isPending ? '処理中...' : '日報を完了する'}
-                  </CompleteButton>
-                  <EditButton onClick={() => navigate(`/reports/${id}/edit`)}>
-                    編集
-                  </EditButton>
-                </>
+                <CompleteButton 
+                  onClick={handleComplete}
+                  disabled={completeMutation.isPending}
+                >
+                  {completeMutation.isPending ? '処理中...' : '日報を完了する'}
+                </CompleteButton>
               )}
               {isOwner && (
-                <DeleteButton 
-                  onClick={handleDelete}
+                <>
+                  <EditButton onClick={handleEdit}>
+                    編集
+                  </EditButton>
+                  <DeleteButton 
+                    onClick={handleDelete}
                   disabled={deleteMutation.isPending}
                 >
                   {deleteMutation.isPending ? '削除中...' : '削除'}
                 </DeleteButton>
+                </>
               )}
               <BackButton onClick={() => navigate('/')}>
                 戻る
@@ -706,33 +736,88 @@ const ReportDetailPage = () => {
           </InfoGrid>
         </Section>
 
-        {slots.next_action && slots.next_action.trim() && (
+        {slots.next_action && (typeof slots.next_action === 'string' ? slots.next_action.trim() : slots.next_action.length > 0) && (
           <Section>
             <SectionTitle>次のアクション</SectionTitle>
             <InfoItem>
               <InfoValue>
-                {slots.next_action.split(',').map((action, index) => (
-                  <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
-                    <span style={{ marginRight: '8px', color: 'var(--color-accent)', fontWeight: 'bold' }}>•</span>
-                    <span>{action.trim()}</span>
-                  </div>
-                ))}
+                {(() => {
+                  // next_actionが文字列の場合
+                  if (typeof slots.next_action === 'string') {
+                    return slots.next_action.split(',').map((action, index) => (
+                      <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
+                        <span style={{ marginRight: '8px', color: 'var(--color-accent)', fontWeight: 'bold' }}>•</span>
+                        <span>{action.trim()}</span>
+                      </div>
+                    ));
+                  }
+                  // next_actionが配列の場合
+                  else if (Array.isArray(slots.next_action)) {
+                    return slots.next_action.map((action, index) => {
+                      let actionText = '';
+                      if (typeof action === 'object' && action !== null) {
+                        // オブジェクトの場合、taskフィールドを優先、担当者と期限も含める
+                        if (action.task) {
+                          const parts = [action.task];
+                          if (action.responsible) parts.push(`担当: ${action.responsible}`);
+                          if (action.deadline) parts.push(`期限: ${action.deadline}`);
+                          actionText = parts.join(' ');
+                        } else {
+                          actionText = action.action || action.text || JSON.stringify(action);
+                        }
+                      } else {
+                        actionText = String(action);
+                      }
+                      return (
+                        <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
+                          <span style={{ marginRight: '8px', color: 'var(--color-accent)', fontWeight: 'bold' }}>•</span>
+                          <span>{actionText}</span>
+                        </div>
+                      );
+                    });
+                  }
+                  return null;
+                })()}
               </InfoValue>
             </InfoItem>
           </Section>
         )}
 
-        {slots.issues && slots.issues.trim() && (
+        {slots.issues && (typeof slots.issues === 'string' ? slots.issues.trim() : slots.issues.length > 0) && (
           <Section>
             <SectionTitle>課題・リスク</SectionTitle>
             <InfoItem>
               <InfoValue>
-                {slots.issues.split(',').map((issue, index) => (
-                  <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
-                    <span style={{ marginRight: '8px', color: 'var(--color-error)', fontWeight: 'bold' }}>•</span>
-                    <span>{issue.trim()}</span>
-                  </div>
-                ))}
+                {(() => {
+                  // issuesが文字列の場合
+                  if (typeof slots.issues === 'string') {
+                    return slots.issues.split(',').map((issue, index) => (
+                      <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
+                        <span style={{ marginRight: '8px', color: 'var(--color-error)', fontWeight: 'bold' }}>•</span>
+                        <span>{issue.trim()}</span>
+                      </div>
+                    ));
+                  }
+                  // issuesが配列の場合
+                  else if (Array.isArray(slots.issues)) {
+                    return slots.issues.map((issue, index) => {
+                      let issueText = '';
+                      if (typeof issue === 'object' && issue !== null) {
+                        // オブジェクトの場合、issueフィールドやdescriptionフィールドを探す
+                        issueText = issue.issue || issue.description || issue.text || JSON.stringify(issue);
+                      } else {
+                        issueText = String(issue);
+                      }
+                      return (
+                        <div key={index} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start' }}>
+                          <span style={{ marginRight: '8px', color: 'var(--color-error)', fontWeight: 'bold' }}>•</span>
+                          <span>{issueText}</span>
+                        </div>
+                      );
+                    });
+                  }
+                  return null;
+                })()}
               </InfoValue>
             </InfoItem>
           </Section>
@@ -756,14 +841,17 @@ const ReportDetailPage = () => {
         )}
       </Card>
 
+      {/* CRM連携セクション */}
+      <CRMIntegrationSection report={report} />
+
       {/* Complete Modal */}
       {showCompleteModal && (
         <ModalOverlay onClick={() => setShowCompleteModal(false)}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <ModalTitle>日報を完了しますか？</ModalTitle>
             <ModalMessage>
-              完了後は編集できなくなります。<br />
-              この操作は取り消せません。
+              完了後も編集は可能です。<br />
+              ステータスが「完了」に変更されます。
             </ModalMessage>
             <ModalButtons>
               <ModalButton
@@ -799,6 +887,33 @@ const ReportDetailPage = () => {
                 {deleteMutation.isPending ? '削除中...' : '削除する'}
               </ModalButton>
               <ModalCancelButton onClick={() => setShowDeleteModal(false)}>
+                キャンセル
+              </ModalCancelButton>
+            </ModalButtons>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+
+      {/* 編集確認モーダル（完了済み日報の場合） */}
+      {showEditConfirmModal && (
+        <ModalOverlay onClick={() => setShowEditConfirmModal(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>完了済み日報の編集</ModalTitle>
+            <ModalMessage>
+              完了済みの日報を編集すると、ステータスが「下書き」に戻ります。<br />
+              CRM連携情報は保持されますが、再度「日報を完了する」ボタンを押す必要があります。<br />
+              <br />
+              編集を続けますか？
+            </ModalMessage>
+            <ModalButtons>
+              <ModalButton 
+                onClick={handleConfirmEdit}
+                disabled={revertToDraftMutation.isPending}
+                style={{ backgroundColor: 'var(--color-warning)', borderColor: 'var(--color-warning)' }}
+              >
+                {revertToDraftMutation.isPending ? '処理中...' : '下書きに戻して編集'}
+              </ModalButton>
+              <ModalCancelButton onClick={() => setShowEditConfirmModal(false)}>
                 キャンセル
               </ModalCancelButton>
             </ModalButtons>

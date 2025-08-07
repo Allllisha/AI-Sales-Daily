@@ -1,8 +1,0 @@
-
-> sales-daily-server@1.0.0 start
-> node src/index.js
-
-Server running on port 3001
-Environment: development
-Auth middleware - Token received: Yes
-Auth middleware - Decoded user: { userId: 10, role: 'sales' }

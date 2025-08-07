@@ -4,12 +4,19 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const { initRedis } = require('./services/redis');
 
 const authRoutes = require('./routes/auth');
 const reportRoutes = require('./routes/reports');
 const userRoutes = require('./routes/users');
 const aiRoutes = require('./routes/ai');
 const analyticsRoutes = require('./routes/analytics');
+const dynamics365Routes = require('./routes/dynamics365');
+const crmRoutes = require('./routes/crm');
+const oauthRoutes = require('./routes/oauth');
+const uploadRoutes = require('./routes/upload');
+const crmIntegrationRoutes = require('./routes/crmIntegration');
+const crmAuthRoutes = require('./routes/crmAuth');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -36,7 +43,7 @@ app.use(cors({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'development' ? 1000 : 100 // より寛容な制限を開発環境で設定
 });
 app.use('/api/', limiter);
 
@@ -55,12 +62,28 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/dynamics365', dynamics365Routes);
+app.use('/api/crm', crmRoutes);
+app.use('/api/oauth', oauthRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/crm-integration', crmIntegrationRoutes);
+app.use('/api/crm-auth', crmAuthRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Initialize Redis and start server
+(async () => {
+  try {
+    await initRedis();
+    console.log('Redis initialization complete');
+  } catch (error) {
+    console.error('Redis initialization failed:', error);
+    console.log('Application will continue with in-memory cache');
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+})();

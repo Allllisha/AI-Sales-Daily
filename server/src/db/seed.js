@@ -10,15 +10,15 @@ async function seed() {
     await client.query('BEGIN');
 
     // Create manager
-    const managerPassword = await bcrypt.hash('manager123', 10);
+    const managerPassword = await bcrypt.hash('password123', 10);
     const managerResult = await client.query(
       'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id',
-      ['manager@example.com', managerPassword, '山田太郎', 'manager']
+      ['yamada@example.com', managerPassword, '山田太郎', 'manager']
     );
     const managerId = managerResult.rows[0].id;
 
     // Create sales users
-    const salesPassword = await bcrypt.hash('sales123', 10);
+    const salesPassword = await bcrypt.hash('password123', 10);
     await client.query(
       'INSERT INTO users (email, password, name, role, manager_id) VALUES ($1, $2, $3, $4, $5)',
       ['tanaka@example.com', salesPassword, '田中花子', 'sales', managerId]
@@ -32,9 +32,9 @@ async function seed() {
     await client.query('COMMIT');
     console.log('Database seeding completed successfully!');
     console.log('Created users:');
-    console.log('- manager@example.com (password: manager123)');
-    console.log('- tanaka@example.com (password: sales123)');
-    console.log('- suzuki@example.com (password: sales123)');
+    console.log('- yamada@example.com (password: password123)');
+    console.log('- tanaka@example.com (password: password123)');
+    console.log('- suzuki@example.com (password: password123)');
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Seeding failed:', error);

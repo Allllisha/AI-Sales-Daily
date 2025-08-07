@@ -32,7 +32,7 @@ const Header = styled.header`
   border-bottom: 1px solid var(--color-border);
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 100;
   box-shadow: var(--shadow-paper);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);

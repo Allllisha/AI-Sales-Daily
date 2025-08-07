@@ -119,6 +119,7 @@ router.post('/login', [
     });
   } catch (error) {
     console.error('Login error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'ログインに失敗しました' });
   }
 });

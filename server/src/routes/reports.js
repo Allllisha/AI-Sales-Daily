@@ -47,18 +47,88 @@ function cleanSlotData(slots) {
     const value = slots[key];
     if (value !== null && value !== undefined) {
       if (typeof value === 'string') {
-        // {}[]"を除去
-        cleaned[key] = value.replace(/[{}[\]"]/g, '');
+        // [object Object]という文字列が既に入っている場合の処理
+        if (value.includes('[object Object]')) {
+          console.warn(`Detected [object Object] in ${key}, this should not happen - check client-side processing`);
+          // カンマで分割して[object Object]の部分だけ除去
+          const parts = value.split(',').map(part => part.trim());
+          const cleanedParts = parts.filter(part => !part.includes('[object Object]'));
+          if (cleanedParts.length > 0) {
+            cleaned[key] = cleanedParts.join(', ');
+          } else {
+            // すべてが[object Object]の場合はnullに
+            cleaned[key] = null;
+          }
+          return;
+        }
+        // {}[]"を除去し、制御文字も除去
+        let cleanedValue = value.replace(/[{}[\]"]/g, '').replace(/[\x00-\x1F\x7F]/g, '');
+        
+        // 非常に長いテキストの場合は適切に処理（改行を保持）
+        cleanedValue = cleanedValue.trim();
+        
+        cleaned[key] = cleanedValue;
       } else if (Array.isArray(value)) {
-        // 配列の場合はカンマ区切り文字列に変換し、{}[]"を除去
-        cleaned[key] = value.map(item => 
-          typeof item === 'string' ? item.replace(/[{}[\]"]/g, '') : item
-        ).join(', ');
+        // 配列の場合は各要素を適切に処理してカンマ区切り文字列に変換
+        cleaned[key] = value.map(item => {
+          if (typeof item === 'string') {
+            return item.replace(/[{}[\]"]/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+          } else if (typeof item === 'object' && item !== null) {
+            // 課題の場合の特別処理
+            if (key === 'issues') {
+              if (item.issue) return item.issue;
+              if (item.description) return item.description;
+              if (item.text) return item.text;
+              if (item.content) return item.content;
+            }
+            // 次のアクションの場合の特別処理
+            if (key === 'next_action') {
+              if (item.task) {
+                const parts = [item.task];
+                if (item.responsible) parts.push(`担当: ${item.responsible}`);
+                if (item.deadline) parts.push(`期限: ${item.deadline}`);
+                return parts.join(' ');
+              }
+              if (item.action) return item.action;
+              if (item.text) return item.text;
+              if (item.content) return item.content;
+            }
+            // スケジュールの場合の特別処理
+            if (key === 'schedule') {
+              if (item.phase && item.due_date) {
+                return `${item.phase}(${item.due_date})`;
+              }
+            }
+            // オブジェクトの場合、nameプロパティやその他の識別可能なプロパティを使用
+            if (item.name) return item.name;
+            if (item.title) return item.title;
+            if (item.label) return item.label;
+            if (item.value) return item.value;
+            // その他のケースは文字列化
+            return Object.values(item).filter(v => v && typeof v === 'string').join(' ');
+          }
+          return String(item);
+        }).filter(item => item && item.trim()).join(', ');
+      } else if (typeof value === 'object') {
+        // オブジェクトの場合は適切に処理
+        if (value.name) {
+          cleaned[key] = value.name;
+        } else if (value.title) {
+          cleaned[key] = value.title;
+        } else if (value.label) {
+          cleaned[key] = value.label;
+        } else if (value.value) {
+          cleaned[key] = value.value;
+        } else {
+          // その他のオブジェクトは、値を結合して文字列化
+          const objValues = Object.values(value).filter(v => v && typeof v === 'string');
+          cleaned[key] = objValues.join(' ');
+        }
       } else {
         cleaned[key] = value;
       }
     } else {
-      cleaned[key] = value;
+      cleaned[key] = null;
     }
   });
   
@@ -74,6 +144,7 @@ router.get('/', authMiddleware, async (req, res) => {
     let query = `
       SELECT 
         r.id, r.user_id, r.report_date, r.mode, r.status, r.created_at,
+        r.daily_sequence,
         u.name as user_name,
         rs.customer, rs.project, rs.next_action, rs.budget, 
         rs.schedule, rs.participants, rs.location, rs.issues,
@@ -224,21 +295,25 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// 今日の日報が存在するかチェック
+// 今日の日報が存在するかチェック（複数の日報を返す）
 router.get('/today', authMiddleware, async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     const result = await pool.query(
-      'SELECT id, status FROM reports WHERE user_id = $1 AND DATE(report_date) = DATE($2)',
+      'SELECT id, status, daily_sequence FROM reports WHERE user_id = $1 AND report_date = $2 ORDER BY daily_sequence DESC',
       [req.userId, today]
     );
     
     if (result.rows.length > 0) {
-      res.json({ exists: true, report: result.rows[0] });
+      res.json({ 
+        exists: true, 
+        reports: result.rows,  // 複数の日報を返す
+        count: result.rows.length
+      });
     } else {
-      res.json({ exists: false });
+      res.json({ exists: false, reports: [], count: 0 });
     }
   } catch (error) {
     console.error('Check today report error:', error);
@@ -251,43 +326,60 @@ router.post('/', authMiddleware, async (req, res) => {
   const client = await pool.connect();
   
   try {
+    console.log('Report creation request body:', JSON.stringify(req.body, null, 2));
     await client.query('BEGIN');
 
-    const { report_date, mode, questions_answers, slots } = req.body;
+    const { report_date, mode, questions_answers, slots, crm_data } = req.body;
     // If no report_date provided, use current JST date
     const reportDate = report_date || (() => {
       const now = new Date();
       const jstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
       return jstDate.toISOString().split('T')[0];
     })();
+    
+    console.log('Creating report with date:', reportDate, 'from report_date:', report_date);
+    
+    // dateがnullでないことを確認
+    if (!reportDate) {
+      throw new Error('Report date cannot be null');
+    }
 
-    // 既存の日報をチェック
-    const existingReport = await client.query(
-      'SELECT id FROM reports WHERE user_id = $1 AND report_date = $2',
+    // 同じ日付の最大シーケンス番号を取得
+    const maxSequenceResult = await client.query(
+      'SELECT COALESCE(MAX(daily_sequence), 0) as max_seq FROM reports WHERE user_id = $1 AND report_date = $2',
       [req.userId, reportDate]
     );
-
+    
+    const nextSequence = maxSequenceResult.rows[0].max_seq + 1;
     let reportId;
     
-    if (existingReport.rows.length > 0) {
-      // 既存の日報がある場合は更新
-      reportId = existingReport.rows[0].id;
-      
-      await client.query(
-        'UPDATE reports SET mode = $1, status = $2 WHERE id = $3',
-        [mode || 'hearing', 'draft', reportId]
-      );
-      
-      // 既存のQ&Aとスロットを削除
-      await client.query('DELETE FROM report_qa WHERE report_id = $1', [reportId]);
-      await client.query('DELETE FROM report_slots WHERE report_id = $1', [reportId]);
-    } else {
+    // 常に新規作成（複数日報対応）
+    {
       // 新規作成
+      console.log('Executing INSERT with params:', {
+        user_id: req.userId,
+        date: reportDate,
+        report_date: reportDate,
+        mode: mode || 'hearing',
+        status: 'draft'
+      });
+      
+      // パラメータを個別に確認
+      const insertParams = [req.userId, reportDate, reportDate, mode || 'hearing', 'draft'];
+      console.log('INSERT parameters array:', insertParams);
+      console.log('Parameter types:', insertParams.map(p => typeof p));
+      
+      // 新規日報作成（シーケンス番号付き）
       const reportResult = await client.query(
-        'INSERT INTO reports (user_id, report_date, mode, status) VALUES ($1, $2, $3, $4) RETURNING *',
-        [req.userId, reportDate, mode || 'hearing', 'draft']
+        `INSERT INTO reports (
+          user_id, report_date, mode, status, daily_sequence
+        ) VALUES (
+          $1, $2, $3, $4, $5
+        ) RETURNING *`,
+        [req.userId, reportDate, mode || 'hearing', 'draft', nextSequence]
       );
       reportId = reportResult.rows[0].id;
+      console.log('INSERT successful, reportId:', reportId, ', sequence:', nextSequence);
     }
 
     // Q&A保存
@@ -305,6 +397,34 @@ router.post('/', authMiddleware, async (req, res) => {
     if (slots) {
       let cleanedSlots = cleanSlotData(slots);
       
+      // CRMデータが存在する場合、基本情報を自動的に埋める
+      if (crm_data) {
+        // Dynamics365またはSalesforceのデータから基本情報を抽出
+        if (!cleanedSlots.customer && slots.customer) {
+          cleanedSlots.customer = slots.customer;
+        }
+        if (!cleanedSlots.project && slots.project) {
+          cleanedSlots.project = slots.project;
+        }
+        if (!cleanedSlots.participants && slots.participants) {
+          cleanedSlots.participants = slots.participants;
+        }
+        
+        // CRM IDも保存
+        if (slots.dynamics365_account_id) {
+          cleanedSlots.dynamics365_account_id = slots.dynamics365_account_id;
+        }
+        if (slots.dynamics365_opportunity_id) {
+          cleanedSlots.dynamics365_opportunity_id = slots.dynamics365_opportunity_id;
+        }
+        if (slots.salesforce_account_id) {
+          cleanedSlots.salesforce_account_id = slots.salesforce_account_id;
+        }
+        if (slots.salesforce_opportunity_id) {
+          cleanedSlots.salesforce_opportunity_id = slots.salesforce_opportunity_id;
+        }
+      }
+      
       // 業界が設定されていない場合、全体の会話から推測
       if (!cleanedSlots.industry && questions_answers && questions_answers.length > 0) {
         const allAnswers = questions_answers.map(qa => qa.answer).join(' ');
@@ -314,25 +434,48 @@ router.post('/', authMiddleware, async (req, res) => {
         }
       }
       
-      await client.query(`
-        INSERT INTO report_slots (
-          report_id, customer, project, next_action, budget, 
-          schedule, participants, location, issues, personal_info, relationship_notes, industry
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      `, [
-        reportId,
-        cleanedSlots.customer,
-        cleanedSlots.project,
-        cleanedSlots.next_action,
-        cleanedSlots.budget,
-        cleanedSlots.schedule,
-        cleanedSlots.participants,
-        cleanedSlots.location,
-        cleanedSlots.issues,
-        cleanedSlots.personal_info,
-        cleanedSlots.relationship_notes,
-        cleanedSlots.industry
-      ]);
+      try {
+        await client.query(`
+          INSERT INTO report_slots (
+            report_id, customer, project, next_action, budget, 
+            schedule, participants, location, issues, personal_info, relationship_notes, industry,
+            dynamics365_account_id, dynamics365_opportunity_id, salesforce_account_id, salesforce_opportunity_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        `, [
+          reportId,
+          cleanedSlots.customer,
+          cleanedSlots.project,
+          cleanedSlots.next_action,
+          cleanedSlots.budget,
+          cleanedSlots.schedule,
+          cleanedSlots.participants,
+          cleanedSlots.location,
+          cleanedSlots.issues,
+          cleanedSlots.personal_info,
+          cleanedSlots.relationship_notes,
+          cleanedSlots.industry,
+          cleanedSlots.dynamics365_account_id || null,
+          cleanedSlots.dynamics365_opportunity_id || null,
+          cleanedSlots.salesforce_account_id || null,
+          cleanedSlots.salesforce_opportunity_id || null
+        ]);
+      } catch (slotError) {
+        console.error('Error inserting slot data:', slotError);
+        console.error('Slot data lengths:', {
+          customer: cleanedSlots.customer?.length || 0,
+          project: cleanedSlots.project?.length || 0,
+          next_action: cleanedSlots.next_action?.length || 0,
+          budget: cleanedSlots.budget?.length || 0,
+          schedule: cleanedSlots.schedule?.length || 0,
+          participants: cleanedSlots.participants?.length || 0,
+          location: cleanedSlots.location?.length || 0,
+          issues: cleanedSlots.issues?.length || 0,
+          personal_info: cleanedSlots.personal_info?.length || 0,
+          relationship_notes: cleanedSlots.relationship_notes?.length || 0,
+          industry: cleanedSlots.industry?.length || 0
+        });
+        throw slotError;
+      }
     }
 
     await client.query('COMMIT');
@@ -344,6 +487,9 @@ router.post('/', authMiddleware, async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Create report error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error detail:', error.detail);
+    console.error('Request body was:', req.body);
     res.status(500).json({ error: '日報の作成に失敗しました' });
   } finally {
     client.release();
@@ -399,6 +545,21 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (slots) {
       let cleanedSlots = cleanSlotData(slots);
       
+      // 既存のCRMデータを取得して保持
+      const existingSlots = await client.query(
+        'SELECT dynamics365_account_id, dynamics365_opportunity_id, salesforce_account_id, salesforce_opportunity_id FROM report_slots WHERE report_id = $1',
+        [id]
+      );
+      
+      // 既存のCRM IDを保持（新しい値がない場合）
+      if (existingSlots.rows.length > 0) {
+        const existing = existingSlots.rows[0];
+        cleanedSlots.dynamics365_account_id = cleanedSlots.dynamics365_account_id || existing.dynamics365_account_id;
+        cleanedSlots.dynamics365_opportunity_id = cleanedSlots.dynamics365_opportunity_id || existing.dynamics365_opportunity_id;
+        cleanedSlots.salesforce_account_id = cleanedSlots.salesforce_account_id || existing.salesforce_account_id;
+        cleanedSlots.salesforce_opportunity_id = cleanedSlots.salesforce_opportunity_id || existing.salesforce_opportunity_id;
+      }
+      
       // 業界が設定されていない場合、全体の会話から推測
       if (!cleanedSlots.industry && questions_answers && questions_answers.length > 0) {
         const allAnswers = questions_answers.map(qa => qa.answer).join(' ');
@@ -411,12 +572,15 @@ router.put('/:id', authMiddleware, async (req, res) => {
       await client.query(`
         INSERT INTO report_slots (
           report_id, customer, project, next_action, budget, 
-          schedule, participants, location, issues, personal_info, relationship_notes, industry
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          schedule, participants, location, issues, personal_info, relationship_notes, industry,
+          dynamics365_account_id, dynamics365_opportunity_id, salesforce_account_id, salesforce_opportunity_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         ON CONFLICT (report_id) DO UPDATE SET
           customer = $2, project = $3, next_action = $4, budget = $5,
           schedule = $6, participants = $7, location = $8, issues = $9,
-          personal_info = $10, relationship_notes = $11, industry = $12
+          personal_info = $10, relationship_notes = $11, industry = $12,
+          dynamics365_account_id = $13, dynamics365_opportunity_id = $14,
+          salesforce_account_id = $15, salesforce_opportunity_id = $16
       `, [
         id,
         cleanedSlots.customer,
@@ -429,7 +593,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
         cleanedSlots.issues,
         cleanedSlots.personal_info,
         cleanedSlots.relationship_notes,
-        cleanedSlots.industry
+        cleanedSlots.industry,
+        cleanedSlots.dynamics365_account_id || null,
+        cleanedSlots.dynamics365_opportunity_id || null,
+        cleanedSlots.salesforce_account_id || null,
+        cleanedSlots.salesforce_opportunity_id || null
       ]);
     }
 
@@ -482,6 +650,64 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await client.query('ROLLBACK');
     console.error('Delete report error:', error);
     res.status(500).json({ error: '日報の削除に失敗しました' });
+  } finally {
+    client.release();
+  }
+});
+
+// 日報のステータスを更新
+router.put('/:id/status', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userId = req.userId;
+    
+    // ステータスの妥当性チェック
+    if (!['draft', 'completed'].includes(status)) {
+      return res.status(400).json({ error: '無効なステータスです' });
+    }
+    
+    // 日報の所有者確認
+    const reportResult = await client.query(
+      'SELECT user_id, status FROM reports WHERE id = $1',
+      [id]
+    );
+    
+    if (reportResult.rows.length === 0) {
+      return res.status(404).json({ error: '日報が見つかりません' });
+    }
+    
+    const report = reportResult.rows[0];
+    
+    // 所有者またはマネージャーのみ変更可能
+    if (report.user_id !== userId) {
+      // マネージャー権限チェック
+      const managerCheck = await client.query(
+        'SELECT 1 FROM users WHERE id = $1 AND manager_id = $2',
+        [report.user_id, userId]
+      );
+      
+      if (managerCheck.rows.length === 0) {
+        return res.status(403).json({ error: '権限がありません' });
+      }
+    }
+    
+    // ステータスを更新
+    await client.query(
+      'UPDATE reports SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [status, id]
+    );
+    
+    res.json({ 
+      success: true, 
+      message: `日報を${status === 'draft' ? '下書き' : '完了'}に変更しました` 
+    });
+    
+  } catch (error) {
+    console.error('Update report status error:', error);
+    res.status(500).json({ error: 'ステータスの更新に失敗しました' });
   } finally {
     client.release();
   }

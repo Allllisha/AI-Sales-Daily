@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { reportAPI, userAPI } from '../services/api';
+import { reportAPI, userAPI, aiAPI, uploadAPI } from '../services/api';
 import styled from '@emotion/styled';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import MeetingNotesModal from '../components/MeetingNotesModal';
+import Dynamics365Modal from '../components/Dynamics365Modal';
+import SalesforceModal from '../components/SalesforceModal';
 
 const Container = styled.div`
   max-width: 1400px;
@@ -17,6 +20,10 @@ const Container = styled.div`
 
   @media (max-width: 768px) {
     padding: 0 var(--space-4);
+  }
+
+  @media (max-width: 480px) {
+    padding: 0 var(--space-2);
   }
 `;
 
@@ -29,17 +36,15 @@ const WelcomeSection = styled.div`
   box-shadow: var(--shadow-structure);
   position: relative;
   
-  /* Removed excessive corner details */
-  
   @media (max-width: 768px) {
-    padding: var(--space-6);
-    margin-bottom: var(--space-6);
-    
-    &::before,
-    &::after {
-      width: 12px;
-      height: 12px;
-    }
+    padding: var(--space-5);
+    margin-bottom: var(--space-5);
+  }
+
+  @media (max-width: 480px) {
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    border-radius: var(--radius-md);
   }
 `;
 
@@ -69,26 +74,28 @@ const ActionButtons = styled.div`
   gap: var(--space-5);
   margin-top: var(--space-6);
   position: relative;
-  
-  /* Central divider line */
-  &::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 1px;
-    height: 60%;
-    background: var(--color-border);
-    transform: translate(-50%, -50%);
+
+  &.report-buttons {
+    grid-template-columns: repeat(3, 1fr);
+    
+    @media (max-width: 1024px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
   }
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
     gap: var(--space-4);
-    
-    &::before {
-      display: none;
-    }
+    margin-top: var(--space-4);
+  }
+
+  @media (max-width: 480px) {
+    gap: var(--space-3);
+    padding: 0;
   }
 `;
 
@@ -126,12 +133,18 @@ const StyledPrimaryButton = styled.button`
     transform: none;
   }
   
-  /* Removed excessive corner accent */
-  
   @media (max-width: 768px) {
     padding: var(--space-4) var(--space-5);
     font-size: var(--font-size-micro);
     min-height: 48px;
+    width: 100%;
+  }
+
+  @media (max-width: 480px) {
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-micro);
+    min-height: 44px;
+    width: 100%;
   }
 `;
 
@@ -162,12 +175,18 @@ const StyledSecondaryButton = styled.button`
     transform: translateY(-1px);
   }
   
-  /* Removed excessive corner accent */
-  
   @media (max-width: 768px) {
     padding: var(--space-4) var(--space-5);
     font-size: var(--font-size-micro);
     min-height: 48px;
+    width: 100%;
+  }
+  
+  @media (max-width: 480px) {
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-micro);
+    min-height: 44px;
+    width: 100%;
   }
 `;
 
@@ -180,16 +199,15 @@ const ReportsSection = styled.div`
   box-shadow: var(--shadow-structure);
   position: relative;
 
-  /* Removed excessive corner details */
-
   @media (max-width: 768px) {
-    padding: var(--space-6);
-    
-    &::before,
-    &::after {
-      width: 10px;
-      height: 10px;
-    }
+    padding: var(--space-5);
+    margin-top: var(--space-4);
+  }
+  
+  @media (max-width: 480px) {
+    padding: var(--space-4);
+    margin-top: var(--space-3);
+    border-radius: var(--radius-md);
   }
 `;
 
@@ -336,8 +354,13 @@ const ManagerTabs = styled.div`
   margin-bottom: var(--space-6);
   border-bottom: 2px solid var(--color-border);
   position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   
-  /* Removed excessive accent line */
+  @media (max-width: 480px) {
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
 `;
 
 const TabButton = styled.button`
@@ -352,9 +375,15 @@ const TabButton = styled.button`
   transition: all 0.2s ease-in-out;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
 
   &:hover {
     color: var(--color-accent);
+  }
+  
+  @media (max-width: 480px) {
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-micro);
   }
 `;
 
@@ -363,6 +392,16 @@ const TeamSelector = styled.div`
   gap: var(--space-4);
   margin-bottom: var(--space-5);
   flex-wrap: wrap;
+  
+  @media (max-width: 768px) {
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  
+  @media (max-width: 480px) {
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
 `;
 
 const MemberButton = styled.button`
@@ -386,15 +425,30 @@ const MemberButton = styled.button`
     transform: translateY(-1px);
   }
   
-  /* Removed excessive corner accent */
+  @media (max-width: 768px) {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-micro);
+  }
+  
+  @media (max-width: 480px) {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-micro);
+    flex: 1 1 calc(50% - var(--space-2));
+    min-width: 0;
+  }
 `;
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isManager } = useAuth();
   const [isOnline] = React.useState(navigator.onLine);
   const [activeTab, setActiveTab] = useState('self'); // 'self', 'team', 'individual'
   const [selectedMembers, setSelectedMembers] = useState([]);
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [showDynamics365Modal, setShowDynamics365Modal] = useState(false);
+  const [showSalesforceModal, setShowSalesforceModal] = useState(false);
+
 
   // 部下リストを取得
   const { data: teamMembers } = useQuery({
@@ -423,38 +477,50 @@ const HomePage = () => {
 
   const handleNewReport = async (mode) => {
     try {
-      // 今日の日報が既にあるかチェック
-      const todayReport = reports?.find(report => {
+      // 今日の日報をチェック（複数対応）
+      const todayReports = reports?.filter(report => {
         const reportDate = new Date(report.report_date).toDateString();
         const today = new Date().toDateString();
         return reportDate === today;
-      });
+      }) || [];
 
-      if (todayReport) {
-        // 既存の日報がある場合
-        if (todayReport.status === 'draft') {
-          // 下書きの場合は編集画面へ
-          const confirmEdit = window.confirm('本日の日報が既に下書きで存在します。編集しますか？');
-          if (confirmEdit) {
-            navigate(`/reports/${todayReport.id}/edit`);
-          }
-        } else {
-          // 完了済みの場合は詳細画面へ
-          toast.error('本日の日報は既に完了しています');
-          navigate(`/reports/${todayReport.id}`);
+      // ドラフトの日報があるか確認
+      const draftReport = todayReports.find(r => r.status === 'draft');
+      
+      if (draftReport) {
+        // ドラフトがある場合
+        const confirmNew = window.confirm(
+          `本日${todayReports.length}件目の日報が下書きの状態です。\n新しい日報を作成しますか？\n\n[いいえ]を選ぶと下書きを編集します`
+        );
+        if (!confirmNew) {
+          navigate(`/reports/${draftReport.id}/edit`);
+          return;
         }
+      } else if (todayReports.length > 0) {
+        // 完了済みの日報がある場合
+        const confirmNew = window.confirm(
+          `本日既に${todayReports.length}件の日報があります。\n別の企業を訪問した日報を作成しますか？`
+        );
+        if (!confirmNew) {
+          return;
+        }
+      }
+
+      // 新規作成に進む
+      if (mode === 'meeting') {
+        // 議事録モーダルを表示
+        setShowMeetingModal(true);
+      } else if (mode === 'voice' && isOnline) {
+        navigate('/hearing');
       } else {
-        // 新規作成
-        if (mode === 'voice' && isOnline) {
-          navigate('/hearing');
-        } else {
-          navigate('/hearing?mode=text');
-        }
+        navigate('/hearing?mode=text');
       }
     } catch (error) {
       console.error('Error checking today report:', error);
       // エラーが発生した場合は新規作成を試みる
-      if (mode === 'voice' && isOnline) {
+      if (mode === 'meeting') {
+        setShowMeetingModal(true);
+      } else if (mode === 'voice' && isOnline) {
         navigate('/hearing');
       } else {
         navigate('/hearing?mode=text');
@@ -609,6 +675,140 @@ const HomePage = () => {
     );
   };
 
+  const handleMeetingNotesSubmit = async (data) => {
+    try {
+      let processedContent = '';
+      
+      if (data.type === 'text') {
+        // テキスト入力の場合
+        processedContent = data.content;
+      } else if (data.type === 'file') {
+        // ファイルアップロードの場合
+        toast.info('ファイルをアップロード中...');
+        
+        // ファイルをアップロード
+        const uploadResponse = await uploadAPI.uploadFile(data.formData);
+        
+        if (!uploadResponse.success) {
+          throw new Error(uploadResponse.message || 'ファイルアップロードに失敗しました');
+        }
+        
+        toast.success('ファイルアップロード完了。処理中...');
+        
+        // ファイルを処理してテキストを抽出
+        const processResponse = await uploadAPI.processFile(uploadResponse.file.id, data.fileType);
+        
+        if (!processResponse.success) {
+          throw new Error(processResponse.message || 'ファイル処理に失敗しました');
+        }
+        
+        processedContent = processResponse.extractedText;
+        toast.success('ファイル処理完了');
+      }
+      
+      // 抽出されたテキストでAIヒアリングを開始
+      const meetingData = {
+        type: 'text',
+        content: processedContent
+      };
+      
+      const response = await aiAPI.startMeetingNotes(meetingData);
+      
+      // セッションIDと抽出された情報を持ってヒアリングページへ遷移
+      navigate(`/hearing?mode=meeting&sessionId=${response.sessionId}`, {
+        state: {
+          meetingContent: processedContent,
+          extractedInfo: response.extractedInfo
+        }
+      });
+      setShowMeetingModal(false);
+      
+    } catch (error) {
+      console.error('Error processing meeting notes:', error);
+      toast.error(error.message || '議事録の処理に失敗しました');
+    }
+  };
+
+  const handleDynamics365Submit = async (data) => {
+    try {
+      // actionTypeをCRMデータに含める
+      const dynamics365DataWithAction = {
+        ...data,
+        crmActionType: data.actionType // 'update' or 'create'
+      };
+      
+      // CRMデータから議事録がある場合は議事録モードでAIヒアリング開始
+      if (data.meetingNotes) {
+        // 議事録データでAIヒアリングを開始
+        const meetingData = {
+          type: 'text',
+          content: data.meetingNotes
+        };
+        
+        const response = await aiAPI.startMeetingNotes(meetingData);
+        
+        // セッションIDを持ってヒアリングページへ遷移
+        navigate(`/hearing?mode=meeting&sessionId=${response.sessionId}`, {
+          state: {
+            dynamics365Data: dynamics365DataWithAction,
+            initialContext: data.meetingNotes
+          }
+        });
+      } else {
+        // 通常のDynamics 365データからAIヒアリング開始
+        navigate('/hearing?mode=dynamics365', { 
+          state: { 
+            dynamics365Data: dynamics365DataWithAction 
+          } 
+        });
+      }
+      setShowDynamics365Modal(false);
+    } catch (error) {
+      console.error('Error processing Dynamics 365 data:', error);
+      toast.error('Dynamics 365データの処理に失敗しました');
+    }
+  };
+
+  const handleSalesforceSubmit = async (data) => {
+    try {
+      // actionTypeをCRMデータに含める
+      const salesforceDataWithAction = {
+        ...data,
+        crmActionType: data.actionType // 'update' or 'create'
+      };
+      
+      // CRMデータから議事録がある場合は議事録モードでAIヒアリング開始
+      if (data.meetingNotes) {
+        // 議事録データでAIヒアリングを開始
+        const meetingData = {
+          type: 'text',
+          content: data.meetingNotes
+        };
+        
+        const response = await aiAPI.startMeetingNotes(meetingData);
+        
+        // セッションIDを持ってヒアリングページへ遷移
+        navigate(`/hearing?mode=meeting&sessionId=${response.sessionId}`, {
+          state: {
+            salesforceData: salesforceDataWithAction,
+            initialContext: data.meetingNotes
+          }
+        });
+      } else {
+        // 通常のSalesforceデータからAIヒアリング開始
+        navigate('/hearing?mode=salesforce', { 
+          state: { 
+            salesforceData: salesforceDataWithAction 
+          } 
+        });
+      }
+      setShowSalesforceModal(false);
+    } catch (error) {
+      console.error('Error processing Salesforce data:', error);
+      toast.error('Salesforceデータの処理に失敗しました');
+    }
+  };
+
   return (
     <Container>
       <WelcomeSection>
@@ -661,8 +861,8 @@ const HomePage = () => {
 
         {activeTab === 'self' && (
           <>
-            <p>今日の日報を作成しますか？</p>
-            <ActionButtons>
+            <p>日報を作成しますか？</p>
+            <ActionButtons className="report-buttons">
               <StyledPrimaryButton 
                 onClick={() => handleNewReport('voice')}
                 disabled={!isOnline}
@@ -677,6 +877,27 @@ const HomePage = () => {
                   <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                 </svg>
                 テキストで開始
+              </StyledSecondaryButton>
+              <StyledSecondaryButton onClick={() => handleNewReport('meeting')}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+                議事録で開始
+              </StyledSecondaryButton>
+              <StyledSecondaryButton onClick={() => setShowDynamics365Modal(true)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#0078d4">
+                  <rect x="1" y="1" width="9" height="9" rx="1"/>
+                  <rect x="14" y="1" width="9" height="9" rx="1"/>
+                  <rect x="1" y="14" width="9" height="9" rx="1"/>
+                  <rect x="14" y="14" width="9" height="9" rx="1"/>
+                </svg>
+                Dynamics 365から開始
+              </StyledSecondaryButton>
+              <StyledSecondaryButton onClick={() => setShowSalesforceModal(true)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#00A1E0">
+                  <path d="M7.8 8.5c-1.4 0-2.7.8-3.3 2-.5-.2-1.1-.4-1.7-.4-1.9 0-3.4 1.5-3.4 3.4 0 .4.1.8.2 1.2-.6.5-1 1.2-1 2 0 1.4 1.1 2.6 2.5 2.6h14.2c2.4 0 4.3-1.9 4.3-4.3 0-2.1-1.4-3.9-3.4-4.2.1-.3.1-.7.1-1 0-2.4-1.9-4.3-4.3-4.3-.9 0-1.7.3-2.3.7-.8-1.4-2.2-2.3-3.9-2.3z"/>
+                </svg>
+                Salesforceから開始
               </StyledSecondaryButton>
             </ActionButtons>
           </>
@@ -715,6 +936,16 @@ const HomePage = () => {
                 <ReportHeader>
                   <ReportDate>
                     {format(new Date(report.report_date), 'yyyy年MM月dd日(E)', { locale: ja })}
+                    {report.daily_sequence && report.daily_sequence > 1 && (
+                      <span style={{
+                        marginLeft: '8px',
+                        fontSize: 'var(--font-size-small)',
+                        color: 'var(--color-accent)',
+                        fontWeight: 'var(--font-weight-bold)'
+                      }}>
+                        ({report.daily_sequence}件目)
+                      </span>
+                    )}
                   </ReportDate>
                   <ReportStatus status={report.status}>
                     {report.status === 'completed' ? '完了' : '下書き'}
@@ -732,6 +963,22 @@ const HomePage = () => {
           <EmptyState>まだ日報がありません</EmptyState>
         )}
       </ReportsSection>
+
+      <MeetingNotesModal
+        isOpen={showMeetingModal}
+        onClose={() => setShowMeetingModal(false)}
+        onSubmit={handleMeetingNotesSubmit}
+      />
+      <Dynamics365Modal
+        isOpen={showDynamics365Modal}
+        onClose={() => setShowDynamics365Modal(false)}
+        onSubmit={handleDynamics365Submit}
+      />
+      <SalesforceModal
+        isOpen={showSalesforceModal}
+        onClose={() => setShowSalesforceModal(false)}
+        onSubmit={handleSalesforceSubmit}
+      />
     </Container>
   );
 };
