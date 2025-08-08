@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { reportAPI, userAPI, aiAPI, uploadAPI } from '../services/api';
 import styled from '@emotion/styled';
-import { format } from 'date-fns';
+import { format, startOfDay, differenceInDays, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import MeetingNotesModal from '../components/MeetingNotesModal';
 import Dynamics365Modal from '../components/Dynamics365Modal';
 import SalesforceModal from '../components/SalesforceModal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const Container = styled.div`
   max-width: 1400px;
@@ -238,6 +239,66 @@ const ReportList = styled.div`
   gap: var(--space-5);
 `;
 
+const DateGroup = styled.div`
+  margin-bottom: var(--space-6);
+`;
+
+const DateGroupHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-none);
+  margin-bottom: var(--space-3);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: ${props => props.clickable ? 'pointer' : 'default'};
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    ${props => props.clickable && `
+      background-color: var(--color-surface);
+      border-color: var(--color-primary);
+    `}
+  }
+`;
+
+const DateGroupCount = styled.span`
+  font-size: var(--font-size-micro);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+`;
+
+const ArchiveToggle = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: transparent;
+  border: none;
+  color: var(--color-primary);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    color: var(--color-accent);
+  }
+  
+  svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.2s ease-in-out;
+    transform: ${props => props.expanded ? 'rotate(90deg)' : 'rotate(0)'};
+  }
+`;
+
 const ReportCard = styled.div`
   padding: var(--space-5);
   background-color: var(--color-background);
@@ -448,6 +509,8 @@ const HomePage = () => {
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [showDynamics365Modal, setShowDynamics365Modal] = useState(false);
   const [showSalesforceModal, setShowSalesforceModal] = useState(false);
+  const [expandedArchives, setExpandedArchives] = useState({});
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
 
 
   // 部下リストを取得
@@ -462,18 +525,70 @@ const HomePage = () => {
     queryKey: ['reports', activeTab, selectedMembers],
     queryFn: () => {
       if (!isManager || activeTab === 'self') {
-        return reportAPI.getReports({ limit: 10 });
+        return reportAPI.getReports({ limit: 50 }); // より多くの日報を取得
       } else if (activeTab === 'team') {
-        return reportAPI.getTeamReports({ limit: 10 });
+        return reportAPI.getTeamReports({ limit: 50 });
       } else {
         return reportAPI.getTeamReports({ 
           userIds: selectedMembers, 
-          limit: 10 
+          limit: 50 
         });
       }
     },
     enabled: isOnline,
   });
+
+  // 日報をグループ化する処理
+  const groupedReports = useMemo(() => {
+    if (!reports || reports.length === 0) return { recent: [], archives: {} };
+
+    const today = startOfDay(new Date());
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const recentReports = [];
+    const archivesByMonth = {};
+
+    reports.forEach(report => {
+      const reportDate = parseISO(report.report_date);
+      const daysDiff = differenceInDays(today, reportDate);
+
+      if (daysDiff < 7) {
+        // 直近1週間の日報
+        recentReports.push(report);
+      } else {
+        // アーカイブ（年月でグループ化）
+        const yearMonth = format(reportDate, 'yyyy年MM月', { locale: ja });
+        if (!archivesByMonth[yearMonth]) {
+          archivesByMonth[yearMonth] = [];
+        }
+        archivesByMonth[yearMonth].push(report);
+      }
+    });
+
+    // 日付でグループ化（直近1週間）
+    const recentByDate = {};
+    recentReports.forEach(report => {
+      const dateKey = format(parseISO(report.report_date), 'yyyy-MM-dd');
+      if (!recentByDate[dateKey]) {
+        recentByDate[dateKey] = [];
+      }
+      recentByDate[dateKey].push(report);
+    });
+
+    // 日付順にソート
+    const sortedRecentDates = Object.keys(recentByDate).sort((a, b) => b.localeCompare(a));
+    const sortedRecent = sortedRecentDates.map(date => ({
+      date,
+      displayDate: format(parseISO(date), 'MM月dd日(E)', { locale: ja }),
+      reports: recentByDate[date]
+    }));
+
+    return {
+      recent: sortedRecent,
+      archives: archivesByMonth
+    };
+  }, [reports]);
 
   const handleNewReport = async (mode) => {
     try {
@@ -489,42 +604,58 @@ const HomePage = () => {
       
       if (draftReport) {
         // ドラフトがある場合
-        const confirmNew = window.confirm(
-          `本日${todayReports.length}件目の日報が下書きの状態です。\n新しい日報を作成しますか？\n\n[いいえ]を選ぶと下書きを編集します`
-        );
-        if (!confirmNew) {
-          navigate(`/reports/${draftReport.id}/edit`);
-          return;
-        }
+        setConfirmModal({
+          isOpen: true,
+          title: '日報の作成',
+          message: `本日${todayReports.length}件目の日報が下書きの状態です。\n新しい日報を作成しますか？`,
+          confirmText: '新規作成',
+          cancelText: '下書きを編集',
+          onConfirm: () => {
+            setConfirmModal({ isOpen: false });
+            proceedWithNewReport(mode);
+          },
+          onCancel: () => {
+            setConfirmModal({ isOpen: false });
+            navigate(`/reports/${draftReport.id}/edit`);
+          }
+        });
+        return;
       } else if (todayReports.length > 0) {
         // 完了済みの日報がある場合
-        const confirmNew = window.confirm(
-          `本日既に${todayReports.length}件の日報があります。\n別の企業を訪問した日報を作成しますか？`
-        );
-        if (!confirmNew) {
-          return;
-        }
+        setConfirmModal({
+          isOpen: true,
+          title: '日報の作成',
+          message: `本日既に${todayReports.length}件の日報があります。\n別の企業を訪問した日報を作成しますか？`,
+          confirmText: '作成する',
+          cancelText: 'キャンセル',
+          onConfirm: () => {
+            setConfirmModal({ isOpen: false });
+            proceedWithNewReport(mode);
+          },
+          onCancel: () => {
+            setConfirmModal({ isOpen: false });
+          }
+        });
+        return;
       }
 
       // 新規作成に進む
-      if (mode === 'meeting') {
-        // 議事録モーダルを表示
-        setShowMeetingModal(true);
-      } else if (mode === 'voice' && isOnline) {
-        navigate('/hearing');
-      } else {
-        navigate('/hearing?mode=text');
-      }
+      proceedWithNewReport(mode);
     } catch (error) {
       console.error('Error checking today report:', error);
       // エラーが発生した場合は新規作成を試みる
-      if (mode === 'meeting') {
-        setShowMeetingModal(true);
-      } else if (mode === 'voice' && isOnline) {
-        navigate('/hearing');
-      } else {
-        navigate('/hearing?mode=text');
-      }
+      proceedWithNewReport(mode);
+    }
+  };
+
+  const proceedWithNewReport = (mode) => {
+    if (mode === 'meeting') {
+      // 議事録モーダルを表示
+      setShowMeetingModal(true);
+    } else if (mode === 'voice' && isOnline) {
+      navigate('/hearing');
+    } else {
+      navigate('/hearing?mode=text');
     }
   };
 
@@ -859,7 +990,7 @@ const HomePage = () => {
           </>
         )}
 
-        {activeTab === 'self' && (
+        {(!isManager || activeTab === 'self') && (
           <>
             <p>日報を作成しますか？</p>
             <ActionButtons className="report-buttons">
@@ -926,39 +1057,125 @@ const HomePage = () => {
               animation: 'spin 1s infinite linear' 
             }}></div>
           </div>
-        ) : reports && reports.length > 0 ? (
-          <ReportList>
-            {reports.map((report) => (
-              <ReportCard 
-                key={report.id} 
-                onClick={() => handleReportClick(report.id)}
-              >
-                <ReportHeader>
-                  <ReportDate>
-                    {format(new Date(report.report_date), 'yyyy年MM月dd日(E)', { locale: ja })}
-                    {report.daily_sequence && report.daily_sequence > 1 && (
-                      <span style={{
-                        marginLeft: '8px',
-                        fontSize: 'var(--font-size-small)',
-                        color: 'var(--color-accent)',
-                        fontWeight: 'var(--font-weight-bold)'
-                      }}>
-                        ({report.daily_sequence}件目)
-                      </span>
-                    )}
-                  </ReportDate>
-                  <ReportStatus status={report.status}>
-                    {report.status === 'completed' ? '完了' : '下書き'}
-                  </ReportStatus>
-                </ReportHeader>
-                <ReportInfo>
-                  {report.customer && `顧客: ${report.customer}`}
-                  {report.project && ` / 案件: ${report.project}`}
-                  {isManager && report.user_name && ` (${report.user_name})`}
-                </ReportInfo>
-              </ReportCard>
+        ) : (groupedReports.recent.length > 0 || Object.keys(groupedReports.archives).length > 0) ? (
+          <div>
+            {/* 直近1週間の日報（日毎に表示） */}
+            {groupedReports.recent.map(dateGroup => (
+              <DateGroup key={dateGroup.date}>
+                <DateGroupHeader>
+                  <span>{dateGroup.displayDate}</span>
+                  <DateGroupCount>{dateGroup.reports.length}件</DateGroupCount>
+                </DateGroupHeader>
+                <ReportList>
+                  {dateGroup.reports.map((report) => (
+                    <ReportCard 
+                      key={report.id} 
+                      onClick={() => handleReportClick(report.id)}
+                    >
+                      <ReportHeader>
+                        <ReportDate>
+                          {report.created_at ? format(new Date(report.created_at), 'HH:mm', { locale: ja }) : ''}
+                          {report.daily_sequence && report.daily_sequence > 1 && (
+                            <span style={{
+                              marginLeft: '8px',
+                              fontSize: 'var(--font-size-small)',
+                              color: 'var(--color-accent)',
+                              fontWeight: 'var(--font-weight-bold)'
+                            }}>
+                              ({report.daily_sequence}件目)
+                            </span>
+                          )}
+                        </ReportDate>
+                        <ReportStatus status={report.status}>
+                          {report.status === 'completed' ? '完了' : '下書き'}
+                        </ReportStatus>
+                      </ReportHeader>
+                      <ReportInfo>
+                        {report.customer && `顧客: ${report.customer}`}
+                        {report.project && ` / 案件: ${report.project}`}
+                        {isManager && report.user_name && ` (${report.user_name})`}
+                      </ReportInfo>
+                    </ReportCard>
+                  ))}
+                </ReportList>
+              </DateGroup>
             ))}
-          </ReportList>
+
+            {/* アーカイブ（年月毎） */}
+            {Object.keys(groupedReports.archives).length > 0 && (
+              <DateGroup>
+                <DateGroupHeader style={{ marginTop: 'var(--space-6)' }}>
+                  <span>アーカイブ</span>
+                </DateGroupHeader>
+                {Object.entries(groupedReports.archives)
+                  .sort((a, b) => b[0].localeCompare(a[0]))
+                  .map(([yearMonth, monthReports]) => (
+                    <div key={yearMonth} style={{ marginBottom: 'var(--space-4)' }}>
+                      <DateGroupHeader 
+                        clickable 
+                        onClick={() => setExpandedArchives(prev => ({ 
+                          ...prev, 
+                          [yearMonth]: !prev[yearMonth] 
+                        }))}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                          <svg 
+                            width="16" 
+                            height="16" 
+                            viewBox="0 0 24 24" 
+                            fill="currentColor"
+                            style={{
+                              transform: expandedArchives[yearMonth] ? 'rotate(90deg)' : 'rotate(0)',
+                              transition: 'transform 0.2s ease-in-out'
+                            }}
+                          >
+                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                          </svg>
+                          <span>{yearMonth}</span>
+                        </div>
+                        <DateGroupCount>{monthReports.length}件</DateGroupCount>
+                      </DateGroupHeader>
+                      {expandedArchives[yearMonth] && (
+                        <ReportList style={{ marginTop: 'var(--space-3)' }}>
+                          {monthReports
+                            .sort((a, b) => b.report_date.localeCompare(a.report_date))
+                            .map((report) => (
+                              <ReportCard 
+                                key={report.id} 
+                                onClick={() => handleReportClick(report.id)}
+                              >
+                                <ReportHeader>
+                                  <ReportDate>
+                                    {format(new Date(report.report_date), 'MM月dd日(E)', { locale: ja })}
+                                    {report.daily_sequence && report.daily_sequence > 1 && (
+                                      <span style={{
+                                        marginLeft: '8px',
+                                        fontSize: 'var(--font-size-small)',
+                                        color: 'var(--color-accent)',
+                                        fontWeight: 'var(--font-weight-bold)'
+                                      }}>
+                                        ({report.daily_sequence}件目)
+                                      </span>
+                                    )}
+                                  </ReportDate>
+                                  <ReportStatus status={report.status}>
+                                    {report.status === 'completed' ? '完了' : '下書き'}
+                                  </ReportStatus>
+                                </ReportHeader>
+                                <ReportInfo>
+                                  {report.customer && `顧客: ${report.customer}`}
+                                  {report.project && ` / 案件: ${report.project}`}
+                                  {isManager && report.user_name && ` (${report.user_name})`}
+                                </ReportInfo>
+                              </ReportCard>
+                            ))}
+                        </ReportList>
+                      )}
+                    </div>
+                  ))}
+              </DateGroup>
+            )}
+          </div>
         ) : (
           <EmptyState>まだ日報がありません</EmptyState>
         )}
@@ -978,6 +1195,15 @@ const HomePage = () => {
         isOpen={showSalesforceModal}
         onClose={() => setShowSalesforceModal(false)}
         onSubmit={handleSalesforceSubmit}
+      />
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={confirmModal.onCancel || (() => setConfirmModal({ isOpen: false }))}
       />
     </Container>
   );
