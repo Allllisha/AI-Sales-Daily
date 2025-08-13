@@ -9,8 +9,14 @@ if (process.env.DATABASE_URL) {
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 20,
+    min: 2, // 最小接続数を設定
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000, // タイムアウトを長めに設定
+    connectionTimeoutMillis: 60000, // 60秒に延長（Azure環境での接続を考慮）
+    query_timeout: 30000,
+    statement_timeout: 30000,
+    idle_in_transaction_session_timeout: 30000,
+    keepAlive: true, // TCP keep-aliveを有効化
+    keepAliveInitialDelayMillis: 10000 // 10秒後にkeep-alive開始
   };
 } else {
   // 個別の環境変数からの接続
@@ -22,8 +28,11 @@ if (process.env.DATABASE_URL) {
     password: process.env.DB_PASSWORD || 'salespass',
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 20,
+    min: 2,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 10000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000
   };
 }
 

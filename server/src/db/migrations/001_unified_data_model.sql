@@ -14,12 +14,9 @@ ALTER TABLE reports ADD COLUMN IF NOT EXISTS issues TEXT;
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS personal_info TEXT;
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS relationship_notes TEXT;
 
--- UUIDをサポートするためのextension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- CRM連携情報テーブル
 CREATE TABLE IF NOT EXISTS report_crm_links (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id SERIAL PRIMARY KEY,
     report_id INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     crm_type VARCHAR(50) NOT NULL, -- 'dynamics365', 'salesforce', 'hubspot', etc.
     

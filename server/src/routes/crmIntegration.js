@@ -67,6 +67,16 @@ router.post('/reports/:id/sync', authMiddleware, async (req, res) => {
     // 実際のCRM APIを呼び出す
     let syncResult = null;
     try {
+      // CRMタイプの検証
+      if (!crmType || (crmType !== 'dynamics365' && crmType !== 'salesforce')) {
+        throw new Error(`サポートされていないCRMタイプです: ${crmType}`);
+      }
+      
+      // アクションの検証
+      if (!action || (action !== 'create' && action !== 'update')) {
+        throw new Error(`サポートされていないアクションです: ${action}`);
+      }
+      
       if (crmType === 'dynamics365') {
         const dynamics365Service = new Dynamics365Service();
         if (action === 'create') {
@@ -445,9 +455,7 @@ router.get('/recent-opportunities', authMiddleware, async (req, res) => {
     const { crmType = 'salesforce' } = req.query;
     const userId = req.userId;
     
-    // CRMサービスをインポート
-    const SalesforceService = require('../services/salesforceService');
-    const Dynamics365Service = require('../services/dynamics365Service');
+    // CRMサービスは既にファイルの先頭でインポート済み
     
     let results = {
       opportunities: [],

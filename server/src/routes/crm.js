@@ -31,14 +31,17 @@ router.post('/test-connection', authMiddleware, async (req, res) => {
   try {
     const { crmType, config } = req.body;
 
-    // CRMタイプとコンフィグの検証
-    const validation = CRMAdapterFactory.validateCRMConfig(crmType, config || {});
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        message: 'CRM設定が無効です',
-        errors: validation.errors
-      });
+    // OAuth認証を使用している場合は、検証をスキップ
+    if (!config?.useOAuth) {
+      // CRMタイプとコンフィグの検証
+      const validation = CRMAdapterFactory.validateCRMConfig(crmType, config || {});
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: 'CRM設定が無効です',
+          errors: validation.errors
+        });
+      }
     }
 
     if (crmType === 'none') {
@@ -49,7 +52,10 @@ router.post('/test-connection', authMiddleware, async (req, res) => {
       });
     }
 
-    const adapter = CRMAdapterFactory.create(crmType, config);
+    // OAuth認証の場合は、ユーザー個別の設定を使用
+    const adapter = config?.useOAuth 
+      ? await CRMAdapterFactory.createForUser(crmType, req.userId, {})
+      : CRMAdapterFactory.create(crmType, config);
     const result = await adapter.testConnection();
     
     res.json(result);

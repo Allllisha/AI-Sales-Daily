@@ -18,7 +18,7 @@ class SalesforceService {
       `, [userId]);
 
       if (result.rows.length === 0) {
-        throw new Error('Salesforce token not found');
+        throw new Error('Salesforceの認証情報が見つかりません。先にSalesforceにログインしてください。');
       }
 
       const token = result.rows[0];

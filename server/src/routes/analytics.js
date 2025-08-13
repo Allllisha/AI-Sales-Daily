@@ -5,6 +5,253 @@ const axios = require('axios');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/analytics/personal:
+ *   get:
+ *     summary: 個人向け分析データを取得
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *         description: 分析期間（日数）
+ *     responses:
+ *       200:
+ *         description: 個人向け分析データ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 basicStats:
+ *                   type: object
+ *                   properties:
+ *                     reportCount:
+ *                       type: integer
+ *                     customerCount:
+ *                       type: integer
+ *                     projectCount:
+ *                       type: integer
+ *                     averagePerDay:
+ *                       type: number
+ *                 dailyReports:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       date:
+ *                         type: string
+ *                         format: date
+ *                       count:
+ *                         type: integer
+ *                 customerAnalysis:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       customer:
+ *                         type: string
+ *                       count:
+ *                         type: integer
+ *                       latestVisit:
+ *                         type: string
+ *                         format: date
+ */
+
+/**
+ * @swagger
+ * /api/analytics/personal/issues:
+ *   get:
+ *     summary: 個人の課題・リスク分析を取得
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *         description: 分析期間（日数）
+ *     responses:
+ *       200:
+ *         description: 課題・リスク分析データ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 issuesAnalysis:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       category:
+ *                         type: string
+ *                       issues:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             issue:
+ *                               type: string
+ *                             count:
+ *                               type: integer
+ *                             customer:
+ *                               type: string
+ *                             reportId:
+ *                               type: integer
+ */
+
+/**
+ * @swagger
+ * /api/analytics/team:
+ *   get:
+ *     summary: チーム分析データを取得
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     description: マネージャー権限が必要です
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *         description: 分析期間（日数）
+ *       - in: query
+ *         name: userIds
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: integer
+ *         description: 対象ユーザーID（複数指定可）
+ *     responses:
+ *       200:
+ *         description: チーム分析データ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 teamStats:
+ *                   type: object
+ *                   properties:
+ *                     totalReports:
+ *                       type: integer
+ *                     averagePerPerson:
+ *                       type: number
+ *                     totalCustomers:
+ *                       type: integer
+ *                     totalProjects:
+ *                       type: integer
+ *                 memberPerformance:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       userId:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *                       reportCount:
+ *                         type: integer
+ *                       customerCount:
+ *                         type: integer
+ *                       lastReportDate:
+ *                         type: string
+ *                         format: date
+ *                 dailyActivity:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       date:
+ *                         type: string
+ *                         format: date
+ *                       totalReports:
+ *                         type: integer
+ *                       activeMembers:
+ *                         type: integer
+ *       403:
+ *         description: 権限がありません
+ */
+
+/**
+ * @swagger
+ * /api/analytics/team/issues:
+ *   get:
+ *     summary: チームの課題・リスク分析を取得
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     description: マネージャー権限が必要です
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *         description: 分析期間（日数）
+ *       - in: query
+ *         name: userIds
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: integer
+ *         description: 対象ユーザーID（複数指定可）
+ *     responses:
+ *       200:
+ *         description: チームの課題・リスク分析データ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 memberIssues:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       userId:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *                       issueCount:
+ *                         type: integer
+ *                       majorIssues:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                 commonIssues:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       category:
+ *                         type: string
+ *                       issues:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             issue:
+ *                               type: string
+ *                             count:
+ *                               type: integer
+ *                             members:
+ *                               type: array
+ *                               items:
+ *                                 type: string
+ *       403:
+ *         description: 権限がありません
+ */
+
 // 個人向け分析データ取得
 router.get('/personal', authMiddleware, async (req, res) => {
   try {

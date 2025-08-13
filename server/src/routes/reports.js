@@ -2,6 +2,238 @@ const express = require('express');
 const { authMiddleware, managerOnly } = require('../middleware/auth');
 const pool = require('../db/pool');
 
+const router = express.Router();
+
+/**
+ * @swagger
+ * /api/reports:
+ *   get:
+ *     summary: 日報一覧を取得
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: 日付でフィルタリング
+ *       - in: query
+ *         name: customer
+ *         schema:
+ *           type: string
+ *         description: 顧客名で検索
+ *       - in: query
+ *         name: project
+ *         schema:
+ *           type: string
+ *         description: 案件名で検索
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: 取得件数の上限
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: 取得開始位置
+ *     responses:
+ *       200:
+ *         description: 日報一覧
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Report'
+ */
+
+/**
+ * @swagger
+ * /api/reports:
+ *   post:
+ *     summary: 日報を作成
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - report_date
+ *               - customer
+ *               - project
+ *             properties:
+ *               report_date:
+ *                 type: string
+ *                 format: date
+ *               customer:
+ *                 type: string
+ *               project:
+ *                 type: string
+ *               next_action:
+ *                 type: string
+ *               budget:
+ *                 type: string
+ *               schedule:
+ *                 type: string
+ *               participants:
+ *                 type: string
+ *               location:
+ *                 type: string
+ *               issues:
+ *                 type: string
+ *               customer_sentiment:
+ *                 type: string
+ *               probability:
+ *                 type: string
+ *               sales_amount:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: 作成された日報
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Report'
+ */
+
+/**
+ * @swagger
+ * /api/reports/{id}:
+ *   get:
+ *     summary: 特定の日報を取得
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 日報ID
+ *     responses:
+ *       200:
+ *         description: 日報情報
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Report'
+ *       404:
+ *         description: 日報が見つかりません
+ */
+
+/**
+ * @swagger
+ * /api/reports/{id}:
+ *   put:
+ *     summary: 日報を更新
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 日報ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Report'
+ *     responses:
+ *       200:
+ *         description: 更新された日報
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Report'
+ */
+
+/**
+ * @swagger
+ * /api/reports/{id}:
+ *   delete:
+ *     summary: 日報を削除
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 日報ID
+ *     responses:
+ *       200:
+ *         description: 削除成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ */
+
+/**
+ * @swagger
+ * /api/reports/team:
+ *   get:
+ *     summary: チームの日報一覧を取得
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     description: マネージャーが部下の日報を閲覧するためのAPI
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: integer
+ *         description: 特定のユーザーIDでフィルタリング
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: 日付でフィルタリング
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: 取得件数の上限
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: 取得開始位置
+ *     responses:
+ *       200:
+ *         description: チームの日報一覧
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Report'
+ *       403:
+ *         description: 権限がありません
+ */
+
 // スロットデータをクリーンアップする関数
 // 全体の会話から業界を推測する関数
 function inferIndustryFromText(text) {
@@ -134,8 +366,6 @@ function cleanSlotData(slots) {
   
   return cleaned;
 }
-
-const router = express.Router();
 
 // 日報一覧取得
 router.get('/', authMiddleware, async (req, res) => {

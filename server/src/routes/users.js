@@ -4,6 +4,122 @@ const pool = require('../db/pool');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/users/me:
+ *   get:
+ *     summary: 現在のユーザー情報を取得
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: ユーザー情報
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 name:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 role:
+ *                   type: string
+ *                   enum: [sales, manager]
+ *       404:
+ *         description: ユーザーが見つかりません
+ */
+
+/**
+ * @swagger
+ * /api/users/team:
+ *   get:
+ *     summary: 部下のリストを取得
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     description: マネージャー権限が必要です
+ *     responses:
+ *       200:
+ *         description: チームメンバー一覧
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   name:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                   role:
+ *                     type: string
+ *       403:
+ *         description: 権限がありません
+ */
+
+/**
+ * @swagger
+ * /api/users/managers:
+ *   get:
+ *     summary: マネージャー一覧を取得
+ *     tags: [Users]
+ *     description: 新規登録時にマネージャーを選択するために使用
+ *     responses:
+ *       200:
+ *         description: マネージャー一覧
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   name:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ */
+
+/**
+ * @swagger
+ * /api/users/subordinates:
+ *   get:
+ *     summary: 部下のリストを取得（認証付き）
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     description: マネージャー権限が必要です
+ *     responses:
+ *       200:
+ *         description: 部下一覧
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   name:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                   role:
+ *                     type: string
+ *       403:
+ *         description: 権限がありません
+ */
+
 // 現在のユーザー情報を取得
 router.get('/me', authMiddleware, async (req, res) => {
   try {

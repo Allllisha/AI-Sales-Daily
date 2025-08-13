@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@azure/msal-node": "^3.6.4",
+    "@azure/web-pubsub": "^1.2.0",
+    "@azure/web-pubsub-express": "^1.0.6",
+    "@microsoft/signalr": "^9.0.6",
     "axios": "^1.11.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
@@ -20,11 +23,15 @@
     "express-rate-limit": "^7.1.5",
     "express-validator": "^7.0.1",
     "helmet": "^7.1.0",
+    "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "openai": "^4.20.1",
     "pg": "^8.11.3",
-    "redis": "^5.8.0"
+    "redis": "^5.8.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

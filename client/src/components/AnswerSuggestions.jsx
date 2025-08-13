@@ -221,7 +221,14 @@ const AnswerSuggestions = ({ suggestions, onSelect, isLoading, allowMultiple = t
 
   const handleSubmit = () => {
     if (selectedItems.length > 0) {
-      const combinedAnswer = selectedItems.join('、');
+      const combinedAnswer = selectedItems.map((item) => {
+        // 各項目が句点で終わっているか確認し、なければ追加
+        const trimmedItem = item.trim();
+        if (!trimmedItem.endsWith('。')) {
+          return trimmedItem + '。';
+        }
+        return trimmedItem;
+      }).join('');
       onSelect(combinedAnswer);
       setSelectedItems([]);
     }

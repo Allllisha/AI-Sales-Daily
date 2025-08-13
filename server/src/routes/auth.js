@@ -6,6 +6,57 @@ const pool = require('../db/pool');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: 新規ユーザー登録
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - name
+ *               - role
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: メールアドレス
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 description: パスワード（6文字以上）
+ *               name:
+ *                 type: string
+ *                 description: ユーザー名
+ *               role:
+ *                 type: string
+ *                 enum: [sales, manager]
+ *                 description: ユーザーロール
+ *               manager_id:
+ *                 type: integer
+ *                 description: マネージャーID（営業担当者の場合）
+ *     responses:
+ *       201:
+ *         description: 登録成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *       400:
+ *         description: バリデーションエラー
+ */
 // ユーザー登録
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
@@ -65,6 +116,54 @@ router.post('/register', [
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: ユーザーログイン
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: メールアドレス
+ *               password:
+ *                 type: string
+ *                 description: パスワード
+ *     responses:
+ *       200:
+ *         description: ログイン成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                   description: JWTトークン
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     email:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *       401:
+ *         description: 認証失敗
+ */
 // ログイン
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),

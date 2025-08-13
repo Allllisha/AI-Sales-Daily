@@ -17,7 +17,10 @@ const oauthRoutes = require('./routes/oauth');
 const uploadRoutes = require('./routes/upload');
 const crmIntegrationRoutes = require('./routes/crmIntegration');
 const crmAuthRoutes = require('./routes/crmAuth');
+const realtimeRoutes = require('./routes/realtime');
 const { errorHandler } = require('./middleware/errorHandler');
+const signalrService = require('./config/signalr');
+const { swaggerUi, specs } = require('./config/swagger');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -28,22 +31,37 @@ app.use(compression());
 
 // CORS configuration
 const corsOrigins = process.env.NODE_ENV === 'production' 
-  ? (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : [])
-  : 'http://localhost:5173';
+  ? ['https://salesdaily-web.azurewebsites.net']
+  : ['http://localhost:5173', 'http://localhost:3000'];
 
 console.log('CORS origins:', corsOrigins);
 console.log('Environment:', process.env.NODE_ENV);
 console.log('Database URL exists:', !!process.env.DATABASE_URL);
 
 app.use(cors({
-  origin: corsOrigins,
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or postman)
+    if (!origin) return callback(null, true);
+    
+    if (corsOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400 // 24 hours
 }));
 
-// Rate limiting
+// Rate limiting - 本番環境でも緩やかな制限
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 1000 : 100 // より寛容な制限を開発環境で設定
+  max: process.env.NODE_ENV === 'development' ? 2000 : 1000, // 本番環境でも1000リクエスト/15分
+  message: 'リクエストが多すぎます。しばらくしてからお試しください。'
 });
 app.use('/api/', limiter);
 
@@ -51,10 +69,56 @@ app.use('/api/', limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+// Health check endpoints
+app.get('/health', async (req, res) => {
+  const health = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    services: {}
+  };
+
+  // Check database connection
+  try {
+    const db = require('./config/database');
+    await db.query('SELECT 1');
+    health.services.database = 'connected';
+  } catch (error) {
+    health.services.database = 'disconnected';
+    health.status = 'DEGRADED';
+  }
+
+  // Check Redis connection
+  try {
+    const { getRedisClient } = require('./services/redis');
+    const redis = getRedisClient();
+    if (redis && redis.status === 'ready') {
+      health.services.redis = 'connected';
+    } else {
+      health.services.redis = 'disconnected';
+      health.status = 'DEGRADED';
+    }
+  } catch (error) {
+    health.services.redis = 'disconnected';
+    health.status = 'DEGRADED';
+  }
+
+  // Check SignalR
+  health.services.signalr = signalrService.serviceClient ? 'connected' : 'not configured';
+
+  res.status(health.status === 'OK' ? 200 : 503).json(health);
 });
+
+// Simple health check for Azure load balancer
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
+});
+
+// Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Sales Daily API Documentation',
+}));
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -68,12 +132,24 @@ app.use('/api/oauth', oauthRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/crm-integration', crmIntegrationRoutes);
 app.use('/api/crm-auth', crmAuthRoutes);
+app.use('/api/realtime', realtimeRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
 
-// Initialize Redis and start server
+// Initialize services and start server
 (async () => {
+  // Test database connection on startup
+  try {
+    console.log('Testing database connection...');
+    const testResult = await pool.query('SELECT NOW() as current_time');
+    console.log('Database connection successful:', testResult.rows[0].current_time);
+  } catch (error) {
+    console.error('Database connection failed:', error.message);
+    console.log('Database will retry connections as needed');
+  }
+
+  // Initialize Redis
   try {
     await initRedis();
     console.log('Redis initialization complete');
@@ -82,8 +158,19 @@ app.use(errorHandler);
     console.log('Application will continue with in-memory cache');
   }
 
-  app.listen(PORT, () => {
+  // Initialize Azure SignalR if configured
+  const signalrEnabled = signalrService.initialize(process.env.AZURE_SIGNALR_CONNECTION_STRING);
+  if (signalrEnabled) {
+    console.log('Azure SignalR Service enabled for real-time API');
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Database URL: ${process.env.DATABASE_URL ? 'Configured' : 'Not configured'}`);
+    console.log(`Redis URL: ${process.env.REDIS_URL ? 'Configured' : 'Not configured'}`);
+    if (signalrEnabled) {
+      console.log('Real-time API available at /api/realtime');
+    }
   });
 })();

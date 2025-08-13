@@ -1,23 +1,20 @@
 import axios from 'axios';
 
-// Force empty base URL in development to use Vite proxy
-const API_BASE_URL = '';
+// API Base URL configuration for different environments
+const API_BASE_URL = import.meta.env.PROD 
+  ? (import.meta.env.VITE_API_URL || 'https://salesdaily-api.azurewebsites.net')
+  : ''; // Empty in development to use Vite proxy
 
-// Debug logging with cache buster
-console.log('[API Debug] Cache Buster v3 - FORCE LOCALHOST:', {
-  DEV: import.meta.env.DEV,
-  VITE_API_URL: import.meta.env.VITE_API_URL,
-  NODE_ENV: import.meta.env.NODE_ENV,
-  API_BASE_URL,
-  mode: import.meta.env.MODE,
-  window_location: window.location.origin,
-  final_baseURL_used: API_BASE_URL,
-  timestamp: new Date().toISOString()
-});
-
-// Force localhost in development
+// Debug logging
 if (import.meta.env.DEV) {
-  console.log('[API Debug] Development mode detected - using relative URLs for proxy');
+  console.log('[API Debug] Configuration:', {
+    environment: import.meta.env.MODE,
+    isProd: import.meta.env.PROD,
+    isDev: import.meta.env.DEV,
+    apiBaseUrl: API_BASE_URL,
+    viteApiUrl: import.meta.env.VITE_API_URL,
+    timestamp: new Date().toISOString()
+  });
 }
 
 const api = axios.create({
@@ -248,7 +245,10 @@ export const salesforceAPI = {
   testConnection: async () => {
     const response = await api.post('/api/crm/test-connection', {
       crmType: 'salesforce',
-      config: {}
+      config: {
+        // OAuth認証を使用している場合は、configは不要
+        useOAuth: true
+      }
     });
     return response.data;
   },
@@ -283,6 +283,34 @@ export const salesforceAPI = {
   syncReport: async (reportData) => {
     const response = await api.post('/api/crm/salesforce/sync-report', reportData);
     return response.data;
+  }
+};
+
+// OAuth API
+export const oauthAPI = {
+  getStatus: async () => {
+    const response = await api.get('/api/oauth/status');
+    return response.data;
+  },
+  dynamics365: {
+    authorize: async () => {
+      const response = await api.get('/api/oauth/dynamics365/authorize');
+      return response.data;
+    },
+    logout: async () => {
+      const response = await api.delete('/api/oauth/dynamics365');
+      return response.data;
+    }
+  },
+  salesforce: {
+    authorize: async () => {
+      const response = await api.get('/api/oauth/salesforce/authorize');
+      return response.data;
+    },
+    logout: async () => {
+      const response = await api.delete('/api/oauth/salesforce');
+      return response.data;
+    }
   }
 };
 

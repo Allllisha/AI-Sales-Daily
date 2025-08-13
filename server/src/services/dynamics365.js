@@ -19,6 +19,11 @@ class Dynamics365Service {
   }
 
   async getAccessToken() {
+    // 環境変数が設定されていない場合はエラー
+    if (!process.env.DYNAMICS_CLIENT_ID || !process.env.DYNAMICS_CLIENT_SECRET || !process.env.DYNAMICS_TENANT_ID) {
+      throw new Error('Dynamics 365認証情報が設定されていません');
+    }
+
     if (!this.clientApp) {
       await this.initialize();
     }

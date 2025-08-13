@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
-import { dynamics365API } from '../services/api';
+import { dynamics365API, oauthAPI } from '../services/api';
+import api from '../services/api';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -428,6 +429,21 @@ const Dynamics365Modal = ({ isOpen, onClose, onSubmit }) => {
     if (isOpen) {
       console.log('Dynamics365Modal opened, checking auth status...');
       
+      // localStorageから認証成功を確認（モバイル対応）
+      const authSuccess = localStorage.getItem('oauth_auth_success');
+      const authTimestamp = localStorage.getItem('oauth_auth_timestamp');
+      
+      if (authSuccess === 'dynamics365_auth_success') {
+        const timeDiff = Date.now() - parseInt(authTimestamp || '0');
+        // 10秒以内の認証成功のみ処理
+        if (timeDiff < 10000) {
+          console.log('🎉 Dynamics 365 auth success detected from localStorage');
+          localStorage.removeItem('oauth_auth_success');
+          localStorage.removeItem('oauth_auth_timestamp');
+          checkAuthStatus();
+        }
+      }
+      
       // モバイルで認証から戻ってきた場合の処理
       const authInProgress = sessionStorage.getItem('authInProgress');
       if (authInProgress === 'dynamics365') {
@@ -490,22 +506,10 @@ const Dynamics365Modal = ({ isOpen, onClose, onSubmit }) => {
     }
 
     try {
-      const response = await fetch('/api/oauth/status', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const result = await oauthAPI.getStatus();
       
-      if (response.status === 401) {
-        console.error('JWT token is invalid, please re-login');
-        toast.error('認証が無効です。再ログインしてください。');
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-        return;
-      }
-      
-      if (response.ok) {
-        const data = await response.json();
+      if (result) {
+        const data = result;
         console.log('Dynamics 365 auth status check result:', data);
         const dynamics365Auth = data.tokens?.dynamics365;
         const isAuth = dynamics365Auth?.authenticated || false;
@@ -540,14 +544,9 @@ const Dynamics365Modal = ({ isOpen, onClose, onSubmit }) => {
 
   const handleOAuthLogout = async () => {
     try {
-      const response = await fetch('/api/oauth/dynamics365', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await oauthAPI.dynamics365.logout();
       
-      if (response.ok) {
+      if (response && response.success) {
         toast.success('Dynamics 365認証を解除しました');
         setIsAuthenticated(false);
         setAuthStatus(null);
@@ -582,26 +581,21 @@ const Dynamics365Modal = ({ isOpen, onClose, onSubmit }) => {
     
     setIsAuthenticating(true);
     try {
-      const response = await fetch('/api/oauth/dynamics365/authorize', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const data = await oauthAPI.dynamics365.authorize();
       
-      if (response.status === 401) {
-        toast.error('認証が無効です。再ログインしてください。');
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-        return;
-      }
-      
-      if (response.ok) {
-        const data = await response.json();
+      if (data && data.success) {
+        // モバイルデバイスの検出（iPadは除外してデスクトップ扱い）
+        const userAgent = navigator.userAgent;
+        console.log('User-Agent:', userAgent);
         
-        // モバイルデバイスの検出
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        // iPadOS 13以降はMacintoshと表示されることがあるため、タッチデバイスかどうかも確認
+        const isMobile = /iPhone|iPod|Android/i.test(userAgent) && !/iPad/i.test(userAgent);
+        const isIPad = /iPad/i.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         
-        if (isMobile) {
+        console.log('Device detection:', { isMobile, isIPad, platform: navigator.platform, touchPoints: navigator.maxTouchPoints });
+        
+        // iPhoneやAndroidスマートフォンの場合のみ同じウィンドウで開く
+        if (isMobile && !isIPad) {
           // モバイルの場合は同じウィンドウで認証ページに遷移
           console.log('📱 Mobile device detected, redirecting in same window');
           
@@ -615,12 +609,23 @@ const Dynamics365Modal = ({ isOpen, onClose, onSubmit }) => {
         } else {
           // デスクトップの場合は新しいウィンドウで開く
           console.log('🌐 Opening Dynamics 365 OAuth in new window/tab');
-          const authWindow = window.open(data.authUrl, '_blank');
           
-          if (!authWindow) {
-            toast.error('ポップアップがブロックされました。ブラウザの設定を確認してください。');
-            setIsAuthenticating(false);
-            return;
+          // まず空のウィンドウを開く（ポップアップブロッカー回避）
+          const windowFeatures = 'width=600,height=700,left=100,top=100,toolbar=no,location=yes,directories=no,status=yes,menubar=no,scrollbars=yes,resizable=yes';
+          let authWindow = window.open('', 'dynamics365_auth', windowFeatures);
+          
+          if (!authWindow || authWindow.closed || typeof authWindow.closed === 'undefined') {
+            console.error('Popup blocked - trying fallback method');
+            // ポップアップがブロックされた場合、新しいタブで開く
+            authWindow = window.open(data.authUrl, '_blank');
+            if (!authWindow) {
+              toast.error('ポップアップがブロックされました。ブラウザの設定を確認してください。');
+              setIsAuthenticating(false);
+              return;
+            }
+          } else {
+            // URLを設定
+            authWindow.location.href = data.authUrl;
           }
         
         // 認証状態を定期的にポーリングして完了を検知
@@ -655,14 +660,9 @@ const Dynamics365Modal = ({ isOpen, onClose, onSubmit }) => {
           console.log(`🔄 Polling Dynamics 365 auth status (${pollCount}/${maxPolls})...`);
           
           try {
-            const statusResponse = await fetch('/api/oauth/status', {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-              }
-            });
+            const statusData = await oauthAPI.getStatus();
             
-            if (statusResponse.ok) {
-              const statusData = await statusResponse.json();
+            if (statusData) {
               const dynamics365Auth = statusData.tokens?.dynamics365;
               
               if (dynamics365Auth?.authenticated) {

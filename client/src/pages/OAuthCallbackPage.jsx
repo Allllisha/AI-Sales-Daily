@@ -16,20 +16,46 @@ const OAuthCallbackPage = () => {
     allParams: Object.fromEntries(urlParams.entries())
   });
   
+  // モバイルデバイスの検出
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  
   if (salesforceAuth === 'success' || dynamics365Auth === 'success') {
     const crmName = salesforceAuth === 'success' ? 'Salesforce' : 'Dynamics 365';
     console.log(`✅ ${crmName} OAuth authentication successful`);
+    console.log('Is mobile device:', isMobile);
     
-    // 認証成功を3秒間表示してから自動でウィンドウを閉じる
+    // 認証成功をlocalStorageに保存（モバイル対応）
+    const authEvent = salesforceAuth === 'success' ? 'salesforce_auth_success' : 'dynamics365_auth_success';
+    localStorage.setItem('oauth_auth_success', authEvent);
+    localStorage.setItem('oauth_auth_timestamp', Date.now().toString());
+    console.log('📝 Saved auth success to localStorage:', authEvent);
+    
+    // 認証成功を3秒間表示してから処理
     setTimeout(() => {
-      console.log('🔒 Auto-closing authentication window...');
-      window.close();
+      if (isMobile) {
+        console.log('📱 Mobile device detected - redirecting to home page');
+        // モバイルの場合はホームページにリダイレクト
+        window.location.href = window.location.origin;
+      } else {
+        console.log('🔒 Desktop - closing authentication window...');
+        // デスクトップの場合はウィンドウを閉じる
+        window.close();
+        // window.close()が動作しない場合のフォールバック
+        if (!window.closed) {
+          window.location.href = window.location.origin;
+        }
+      }
     }, 3000);
   } else if (salesforceAuth === 'error' || dynamics365Auth === 'error') {
     const crmName = salesforceAuth === 'error' ? 'Salesforce' : 'Dynamics 365';
     console.log(`❌ ${crmName} OAuth authentication failed:`, errorMessage);
     
-    // エラー場合も別ウィンドウでエラー画面を表示
+    // エラーの場合も5秒後にリダイレクト
+    setTimeout(() => {
+      if (isMobile) {
+        window.location.href = window.location.origin;
+      }
+    }, 5000);
   } else {
     // パラメータがない場合（認証処理が不完全な場合）
     console.log('No auth parameters found, might be processing or incomplete');
@@ -43,7 +69,11 @@ const OAuthCallbackPage = () => {
   if (salesforceAuth === 'success' || dynamics365Auth === 'success') {
     const crmName = salesforceAuth === 'success' ? 'Salesforce' : 'Dynamics 365';
     title = `${crmName} 認証完了`;
-    message = `${crmName}へのログインが成功しました。\n\n3秒後に自動的にこのウィンドウを閉じます...`;
+    if (isMobile) {
+      message = `${crmName}へのログインが成功しました。\n\n3秒後に自動的にホームページに戻ります...`;
+    } else {
+      message = `${crmName}へのログインが成功しました。\n\n3秒後に自動的にこのウィンドウを閉じます...`;
+    }
     showCloseButton = true;
   } else if (salesforceAuth === 'error' || dynamics365Auth === 'error') {
     const crmName = salesforceAuth === 'error' ? 'Salesforce' : 'Dynamics 365';
@@ -85,7 +115,19 @@ const OAuthCallbackPage = () => {
         </p>
         {(salesforceAuth === 'success' || dynamics365Auth === 'success') ? (
           <button 
-            onClick={() => window.close()}
+            onClick={() => {
+              if (isMobile) {
+                // モバイルの場合はホームにリダイレクト
+                window.location.href = window.location.origin;
+              } else {
+                // デスクトップの場合はウィンドウを閉じる
+                window.close();
+                // フォールバック
+                if (!window.closed) {
+                  window.location.href = window.location.origin;
+                }
+              }
+            }}
             style={{
               backgroundColor: '#007bff',
               color: 'white',
@@ -97,11 +139,20 @@ const OAuthCallbackPage = () => {
               fontWeight: 'bold'
             }}
           >
-            今すぐ閉じる
+            {isMobile ? 'ホームに戻る' : '今すぐ閉じる'}
           </button>
         ) : showCloseButton && (
           <button 
-            onClick={() => window.close()}
+            onClick={() => {
+              if (isMobile) {
+                window.location.href = window.location.origin;
+              } else {
+                window.close();
+                if (!window.closed) {
+                  window.location.href = window.location.origin;
+                }
+              }
+            }}
             style={{
               backgroundColor: '#dc3545',
               color: 'white',
@@ -112,7 +163,7 @@ const OAuthCallbackPage = () => {
               fontSize: '14px'
             }}
           >
-            ウィンドウを閉じる
+            {isMobile ? 'ホームに戻る' : 'ウィンドウを閉じる'}
           </button>
         )}
       </div>

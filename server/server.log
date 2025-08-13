@@ -1,0 +1,1226 @@
+
+> sales-daily-server@1.0.0 dev
+> nodemon src/index.js
+
+[33m[nodemon] 3.1.10[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:94:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Failed to process answer: Error: SignalR Service not initialized
+    at SignalRService.sendToGroup (/Users/anemoto/sales_daily/server/src/config/signalr.js:71:13)
+    at /Users/anemoto/sales_daily/server/src/routes/realtime.js:139:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:94:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Database connection successful
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:94:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Failed to extract slots: SyntaxError: Unexpected token '`', "```json
+{
+"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at RealtimeAIService.extractSlots (/Users/anemoto/sales_daily/server/src/services/realtimeAI.js:114:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /Users/anemoto/sales_daily/server/src/routes/realtime.js:97:26
+Failed to extract slots: SyntaxError: Unexpected token '`', "```json
+{
+"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at RealtimeAIService.extractSlots (/Users/anemoto/sales_daily/server/src/services/realtimeAI.js:114:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /Users/anemoto/sales_daily/server/src/routes/realtime.js:97:26
+Failed to extract slots: SyntaxError: Unexpected token '`', "```json
+{
+"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at RealtimeAIService.extractSlots (/Users/anemoto/sales_daily/server/src/services/realtimeAI.js:114:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /Users/anemoto/sales_daily/server/src/routes/realtime.js:97:26
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Connected to Redis
+Redis Client Connected
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:94:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:94:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Connected to Redis
+Redis Client Connected
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+et features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+[32m[nodemon] restarting due to changes...[39m
+SignalR not available, continuing without WebSocket support
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Connected to Redis
+Redis Client Connected
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (/Users/anemoto/sales_daily/server/node_modules/express/lib/application.js:635:24)
+    at /Users/anemoto/sales_daily/server/src/index.js:101:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3002
+}
+
+Node.js v20.19.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+Azure Web PubSub packages not installed - WebSocket features disabled
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR not configured - real-time API will work without WebSocket
+Server running on port 3002
+Environment: development
+Database connection successful
+
+> sales-daily-server@1.0.0 dev
+> nodemon src/index.js
+
+[33m[nodemon] 3.1.10[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR Service initialized
+Azure SignalR Service enabled for real-time API
+Server running on port 3002
+Environment: development
+Real-time API available at /api/realtime
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR not available, continuing without WebSocket support
+SignalR send failed, continuing without WebSocket
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR Service initialized
+Azure SignalR Service enabled for real-time API
+Server running on port 3002
+Environment: development
+Real-time API available at /api/realtime
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+SignalR URL generation failed: "subject" must be a string
+Continuing without WebSocket support
+SignalR send failed, continuing without WebSocket
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR Service initialized
+Azure SignalR Service enabled for real-time API
+Server running on port 3002
+Environment: development
+Real-time API available at /api/realtime
+Database connection successful
+Login attempt for email: yamada@example.com
+Found user: { id: 3, email: 'yamada@example.com', name: '山田太郎', role: 'manager' }
+Password valid: true
+WebSocket URL generated successfully
+SignalR send failed, continuing without WebSocket
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR Service initialized
+Azure SignalR Service enabled for real-time API
+Server running on port 3002
+Environment: development
+Real-time API available at /api/realtime
+Database connection successful
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+Database connection config: { connectionString: 'DATABASE_URL is set', ssl: false, max: 20 }
+CORS origins: http://localhost:5173
+Environment: development
+Database URL exists: true
+Redis Client Connected
+Connected to Redis
+Redis Client Ready
+Redis connection successful
+Redis initialization complete
+Azure SignalR Service initialized
+Azure SignalR Service enabled for real-time API
+Server running on port 3002
+Environment: development
+Real-time API available at /api/realtime
+Database connection successful
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m

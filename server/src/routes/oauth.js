@@ -24,19 +24,26 @@ router.get('/salesforce/authorize', authMiddleware, async (req, res) => {
     
     // Use localhost for external access instead of Docker internal hostname
     const host = req.get('host').includes('api:') ? 'localhost:3001' : req.get('host');
-    const redirectUri = `${req.protocol}://${host}/api/oauth/salesforce/callback`;
+    // Azure Web Apps uses proxy, so check X-Forwarded-Proto header
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    const redirectUri = `${protocol}://${host}/api/oauth/salesforce/callback`;
     
     // stateをRedisに保存（セキュリティ対策）
-    await redisWrapper.set(
-      `${OAUTH_STATE_PREFIX}${state}`,
-      JSON.stringify({
-        userId: userId,
-        timestamp: Date.now(),
-        redirectUri,
-        codeVerifier  // PKCEのために保存
-      }),
-      { EX: OAUTH_STATE_TTL }
-    );
+    try {
+      await redisWrapper.set(
+        `${OAUTH_STATE_PREFIX}${state}`,
+        JSON.stringify({
+          userId: userId,
+          timestamp: Date.now(),
+          redirectUri,
+          codeVerifier  // PKCEのために保存
+        }),
+        { EX: OAUTH_STATE_TTL }
+      );
+    } catch (redisError) {
+      console.error('Redis save error (using memory fallback):', redisError.message);
+      // Continue with memory fallback
+    }
 
     const authUrl = new URL('https://login.salesforce.com/services/oauth2/authorize');
     authUrl.searchParams.set('response_type', 'code');
@@ -217,10 +224,12 @@ router.get('/dynamics365/authorize', authMiddleware, async (req, res) => {
     const state = crypto.randomBytes(32).toString('hex');
     // Use localhost for external access instead of Docker internal hostname
     const host = req.get('host').includes('api:') ? 'localhost:3001' : req.get('host');
-    const redirectUri = `${req.protocol}://${host}/api/oauth/dynamics365/callback`;
+    // Azure Web Apps uses proxy, so check X-Forwarded-Proto header
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    const redirectUri = `${protocol}://${host}/api/oauth/dynamics365/callback`;
     
     console.log('Dynamics 365 OAuth Debug:', {
-      protocol: req.protocol,
+      protocol: protocol,
       originalHost: req.get('host'),
       correctedHost: host,
       redirectUri,
@@ -229,15 +238,20 @@ router.get('/dynamics365/authorize', authMiddleware, async (req, res) => {
     });
     
     // stateをRedisに保存
-    await redisWrapper.set(
-      `${OAUTH_STATE_PREFIX}${state}`,
-      JSON.stringify({
-        userId: userId,
-        timestamp: Date.now(),
-        redirectUri
-      }),
-      { EX: OAUTH_STATE_TTL }
-    );
+    try {
+      await redisWrapper.set(
+        `${OAUTH_STATE_PREFIX}${state}`,
+        JSON.stringify({
+          userId: userId,
+          timestamp: Date.now(),
+          redirectUri
+        }),
+        { EX: OAUTH_STATE_TTL }
+      );
+    } catch (redisError) {
+      console.error('Redis save error (using memory fallback):', redisError.message);
+      // Continue with memory fallback
+    }
 
     const authUrl = new URL(`https://login.microsoftonline.com/${process.env.DYNAMICS_TENANT_ID}/oauth2/v2.0/authorize`);
     authUrl.searchParams.set('response_type', 'code');

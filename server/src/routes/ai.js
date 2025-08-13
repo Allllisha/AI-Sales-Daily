@@ -6,6 +6,258 @@ const { redisWrapper } = require('../services/redis');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/ai/hearing/start:
+ *   post:
+ *     summary: AIヒアリングセッションを開始
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               dataSource:
+ *                 type: string
+ *                 enum: [general, meeting, dynamics365, salesforce]
+ *                 description: データソース種別
+ *               crmData:
+ *                 type: object
+ *                 description: CRM連携時のデータ
+ *     responses:
+ *       200:
+ *         description: ヒアリングセッション開始成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sessionId:
+ *                   type: string
+ *                 question:
+ *                   type: string
+ *                 questionNumber:
+ *                   type: integer
+ *                 totalQuestions:
+ *                   type: integer
+ *                 suggestions:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ */
+
+/**
+ * @swagger
+ * /api/ai/hearing/answer:
+ *   post:
+ *     summary: AIヒアリングへの回答を送信
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sessionId
+ *               - answer
+ *             properties:
+ *               sessionId:
+ *                 type: string
+ *                 description: セッションID
+ *               answer:
+ *                 type: string
+ *                 description: ユーザーの回答
+ *               dataSource:
+ *                 type: string
+ *                 enum: [general, meeting, dynamics365, salesforce]
+ *     responses:
+ *       200:
+ *         description: 回答処理成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 question:
+ *                   type: string
+ *                   nullable: true
+ *                 questionNumber:
+ *                   type: integer
+ *                 totalQuestions:
+ *                   type: integer
+ *                 isComplete:
+ *                   type: boolean
+ *                 suggestions:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 slots:
+ *                   type: object
+ *                 reportDraft:
+ *                   type: object
+ */
+
+/**
+ * @swagger
+ * /api/ai/hearing/meeting:
+ *   post:
+ *     summary: 議事録からヒアリングを開始
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - meetingNotes
+ *             properties:
+ *               meetingNotes:
+ *                 type: string
+ *                 description: 議事録の内容
+ *     responses:
+ *       200:
+ *         description: ヒアリング開始成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sessionId:
+ *                   type: string
+ *                 question:
+ *                   type: string
+ *                 questionNumber:
+ *                   type: integer
+ *                 totalQuestions:
+ *                   type: integer
+ *                 suggestions:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 extractedInfo:
+ *                   type: object
+ */
+
+/**
+ * @swagger
+ * /api/ai/hearing/suggestions:
+ *   post:
+ *     summary: 回答候補を取得
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sessionId
+ *               - question
+ *             properties:
+ *               sessionId:
+ *                 type: string
+ *               question:
+ *                 type: string
+ *               dataSource:
+ *                 type: string
+ *                 enum: [general, meeting, dynamics365, salesforce]
+ *               extractedInfo:
+ *                 type: object
+ *               crmData:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: 回答候補
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 suggestions:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ */
+
+/**
+ * @swagger
+ * /api/ai/correct-text:
+ *   post:
+ *     summary: テキストを校正
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - text
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 description: 校正するテキスト
+ *     responses:
+ *       200:
+ *         description: 校正結果
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 correctedText:
+ *                   type: string
+ *                 isChanged:
+ *                   type: boolean
+ */
+
+/**
+ * @swagger
+ * /api/ai/correct-report:
+ *   post:
+ *     summary: 日報テキストを校正
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - text
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 description: 校正する日報テキスト
+ *     responses:
+ *       200:
+ *         description: 校正結果
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 correctedText:
+ *                   type: string
+ *                 isChanged:
+ *                   type: boolean
+ */
+
 // Redisキャッシュのプレフィックスとタイムアウト
 const PRELOAD_CACHE_PREFIX = 'preload:';
 const CACHE_TTL = 30 * 60; // 30分（秒単位）
@@ -71,7 +323,7 @@ async function generateInitialQuestion() {
       const fallbackQuestions = [
         "お疲れ様でした。本日の商談はいかがでしたか？",
         "本日はどのような商談がございましたか？",
-        "今日の営業活動はいかがでしたか？手応えはありましたか？",
+        "今日の営業活動はいかがでしたか？",
         "本日の訪問について、お聞かせください。"
       ];
       return fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
@@ -96,14 +348,14 @@ async function generateInitialQuestion() {
 - 必ず敬語を使用する（です・ます調）
 - 最大5回の質問で完了するため、初回は基本情報を包括的に聞く
 - 「お疲れ様でした」から始めて、親しみやすい雰囲気を作る
-- 会社名、案件内容、商談の手応えなど、複数の基本情報を一度に聞く
+- 会社名、案件内容、商談結果など、複数の基本情報を一度に聞く
 - 話しやすい雰囲気で、部下の感覚と事実の両方を引き出す
 
 良い例：
-- お疲れ様でした！今日はどちらの会社とどのような商談でしたか？商談の概要と手応えを教えてください。
-- 商談お疲れ様です。どちらの会社と何の案件で話されましたか？今日の成果も含めて教えてください。
-- お疲れ様でした。訪問先と商談内容、そして今日の主な話題を教えてください。
-- 今日の商談について、会社名・案件・主な成果を教えてください。
+- お疲れ様でした！今日はどのような商談がありましたか？
+- 商談お疲れ様です。どちらの会社とお話しされましたか？
+- お疲れ様でした。本日の商談について教えてください。
+- 今日の営業活動はいかがでしたか？
 
 悪い例（初回としては情報収集が不十分）：
 - 今日はどうでしたか？
@@ -118,7 +370,9 @@ async function generateInitialQuestion() {
           }
         ],
         max_tokens: 100,
-        temperature: 0.8  // バリエーションを増やすため高めに設定
+        temperature: 0.9,  // バリエーションを増やすため高めに設定
+        frequency_penalty: 0.5,  // 同じフレーズの繰り返しを避ける
+        presence_penalty: 0.5  // 新しい話題を促す
       },
       {
         headers: {
@@ -131,6 +385,9 @@ async function generateInitialQuestion() {
     // 引用符を除去
     let question = response.data.choices[0].message.content.trim();
     question = question.replace(/^["']|["']$/g, '').replace(/^「|」$/g, '');
+    
+    console.log('[generateInitialQuestion] Generated question:', question);
+    
     return question;
     
   } catch (error) {
@@ -525,6 +782,12 @@ router.post('/hearing/start', authMiddleware, async (req, res) => {
         };
         
         suggestions = await generateSuggestionsForQuestion(question, enhancedReferenceData, {}, dataSource);
+      } else if (dataSource === 'general') {
+        // generalモード: 参考データなしで開始
+        console.log('Using general mode (no reference data)');
+        question = await generateInitialQuestion();
+        // 議事録と同じgenerateSuggestionsForQuestion関数を使用（参考データなし）
+        suggestions = await generateSuggestionsForQuestion(question, null, {}, 'general');
       } else if (referenceData && (dataSource === 'dynamics365' || dataSource === 'salesforce') && referenceData.customer) {
         console.log('Using CRM mode with customer:', referenceData.customer);
         
@@ -2317,7 +2580,9 @@ router.post('/hearing/suggestions', authMiddleware, async (req, res) => {
     console.log('Generating suggestions:', { 
       question: currentQuestion?.substring(0, 50), 
       dataSource,
-      hasReferenceData: !!referenceData 
+      hasReferenceData: !!referenceData,
+      currentSlots: Object.keys(currentSlots || {}).filter(k => currentSlots[k]),
+      historyLength: conversationHistory?.length || 0
     });
 
     if (!currentQuestion) {
@@ -2338,6 +2603,9 @@ router.post('/hearing/suggestions', authMiddleware, async (req, res) => {
 
     const url = `${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
 
+    // general（通常のテキストモード）の処理フロー
+    // 議事録やCRMと同じ generateSuggestionsForQuestion 関数のロジックを使用
+    
     // データソースに応じた参考情報の整理
     let contextInfo = '';
     if (referenceData) {
@@ -2358,6 +2626,9 @@ router.post('/hearing/suggestions', authMiddleware, async (req, res) => {
 - 金額: ${referenceData.amount || '不明'}
 - 最終更新: ${referenceData.lastUpdate || '不明'}`;
       }
+    } else if (dataSource === 'general') {
+      // 通常のテキストモード（2問目以降）
+      contextInfo = '';  // 参考データなしでも処理を続行
     }
 
     // 会話履歴から文脈情報を生成
@@ -2391,15 +2662,24 @@ A${i + 1}: ${h.answer || '（未回答）'}
 3. 過去の会話履歴がある場合は、その流れを踏まえた自然な選択肢を生成
 4. 選択肢は具体的で、営業担当者が選びやすい内容にする
 5. 選択肢の文体は質問の文体に合わせる（敬語なら敬語で）
-6. 4〜6個の選択肢を生成する
+6. 必ず4〜6個の選択肢を生成する（エラーを避けるため必須）
+
+【出力形式】
+- 必ず文字列の配列をJSON形式で返す
+- 各選択肢は1つの完結した文章
+- 例：["選択肢1の文章", "選択肢2の文章", "選択肢3の文章", "選択肢4の文章"]
 
 【選択肢の種類】
 - 感覚的な評価（よかった、まあまあ、微妙だった等）
 - 具体的な事実（提案書を渡した、次回訪問日を決めた等）
 - 温度感（前向き、慎重、消極的等）
 - 数値的な情報（予算内、予算オーバー、未定等）
+- 具体的なコメントや反応（「素晴らしい提案ですね」と言われた等）
+- 表情や態度（笑顔で頷いていた、真剣にメモを取っていた等）
 
 【生成ルール】
+- 質問が長い場合でも、質問の核心部分を理解して選択肢を生成
+- 「どのような形で」「どのようなコメント」という具体例を求められたら、具体的な言葉や行動を選択肢に含める
 - 質問が「どうでしたか？」なら感覚的な選択肢を中心に
 - 質問が「何をしましたか？」なら具体的な行動を中心に
 - 質問が「誰が」なら人物・役職を中心に
@@ -2448,13 +2728,52 @@ JSON形式で選択肢の配列を返してください。例:
       
       // JSONとしてパース
       const suggestions = JSON.parse(aiResponse);
+      console.log('Parsed general suggestions:', suggestions);
       
       if (Array.isArray(suggestions)) {
+        // 文字列配列であることを確認（オブジェクトの場合は文字列に変換）
+        const stringSuggestions = suggestions.map(item => {
+          if (typeof item === 'string') {
+            return item;
+          } else if (typeof item === 'object' && item !== null) {
+            // オブジェクトの場合、適切なプロパティから文字列を抽出
+            const extractedText = item.text || item.suggestion || item.content || 
+                                item.内容 || item.商談内容 || item.答え || 
+                                item.response || item.answer || item.value || '';
+            
+            // それでも文字列が取得できない場合、オブジェクトの最初の値を取得
+            if (!extractedText) {
+              const values = Object.values(item);
+              if (values.length > 0) {
+                // 複数の値がある場合は結合
+                return values.filter(v => v && typeof v === 'string').join('、');
+              }
+              console.warn('Unable to extract text from object:', item);
+              return '選択肢を生成できませんでした';
+            }
+            
+            return extractedText;
+          }
+          return String(item);
+        }).filter(s => s && s !== '選択肢を生成できませんでした'); // 無効な選択肢を除外
+        
+        console.log('Converted to string suggestions:', stringSuggestions);
+        
+        // 有効な選択肢が少ない場合はデフォルトで補完
+        if (stringSuggestions.length < 3) {
+          const defaultSuggestions = generateDefaultSuggestions(currentQuestion);
+          console.warn('Not enough valid suggestions, using defaults');
+          return res.json({ 
+            suggestions: defaultSuggestions,
+            allowMultiple: checkIfMultipleChoiceQuestion(currentQuestion)
+          });
+        }
+        
         // 複数選択を許可する質問タイプを判定
         const allowMultiple = checkIfMultipleChoiceQuestion(currentQuestion);
         
         res.json({ 
-          suggestions: suggestions.slice(0, 6), // 最大6個まで
+          suggestions: stringSuggestions.slice(0, 6), // 最大6個まで
           allowMultiple // 複数選択可否フラグ
         });
       } else {
@@ -2463,9 +2782,11 @@ JSON形式で選択肢の配列を返してください。例:
     } catch (parseError) {
       console.error('Failed to parse suggestions:', parseError);
       console.error('AI Response was:', aiResponse);
-      // パースエラーの場合は空の配列を返す
+      
+      // パースエラーの場合はデフォルトの選択肢を返す
+      const defaultSuggestions = generateDefaultSuggestions(currentQuestion);
       res.json({ 
-        suggestions: [],
+        suggestions: defaultSuggestions,
         allowMultiple: checkIfMultipleChoiceQuestion(currentQuestion)
       });
     }
@@ -2475,6 +2796,49 @@ JSON形式で選択肢の配列を返してください。例:
     res.status(500).json({ error: '選択肢の生成に失敗しました' });
   }
 });
+
+// デフォルトの選択肢を生成する関数
+function generateDefaultSuggestions(question) {
+  // 質問タイプを簡易的に判定
+  if (question.includes('コメント') || question.includes('言葉') || question.includes('表情')) {
+    return [
+      "「これは良い提案ですね」と笑顔で言われました",
+      "真剣にメモを取りながら聞いていただけました",
+      "「社内で検討させてください」と前向きなコメントをいただきました",
+      "具体的な質問をいくつかいただき、関心の高さを感じました",
+      "「予算的に厳しいかもしれない」と慎重な反応でした",
+      "特に目立った反応はありませんでした"
+    ];
+  } else if (question.includes('誰') || question.includes('参加者')) {
+    return [
+      "担当者の方のみ",
+      "担当者と上司の方",
+      "複数の部署の方々",
+      "決裁権を持つ方も同席",
+      "技術担当の方も参加",
+      "詳細は控えさせていただきます"
+    ];
+  } else if (question.includes('いつ') || question.includes('時期') || question.includes('スケジュール')) {
+    return [
+      "今月中に決定予定です",
+      "来月以降になりそうです",
+      "年度内には実施したいとのことでした",
+      "具体的な時期は未定です",
+      "早急に進めたいとのことでした",
+      "じっくり検討したいとのことでした"
+    ];
+  } else {
+    // 汎用的な選択肢
+    return [
+      "とても良い感触でした",
+      "概ね前向きな反応でした",
+      "慎重に検討したいとのことでした",
+      "追加情報が必要とのことでした",
+      "現時点では判断が難しいとのことでした",
+      "詳細についてはお答えを控えさせていただきます"
+    ];
+  }
+}
 
 // 複数選択を許可する質問タイプかどうかを判定
 function checkIfMultipleChoiceQuestion(question) {
@@ -2740,6 +3104,9 @@ async function generateSuggestionsForQuestion(question, referenceData, slots, da
     } else {
       contextInfo = 'CRMデータはありますが、具体的な情報は含まれていません。';
     }
+  } else if (dataSource === 'general') {
+    // generalモード: 参考データなし
+    contextInfo = '参考データはありません。一般的な営業活動を想定して選択肢を生成します。';
   } else if (!referenceData || !dataSource) {
     contextInfo = '参考データはありません。一般的な営業活動を想定して選択肢を生成します。';
   }
@@ -2835,6 +3202,37 @@ ${dataSource === 'meeting' ? `
 3. 要約に含まれる重要な内容を選択肢に組み込む
 4. 「興味を示された」「関心が高かった」などの質問には、議事録の内容から推測される具体的な機能や側面を選択肢にする
 5. 議事録の実際の内容に基づいて選択肢を生成（架空の内容は含めない）
+` : ''}
+
+${dataSource === 'general' ? `
+### 【通常モード（テキスト入力）】
+参考データがない状態で、雰囲気や反応に焦点を当てた選択肢を生成してください。
+
+**【最重要】generalモードの選択肢生成ルール：**
+1. **絶対に架空の会社名（ABC社、XYZ社など）を含めない**
+2. **具体的な案件名や製品名を含めない**
+3. **雰囲気・反応・感触に焦点を当てる**
+4. **選択肢は文字列として提供（オブジェクトではない）**
+5. **ユーザーがこれから詳細を入力することを前提とする**
+
+**良い選択肢の例（雰囲気・反応中心）：**
+- 「前向きな反応で、次回の詳細な打ち合わせを設定しました」
+- 「慎重な雰囲気で、追加資料を求められました」
+- 「興味を示していただき、予算内での提案を進める方向になりました」
+- 「話をよく聞いていただけましたが、最終決定は持ち帰りとなりました」
+- 「やや消極的で、競合他社との比較検討が必要とのことでした」
+- 「関心は示していただけましたが、予算は未定とのことでした」
+
+**悪い選択肢の例（避けるべき）：**
+- ❌「株式会社ABCに訪問し、新製品の提案を...」（架空の社名を含む）
+- ❌「ITソリューション導入の提案を...」（具体的すぎる案件内容）
+- ❌「設備のリニューアル案件について...」（具体的すぎる案件内容）
+- ❌「サブスクリプション型サービスの...」（具体的すぎるサービス内容）
+
+**質問のタイプに応じた選択肢：**
+- 商談の結果や雰囲気を聞かれた場合 → 反応や次のステップに焦点
+- どのような案件かを聞かれた場合 → 「新規案件」「既存案件の拡張」「課題解決の相談」など抽象的に
+- 誰と会ったかを聞かれた場合 → 「決裁権限のある方」「現場の担当者」「経営層」など役職で表現
 ` : ''}
 
 ${dataSource === 'dynamics365' || dataSource === 'salesforce' ? `
@@ -3062,9 +3460,9 @@ A${i + 1}: ${h.answer || '（未回答）'}`).join('\n')}
 【必須要件】
 1. 以下の禁止ワードを含む選択肢は絶対に生成しない
 2. 雰囲気の質問でも、必ず具体的な反応や状況を含める
-3. 議事録やCRMデータの内容を必ず反映させる（特に顧客名、案件名、参加者、予算）
+3. ${dataSource === 'general' ? 'generalモードでは架空の会社名や具体的な案件名を含めない' : '議事録やCRMデータの内容を必ず反映させる（特に顧客名、案件名、参加者、予算）'}
 4. 4〜6個の選択肢を生成
-5. 各選択肢は15〜30文字程度で具体的に
+5. 各選択肢は${dataSource === 'general' ? '雰囲気や反応を中心に20〜40文字程度' : '15〜30文字程度で具体的に'}
 6. 5段階評価のような選択肢セットは絶対に作らない
 
 【絶対禁止ワード（これらを含む選択肢は生成しない）】
@@ -3136,11 +3534,20 @@ ${referenceData?.vendor_participants ? `
 ` : ''}
 `}
 
+${dataSource === 'general' ? `
+【generalモード専用指示】
+- 架空の会社名（ABC社、XYZ社など）は絶対に使用しない
+- 具体的な製品名やサービス名は使用しない
+- 雰囲気、反応、感触、次のステップに焦点を当てる
+- ユーザーがこれから詳細を入力することを前提とする
+- 選択肢例：「前向きな反応で次回の打ち合わせが決まりました」「慎重な姿勢で追加検討が必要とのことでした」
+` : `
 【重要】議事録にある以下の情報を積極的に使って具体的な選択肢を作る：
 - 顧客名: ${referenceData?.customer || '不明'}
 - 案件名: ${referenceData?.project || '不明'}
 - 予算: ${referenceData?.budget || '不明'}
 ${referenceData?.customer_participants || referenceData?.vendor_participants ? '- 参加者の実名を必ず使用すること' : ''}
+`}
 
 架空の人名は使用禁止。実際のデータにある名前のみ使用。JSON配列で返してください。`
         }
@@ -3276,6 +3683,35 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
       nextQuestion = result.nextQuestion;
       isComplete = result.isComplete;
       allowMultiple = checkIfMultipleChoiceQuestion(nextQuestion);
+      
+      // 選択肢も生成（generalモードの場合）
+      if (!isComplete && nextQuestion && dataSource === 'general') {
+        try {
+          // 会話履歴を構築
+          const conversationHistory = [];
+          for (let i = 0; i <= questionIndex; i++) {
+            if (askedQuestions[i]) {
+              conversationHistory.push({
+                question: askedQuestions[i],
+                answer: i === questionIndex ? answer : ''
+              });
+            }
+          }
+          
+          // generalモードを使用
+          const currentDataSource = dataSource;
+          cachedSuggestions = await generateSuggestionsForQuestion(
+            nextQuestion, 
+            referenceData, 
+            updatedSlots, 
+            currentDataSource,
+            conversationHistory
+          );
+        } catch (error) {
+          console.error('Failed to generate suggestions:', error);
+          cachedSuggestions = [];
+        }
+      }
     }
     
     console.log('AI determination result:', { nextQuestion, isComplete, questionIndex });

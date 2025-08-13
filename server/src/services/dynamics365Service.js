@@ -18,7 +18,7 @@ class Dynamics365Service {
       `, [userId]);
 
       if (result.rows.length === 0) {
-        throw new Error('Dynamics365 token not found. Please login to Dynamics 365 first.');
+        throw new Error('Dynamics 365の認証情報が見つかりません。先にDynamics 365にログインしてください。');
       }
 
       let token = result.rows[0];
@@ -41,7 +41,7 @@ class Dynamics365Service {
         console.log('Token expired or expiring soon, refreshing...');
         
         if (!token.refresh_token) {
-          throw new Error('No refresh token available. Please login to Dynamics 365 again.');
+          throw new Error('リフレッシュトークンがありません。Dynamics 365に再度ログインしてください。');
         }
         
         token = await this.refreshAccessToken(userId, token.refresh_token);
@@ -109,7 +109,7 @@ class Dynamics365Service {
       
       // リフレッシュトークンも無効な場合は再ログインが必要
       if (error.response?.status === 400 || error.response?.status === 401) {
-        throw new Error('Refresh token invalid. Please login to Dynamics 365 again.');
+        throw new Error('リフレッシュトークンが無効です。Dynamics 365に再度ログインしてください。');
       }
       
       throw error;

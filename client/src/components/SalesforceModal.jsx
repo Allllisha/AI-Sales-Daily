@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
-import { salesforceAPI } from '../services/api';
+import { salesforceAPI, oauthAPI } from '../services/api';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -428,6 +428,21 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
     if (isOpen) {
       console.log('SalesforceModal opened, checking auth status...');
       
+      // localStorageから認証成功を確認（モバイル対応）
+      const authSuccess = localStorage.getItem('oauth_auth_success');
+      const authTimestamp = localStorage.getItem('oauth_auth_timestamp');
+      
+      if (authSuccess === 'salesforce_auth_success') {
+        const timeDiff = Date.now() - parseInt(authTimestamp || '0');
+        // 10秒以内の認証成功のみ処理
+        if (timeDiff < 10000) {
+          console.log('🎉 Salesforce auth success detected from localStorage');
+          localStorage.removeItem('oauth_auth_success');
+          localStorage.removeItem('oauth_auth_timestamp');
+          checkAuthStatus();
+        }
+      }
+      
       // モバイルで認証から戻ってきた場合の処理
       const authInProgress = sessionStorage.getItem('authInProgress');
       if (authInProgress === 'salesforce') {
@@ -453,11 +468,13 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
     console.log('Salesforce AuthStatus changed:', authStatus);
     if (authStatus && authStatus.authenticated) {
       console.log('Salesforce is authenticated, loading accounts...');
+      // OAuth認証が成功している場合は、接続成功とみなす
+      setConnectionStatus({ success: true, message: 'OAuth認証済み' });
       // 認証状態が確定したら即座にデータを読み込み
       // 既にデータを読み込み済みの場合はスキップ
       if (accounts.length === 0 && !isLoadingAccounts) {
         setTimeout(() => {
-          testConnection();
+          // testConnection(); // OAuth認証済みの場合は接続テストをスキップ
           loadAccounts();
         }, 100);
       }
@@ -528,21 +545,7 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
     }
 
     try {
-      const response = await fetch('/api/oauth/status', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.status === 401) {
-        console.error('JWT token is invalid, please re-login');
-        toast.error('認証が無効です。再ログインしてください。');
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-        return;
-      }
-      
-      const result = await response.json();
+      const result = await oauthAPI.getStatus();
       console.log('Salesforce auth status check result:', result);
       
       if (result.success && result.tokens.salesforce?.authenticated) {
@@ -570,26 +573,16 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
 
   const handleOAuthLogout = async () => {
     try {
-      const response = await fetch('/api/oauth/salesforce', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        toast.success('Salesforce認証を解除しました');
-        setAuthStatus(null);
-        setConnectionStatus(null);
-        setAccounts([]);
-        setOpportunities([]);
-        setSelectedAccount('');
-        setSelectedOpportunity('');
-        // 認証状態を再確認
-        checkAuthStatus();
-      } else {
-        toast.error('認証解除に失敗しました');
-      }
+      await oauthAPI.salesforce.logout();
+      toast.success('Salesforce認証を解除しました');
+      setAuthStatus(null);
+      setConnectionStatus(null);
+      setAccounts([]);
+      setOpportunities([]);
+      setSelectedAccount('');
+      setSelectedOpportunity('');
+      // 認証状態を再確認
+      checkAuthStatus();
     } catch (error) {
       console.error('OAuth logout error:', error);
       toast.error('認証解除に失敗しました');
@@ -612,26 +605,21 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
     
     setIsAuthenticating(true);
     try {
-      const response = await fetch('/api/oauth/salesforce/authorize', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.status === 401) {
-        toast.error('認証が無効です。再ログインしてください。');
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-        return;
-      }
-      
-      const result = await response.json();
+      const result = await oauthAPI.salesforce.authorize();
       
       if (result.success) {
-        // モバイルデバイスの検出
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        // モバイルデバイスの検出（iPadは除外してデスクトップ扱い）
+        const userAgent = navigator.userAgent;
+        console.log('User-Agent:', userAgent);
         
-        if (isMobile) {
+        // iPadOS 13以降はMacintoshと表示されることがあるため、タッチデバイスかどうかも確認
+        const isMobile = /iPhone|iPod|Android/i.test(userAgent) && !/iPad/i.test(userAgent);
+        const isIPad = /iPad/i.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        
+        console.log('Device detection:', { isMobile, isIPad, platform: navigator.platform, touchPoints: navigator.maxTouchPoints });
+        
+        // iPhoneやAndroidスマートフォンの場合のみ同じウィンドウで開く
+        if (isMobile && !isIPad) {
           // モバイルの場合は同じウィンドウで認証ページに遷移
           console.log('📱 Mobile device detected, redirecting in same window');
           
@@ -645,12 +633,23 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
         } else {
           // デスクトップの場合は新しいウィンドウで開く
           console.log('🌐 Opening Salesforce OAuth in new window/tab');
-          const authWindow = window.open(result.authUrl, '_blank');
           
-          if (!authWindow) {
-            toast.error('ポップアップがブロックされました。ブラウザの設定を確認してください。');
-            setIsAuthenticating(false);
-            return;
+          // まず空のウィンドウを開く（ポップアップブロッカー回避）
+          const windowFeatures = 'width=600,height=700,left=100,top=100,toolbar=no,location=yes,directories=no,status=yes,menubar=no,scrollbars=yes,resizable=yes';
+          let authWindow = window.open('', 'salesforce_auth', windowFeatures);
+          
+          if (!authWindow || authWindow.closed || typeof authWindow.closed === 'undefined') {
+            console.error('Popup blocked - trying fallback method');
+            // ポップアップがブロックされた場合、新しいタブで開く
+            authWindow = window.open(result.authUrl, '_blank');
+            if (!authWindow) {
+              toast.error('ポップアップがブロックされました。ブラウザの設定を確認してください。');
+              setIsAuthenticating(false);
+              return;
+            }
+          } else {
+            // URLを設定
+            authWindow.location.href = result.authUrl;
           }
         
         // ウィンドウが閉じられたかチェックする間隔も設定
@@ -679,16 +678,11 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
           console.log(`🔄 Polling Salesforce auth status (${pollCount}/${maxPolls})...`);
           
           try {
-            const statusResponse = await fetch('/api/oauth/status', {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-              }
-            });
+            const statusData = await oauthAPI.getStatus();
             
-            console.log('🔍 Status response:', statusResponse.status, statusResponse.ok);
+            console.log('🔍 Status response:', statusData);
             
-            if (statusResponse.ok) {
-              const statusData = await statusResponse.json();
+            if (statusData) {
               console.log('📋 Full status data:', statusData);
               
               // APIレスポンスの構造を確認（success, tokensの両方をチェック）
@@ -720,7 +714,7 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
                 });
               }
             } else {
-              console.error('❌ Status check failed:', statusResponse.status);
+              console.error('❌ Status data is null or undefined');
             }
           } catch (error) {
             console.error('Auth status polling error:', error);
@@ -750,18 +744,10 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
   const testConnection = async () => {
     try {
       // CRMのテスト接続API使用
-      const response = await fetch('/api/crm/test-connection', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          crmType: 'salesforce',
-          config: {} // 環境変数を使用
+      const result = await salesforceAPI.testConnection();
+      /*{ // 環境変数を使用
         })
-      });
-      const result = await response.json();
+      });*/
       setConnectionStatus(result);
       if (!result.success) {
         toast.error('Salesforceへの接続に失敗しました');
@@ -780,12 +766,7 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
   const loadAccounts = async () => {
     setIsLoadingAccounts(true);
     try {
-      const response = await fetch('/api/crm/salesforce/accounts', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const result = await response.json();
+      const result = await salesforceAPI.getAccounts();
       if (result.success) {
         setAccounts(result.accounts);
       } else {
@@ -802,12 +783,7 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
   const loadOpportunities = async (accountId) => {
     setIsLoadingOpportunities(true);
     try {
-      const response = await fetch(`/api/crm/salesforce/opportunities?accountId=${accountId}&limit=50`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const result = await response.json();
+      const result = await salesforceAPI.getOpportunities(accountId, 50);
       if (result.success) {
         setOpportunities(result.opportunities);
       } else {

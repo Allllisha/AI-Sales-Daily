@@ -573,7 +573,20 @@ const HearingPage = () => {
       
       // サーバーから返された選択肢があれば設定
       if (data.suggestions && data.suggestions.length > 0) {
-        setSuggestions(data.suggestions);
+        // 選択肢が全て文字列であることを確認
+        const validSuggestions = data.suggestions.map(item => {
+          if (typeof item === 'string') {
+            return item;
+          } else if (typeof item === 'object' && item !== null) {
+            console.warn('Initial suggestions contained object:', item);
+            return item.text || item.suggestion || item.content || 
+                   item.内容 || item.商談内容 || item.答え || 
+                   item.value || JSON.stringify(item);
+          }
+          return String(item);
+        }).filter(s => s && s.length > 0);
+        
+        setSuggestions(validSuggestions);
         setIsLoadingSuggestions(false);
       }
       // サーバーから複数選択の設定が返された場合
@@ -630,7 +643,20 @@ const HearingPage = () => {
         
         // サーバーから返された選択肢があれば即座に設定（先読みデータ）
         if (data.suggestions && data.suggestions.length > 0) {
-          setSuggestions(data.suggestions);
+          // 選択肢が全て文字列であることを確認
+          const validSuggestions = data.suggestions.map(item => {
+            if (typeof item === 'string') {
+              return item;
+            } else if (typeof item === 'object' && item !== null) {
+              console.warn('Answer mutation suggestions contained object:', item);
+              return item.text || item.suggestion || item.content || 
+                     item.内容 || item.商談内容 || item.答え || 
+                     item.value || JSON.stringify(item);
+            }
+            return String(item);
+          }).filter(s => s && s.length > 0);
+          
+          setSuggestions(validSuggestions);
           setIsLoadingSuggestions(false);
         } else {
           // 選択肢がない場合はクリア
@@ -851,10 +877,12 @@ const HearingPage = () => {
       referenceData = extractedInfo;
     }
     
-    // 参考データがない場合でも、議事録モードで質問がある場合は選択肢を生成
+    // 通常のテキストモードの場合も選択肢を生成
     if (!dataSource && !referenceData && !meetingMode) {
-      setSuggestions([]);
-      return;
+      // 議事録/CRMモードではない通常のテキスト開始の場合
+      // テキスト入力モードは常にgeneralを使用
+      dataSource = 'general';
+      referenceData = null;
     }
     
     // 議事録モードの場合、dataSourceとreferenceDataを設定
@@ -895,7 +923,23 @@ const HearingPage = () => {
       console.log('Suggestions response:', response);
       
       if (response.suggestions && Array.isArray(response.suggestions)) {
-        setSuggestions(response.suggestions);
+        // 選択肢が全て文字列であることを確認
+        const validSuggestions = response.suggestions.map(item => {
+          if (typeof item === 'string') {
+            return item;
+          } else if (typeof item === 'object' && item !== null) {
+            // オブジェクトの場合は文字列に変換
+            console.warn('Received object instead of string in suggestions:', item);
+            // 様々なプロパティから文字列を抽出
+            return item.text || item.suggestion || item.content || 
+                   item.内容 || item.商談内容 || item.答え || 
+                   item.value || JSON.stringify(item);
+          }
+          return String(item);
+        }).filter(s => s && s.length > 0);
+        
+        console.log('Setting validated suggestions:', validSuggestions);
+        setSuggestions(validSuggestions);
       }
     } catch (error) {
       console.error('Failed to fetch suggestions:', error);
@@ -1410,7 +1454,36 @@ const HearingPage = () => {
         )}
 
         <QuestionSection>
-          <QuestionText>{currentQuestion}</QuestionText>
+          {!currentQuestion && startMutation.isPending ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 'var(--space-4)',
+              padding: 'var(--space-6)'
+            }}>
+              <div style={{ 
+                width: '40px', 
+                height: '40px', 
+                border: '3px solid var(--color-border)', 
+                borderTop: '3px solid var(--color-accent)', 
+                borderRadius: '50%', 
+                animation: 'spin 1s infinite linear' 
+              }}>
+                <style>{`
+                  @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                  }
+                `}</style>
+              </div>
+              <QuestionText style={{ color: 'var(--color-text-secondary)' }}>
+                質問を準備しています...
+              </QuestionText>
+            </div>
+          ) : (
+            <QuestionText>{currentQuestion}</QuestionText>
+          )}
         </QuestionSection>
 
         <AnswerSection>
@@ -1464,8 +1537,9 @@ const HearingPage = () => {
               <TextArea
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
-                placeholder="回答を入力してください..."
+                placeholder={!currentQuestion ? "質問を準備中..." : "回答を入力してください..."}
                 autoFocus
+                disabled={!currentQuestion}
               />
               {/* AI補正ボタンを追加（音声入力モード以外で表示） */}
               {answer && (
@@ -1518,14 +1592,14 @@ const HearingPage = () => {
           >
             戻る
           </BackButton>
-          <SkipButton onClick={handleSkip} disabled={answerMutation.isPending}>
+          <SkipButton onClick={handleSkip} disabled={!currentQuestion || answerMutation.isPending}>
             スキップ
           </SkipButton>
           <NextButton 
             onClick={handleNext} 
-            disabled={!answer.trim() || answerMutation.isPending}
+            disabled={!currentQuestion || !answer.trim() || answerMutation.isPending}
           >
-            {answerMutation.isPending ? '送信中...' : '次へ'}
+            {answerMutation.isPending ? '送信中...' : !currentQuestion ? '準備中...' : '次へ'}
           </NextButton>
         </ActionButtons>
       </Card>

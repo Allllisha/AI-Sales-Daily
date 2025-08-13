@@ -9,13 +9,13 @@ TRUNCATE TABLE users CASCADE;
 
 -- ユーザーデータの挿入
 INSERT INTO users (name, email, password, role, manager_id) VALUES
--- マネージャー
-('山田太郎', 'yamada@example.com', '$2a$10$YourHashedPasswordHere1', 'manager', NULL),
--- 営業担当者（山田太郎の部下）
-('田中花子', 'tanaka@example.com', '$2a$10$YourHashedPasswordHere2', 'sales', 1),
-('鈴木一郎', 'suzuki@example.com', '$2a$10$YourHashedPasswordHere3', 'sales', 1),
-('佐藤美咲', 'sato@example.com', '$2a$10$YourHashedPasswordHere4', 'sales', 1),
-('高橋健太', 'takahashi@example.com', '$2a$10$YourHashedPasswordHere5', 'sales', 1);
+-- マネージャー (password: password123)
+('山田太郎', 'yamada@example.com', '$2a$10$LzW5hNVnFYMK9QdUv34ri.MT0KQ6JGSmdCk9a1EBVnjaEeeaxjfUK', 'manager', NULL),
+-- 営業担当者（山田太郎の部下） (password: password123)
+('田中花子', 'tanaka@example.com', '$2a$10$LzW5hNVnFYMK9QdUv34ri.MT0KQ6JGSmdCk9a1EBVnjaEeeaxjfUK', 'sales', 1),
+('鈴木一郎', 'suzuki@example.com', '$2a$10$LzW5hNVnFYMK9QdUv34ri.MT0KQ6JGSmdCk9a1EBVnjaEeeaxjfUK', 'sales', 1),
+('佐藤美咲', 'sato@example.com', '$2a$10$LzW5hNVnFYMK9QdUv34ri.MT0KQ6JGSmdCk9a1EBVnjaEeeaxjfUK', 'sales', 1),
+('高橋健太', 'takahashi@example.com', '$2a$10$LzW5hNVnFYMK9QdUv34ri.MT0KQ6JGSmdCk9a1EBVnjaEeeaxjfUK', 'sales', 1);
 
 -- ユーザーIDを取得
 DO $$
