@@ -107,7 +107,7 @@ ACR_NAME=salesdailyacr ./scripts/build-and-push-acr.sh
 ```bash
 cd client
 npm run build
-# Azure Static Web Apps にデプロイ
+# Azure App Service にデプロイ
 ```
 
 ### デフォルトユーザー（本番環境）

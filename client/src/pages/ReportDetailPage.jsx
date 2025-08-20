@@ -308,8 +308,8 @@ const EditButton = styled.button`
   letter-spacing: 0.05em;
   
   &:hover:not(:disabled) {
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
+    background-color: var(--color-warning);
+    border-color: var(--color-warning);
     transform: translateY(-1px);
   }
   

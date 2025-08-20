@@ -42,7 +42,7 @@ services:
       retries: 3
       start_period: 40s
 
-  # フロントエンド（Static Web Appsを推奨するが、コンテナでも可）
+  # フロントエンド（Azure App Serviceにデプロイ）
   frontend:
     image: ${ACR_NAME}.azurecr.io/salesdaily-frontend:latest
     container_name: salesdaily-frontend

@@ -26,7 +26,7 @@ RESOURCE_GROUP="salesdaily"
 LOCATION="japaneast"
 ACR_NAME="salesdailyacr"
 WEB_APP_NAME="salesdaily-web"
-STATIC_APP_NAME="salesdaily-frontend"
+FRONTEND_APP_NAME="salesdaily-frontend"
 POSTGRES_SERVER_NAME="salesdaily-db"
 REDIS_NAME="salesdaily-redis"
 SIGNALR_NAME="salesdaily-signalr"
@@ -236,7 +236,7 @@ az webapp config appsettings set --name $WEB_APP_NAME --resource-group $RESOURCE
     AZURE_OPENAI_API_VERSION="${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}" \
     AZURE_OPENAI_DEPLOYMENT_NAME="${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-4o}" \
     AZURE_SIGNALR_CONNECTION_STRING="${AZURE_SIGNALR_CONNECTION_STRING}" \
-    CORS_ORIGINS="https://${STATIC_APP_NAME}.azurestaticapps.net,https://${WEB_APP_NAME}.azurewebsites.net" \
+    CORS_ORIGINS="https://${FRONTEND_APP_NAME}.azurewebsites.net,https://${WEB_APP_NAME}.azurewebsites.net" \
     WEBSITES_PORT=3002
 
 # ===================================
@@ -262,26 +262,28 @@ az webapp log config --name $WEB_APP_NAME --resource-group $RESOURCE_GROUP \
     --failed-request-tracing true
 
 # ===================================
-# 13. Static Web Apps（フロントエンド）
+# 13. フロントエンドWeb App設定
 # ===================================
-echo -e "\n${YELLOW}13. Static Web Apps設定...${NC}"
-az staticwebapp show --name $STATIC_APP_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1 || {
-    echo -e "${YELLOW}Static Web Appを作成しますか？ (y/n)${NC}"
+echo -e "\n${YELLOW}13. フロントエンドWeb App設定...${NC}"
+az webapp show --name $FRONTEND_APP_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1 || {
+    echo -e "${YELLOW}フロントエンドWeb Appを作成しますか？ (y/n)${NC}"
     read -r response
     if [[ "$response" == "y" ]]; then
-        echo "Static Web Appを作成中..."
-        echo -e "${YELLOW}GitHubリポジトリのURLを入力してください:${NC}"
-        read -r GITHUB_REPO
-        
-        az staticwebapp create \
-            --name $STATIC_APP_NAME \
+        echo "フロントエンドWeb Appを作成中..."
+        az webapp create \
+            --name $FRONTEND_APP_NAME \
             --resource-group $RESOURCE_GROUP \
-            --source $GITHUB_REPO \
-            --location "East Asia" \
-            --branch main \
-            --app-location "/client" \
-            --output-location "dist" \
-            --login-with-github
+            --plan salesdaily-plan \
+            --deployment-container-image-name $ACR_NAME.azurecr.io/salesdaily-frontend:latest
+        
+        # ACR認証設定
+        az webapp config container set \
+            --name $FRONTEND_APP_NAME \
+            --resource-group $RESOURCE_GROUP \
+            --docker-custom-image-name $ACR_NAME.azurecr.io/salesdaily-frontend:latest \
+            --docker-registry-server-url https://$ACR_NAME.azurecr.io \
+            --docker-registry-server-user $ACR_USERNAME \
+            --docker-registry-server-password $ACR_PASSWORD
     fi
 }
 
@@ -305,9 +307,8 @@ echo -e "  Swagger Docs: ${GREEN}https://${WEB_APP_NAME}.azurewebsites.net/api-d
 echo -e "  REST API: ${GREEN}https://${WEB_APP_NAME}.azurewebsites.net/api${NC}"
 echo -e "  Realtime API: ${GREEN}https://${WEB_APP_NAME}.azurewebsites.net/api/realtime${NC}"
 
-if az staticwebapp show --name $STATIC_APP_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1; then
-    FRONTEND_URL=$(az staticwebapp show --name $STATIC_APP_NAME --resource-group $RESOURCE_GROUP --query defaultHostname -o tsv)
-    echo -e "  Frontend: ${GREEN}https://${FRONTEND_URL}${NC}"
+if az webapp show --name $FRONTEND_APP_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1; then
+    echo -e "  Frontend: ${GREEN}https://${FRONTEND_APP_NAME}.azurewebsites.net${NC}"
 fi
 
 echo -e "\n${BLUE}📊 リソース状況:${NC}"

@@ -688,7 +688,10 @@ const HearingPage = () => {
 
   useEffect(() => {
     if (isOnline) {
-      if (meetingMode && sessionIdFromParams) {
+      // リアルタイム音声から来た場合
+      if (location.state?.fromRealtime && location.state?.initialData) {
+        handleRealtimeDataInit();
+      } else if (meetingMode && sessionIdFromParams) {
         // 議事録モードの場合は、既存のセッション情報を取得
         handleMeetingModeInit();
       } else if (dynamics365Mode) {
@@ -703,6 +706,54 @@ const HearingPage = () => {
       }
     }
   }, []);
+
+  const handleRealtimeDataInit = async () => {
+    try {
+      const realtimeData = location.state?.initialData;
+      if (!realtimeData) {
+        toast.error('リアルタイムデータが見つかりません');
+        navigate('/');
+        return;
+      }
+
+      // リアルタイム音声で収集したデータをスロットに設定
+      const initialSlots = {
+        customer: realtimeData.customer || '',
+        project: realtimeData.project || '',
+        budget: realtimeData.budget || '',
+        schedule: realtimeData.schedule || '',
+        next_action: realtimeData.next_action || '',
+        participants: realtimeData.participants || [],
+        location: realtimeData.location || '',
+        issues: realtimeData.issues || ''
+      };
+
+      setSlots(initialSlots);
+      setExtractedInfo(initialSlots);
+      
+      // 会話履歴から質問と回答を抽出
+      if (realtimeData.conversationHistory) {
+        const qa = realtimeData.conversationHistory
+          .filter((msg, index, arr) => {
+            // AIの質問とユーザーの回答をペアにする
+            return msg.role === 'assistant' && arr[index + 1]?.role === 'user';
+          })
+          .map((msg, index) => ({
+            question: msg.text,
+            answer: realtimeData.conversationHistory[realtimeData.conversationHistory.findIndex(m => m === msg) + 1]?.text || ''
+          }));
+        setQuestionsAnswers(qa);
+      }
+
+      // すでにデータが収集されているので、完了状態にする
+      setCompleted(true);
+      
+    } catch (error) {
+      console.error('Failed to initialize realtime data:', error);
+      toast.error('リアルタイムデータの初期化に失敗しました');
+      navigate('/');
+    }
+  };
 
   const handleMeetingModeInit = async () => {
     try {

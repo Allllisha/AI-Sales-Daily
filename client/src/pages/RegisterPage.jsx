@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { authAPI, userAPI } from '../services/api';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
+import { FaUserTie } from 'react-icons/fa';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -82,72 +83,35 @@ const LogoContainer = styled.div`
 const Logo = styled.div`
   width: 64px;
   height: 64px;
-  background-color: var(--color-primary);
-  border-radius: var(--radius-none);
+  background: var(--color-neutral-800);
+  border-radius: var(--radius-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: var(--space-3);
   position: relative;
   box-shadow: var(--shadow-elevation);
+  overflow: hidden;
   
-  /* Multiple architectural elements for registration */
-  &::after {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--color-text-inverse);
-    border-radius: var(--radius-none);
-    background: transparent;
-    top: 12px;
-    left: 10px;
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--color-text-inverse);
-    border-radius: var(--radius-none);
-    background: transparent;
-    top: 22px;
-    right: 8px;
-  }
-  
-  /* Simple central element */
-  & > div {
-    position: absolute;
-    width: 6px;
-    height: 6px;
-    background: var(--color-text-inverse);
-    border-radius: var(--radius-none);
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1;
+  svg {
+    font-size: 32px;
+    color: var(--color-text-inverse);
   }
 
   @media (max-width: 768px) {
-    width: 56px;
-    height: 56px;
+    width: 64px;
+    height: 64px;
     
     &::after {
-      width: 16px;
-      height: 16px;
-      top: 8px;
-      left: 8px;
+      width: 24px;
+      height: 24px;
+      border-width: 2px;
     }
 
     &::before {
-      width: 12px;
-      height: 12px;
-      top: 20px;
-      right: 6px;
+      width: 10px;
+      height: 10px;
     }
-    
-    & > div {
       width: 6px;
       height: 6px;
     }
@@ -274,6 +238,16 @@ const Input = styled.input`
   -webkit-tap-highlight-color: transparent;
   height: 52px;
 
+  /* オートフィル時の背景色を白に固定 */
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus,
+  &:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: var(--color-text-primary) !important;
+    background-color: var(--color-background) !important;
+  }
+
   &::placeholder {
     color: var(--color-text-tertiary);
     transition: opacity 0.2s ease;
@@ -318,6 +292,16 @@ const Select = styled.select`
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
 
+  /* オートフィル時の背景色を白に固定 */
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus,
+  &:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: var(--color-text-primary) !important;
+    background-color: var(--color-background) !important;
+  }
+
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23888888' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
   background-position: right var(--space-3) center;
   background-repeat: no-repeat;
@@ -351,10 +335,10 @@ const ErrorMessage = styled.div`
 `;
 
 const Button = styled.button`
-  background-color: var(--color-primary);
+  background-color: var(--color-accent);
   color: var(--color-text-inverse);
   padding: var(--space-5) var(--space-6);
-  border: 2px solid var(--color-primary);
+  border: 2px solid var(--color-accent);
   border-radius: var(--radius-none);
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-bold);
@@ -368,8 +352,8 @@ const Button = styled.button`
   -webkit-tap-highlight-color: transparent;
 
   &:hover:not(:disabled) {
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
+    background-color: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
     transform: translateY(-1px);
     box-shadow: var(--shadow-structure);
   }
@@ -395,8 +379,8 @@ const Button = styled.button`
 `;
 
 const Divider = styled.div`
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, var(--color-border) 20%, var(--color-accent) 50%, var(--color-border) 80%, transparent 100%);
+  height: 1px;
+  background: var(--color-border);
   margin: var(--space-6) 0;
   position: relative;
   
@@ -566,11 +550,11 @@ const RegisterPage = () => {
       <Card>
         <LogoContainer>
           <Logo>
-            <div></div>
+            <FaUserTie />
           </Logo>
         </LogoContainer>
         <Title>新規登録</Title>
-        <Subtitle>Archi Dailyアカウント作成</Subtitle>
+        <Subtitle>にっぽ係長アカウント作成</Subtitle>
         
         <Form onSubmit={handleSubmit(onSubmit)}>
           <FormGroup>

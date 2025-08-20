@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
 import { salesforceAPI, oauthAPI } from '../services/api';
+import { SiSalesforce } from 'react-icons/si';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -926,9 +927,7 @@ const SalesforceModal = ({ isOpen, onClose, onSubmit }) => {
               </AuthDescription>
             <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <AuthButton onClick={handleOAuthLogin} disabled={isAuthenticating}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.18 0 2.34-.21 3.41-.6.4-.15.59-.59.44-.99-.15-.4-.59-.59-.99-.44-.85.31-1.76.47-2.68.47-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8c0 .93-.16 1.83-.47 2.68-.15.4.04.84.44.99.4.15.84-.04.99-.44.39-1.07.6-2.23.6-3.41C22 6.48 17.52 2 12 2z"/>
-                </svg>
+                <SiSalesforce size={20} style={{ marginRight: '8px' }} />
                 {isAuthenticating ? '認証処理中...' : 'Salesforceにログイン'}
               </AuthButton>
               {isAuthenticating && (

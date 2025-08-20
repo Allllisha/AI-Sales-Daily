@@ -25,6 +25,29 @@ const { swaggerUi, specs } = require('./config/swagger');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Socket.io setup
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: function (origin, callback) {
+      // Same CORS policy as Express
+      if (!origin) return callback(null, true);
+      const corsOrigins = process.env.NODE_ENV === 'production' 
+        ? ['https://salesdaily-web.azurewebsites.net']
+        : ['http://localhost:5173', 'http://localhost:3000'];
+      
+      if (corsOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true
+  }
+});
+
 // Security middleware
 app.use(helmet());
 app.use(compression());
@@ -117,7 +140,7 @@ app.get('/ping', (req, res) => {
 // Swagger documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
   customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Sales Daily API Documentation',
+  customSiteTitle: 'にっぽ係長 API Documentation',
 }));
 
 // API routes
@@ -142,6 +165,7 @@ app.use(errorHandler);
   // Test database connection on startup
   try {
     console.log('Testing database connection...');
+    const pool = require('./db/pool');
     const testResult = await pool.query('SELECT NOW() as current_time');
     console.log('Database connection successful:', testResult.rows[0].current_time);
   } catch (error) {
@@ -164,7 +188,41 @@ app.use(errorHandler);
     console.log('Azure SignalR Service enabled for real-time API');
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  // Debug environment variables
+  console.log('Environment check:');
+  console.log('AZURE_SPEECH_KEY:', process.env.AZURE_SPEECH_KEY ? 'Set (length: ' + process.env.AZURE_SPEECH_KEY.length + ')' : 'Not set');
+  console.log('AZURE_SPEECH_REGION:', process.env.AZURE_SPEECH_REGION || 'Not set');
+  console.log('AZURE_OPENAI_API_KEY:', process.env.AZURE_OPENAI_API_KEY ? 'Set' : 'Not set');
+
+  // Initialize WebSocket handler
+  const RealtimeVoiceHandler = require('./websocket/realtimeHandler');
+  const realtimeHandler = new RealtimeVoiceHandler(io);
+  
+  // Socket.io authentication middleware
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error('Authentication error: No token provided'));
+    }
+    
+    const jwt = require('jsonwebtoken');
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      socket.userId = decoded.userId;
+      socket.userRole = decoded.role;
+      next();
+    } catch (error) {
+      console.error('Socket.io auth error:', error);
+      return next(new Error('Authentication error: Invalid token'));
+    }
+  });
+  
+  io.on('connection', (socket) => {
+    console.log(`User ${socket.userId} connected via WebSocket`);
+    realtimeHandler.handleConnection(socket);
+  });
+
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Database URL: ${process.env.DATABASE_URL ? 'Configured' : 'Not configured'}`);

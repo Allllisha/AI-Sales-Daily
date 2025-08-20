@@ -135,50 +135,6 @@ const CancelButton = styled.button`
   }
 `;
 
-const AICorrectionButton = styled.button`
-  position: fixed;
-  bottom: var(--space-6);
-  right: var(--space-6);
-  background: var(--color-accent);
-  color: var(--color-text-inverse);
-  padding: var(--space-4) var(--space-5);
-  border: none;
-  border-radius: var(--radius-prominent);
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-bold);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  box-shadow: var(--shadow-structure);
-  z-index: 100;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  
-  &:hover:not(:disabled) {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 12px 24px rgba(255, 107, 0, 0.3);
-  }
-  
-  &:active:not(:disabled) {
-    transform: translateY(0) scale(1);
-  }
-  
-  &:disabled {
-    background: var(--color-text-tertiary);
-    cursor: not-allowed;
-    box-shadow: var(--shadow-paper);
-  }
-  
-  @media (max-width: 768px) {
-    bottom: 80px;
-    right: var(--space-4);
-    padding: var(--space-3) var(--space-4);
-    font-size: var(--font-size-small);
-  }
-`;
-
 const FormContainer = styled.div`
   flex: 1;
   overflow-y: auto;
@@ -399,8 +355,6 @@ const ReportEditPage = () => {
     industry: '',
   });
 
-  const [isCorrecting, setIsCorrecting] = useState(false);
-
   React.useEffect(() => {
     if (report?.slots) {
       setFormData({
@@ -523,47 +477,6 @@ const ReportEditPage = () => {
       ...prev,
       [name]: value
     }));
-  };
-
-  const handleAICorrection = async () => {
-    if (isCorrecting) return;
-
-    setIsCorrecting(true);
-    try {
-      // Combine all text fields for correction
-      const textToCorrect = `
-顧客: ${formData.customer}
-案件: ${formData.project}
-次のアクション: ${formData.next_action}
-予算: ${formData.budget}
-スケジュール: ${formData.schedule}
-場所: ${formData.location}
-課題: ${formData.issues}
-参加者: ${formData.participants}
-業界: ${formData.industry}
-      `.trim();
-
-      const result = await aiAPI.correctReportText(textToCorrect);
-      
-      if (result && result.correctedSlots) {
-        // Update form data with corrected values
-        setFormData(prev => ({
-          ...prev,
-          ...result.correctedSlots,
-          // Convert comma-separated strings back to newlines for display
-          next_action: result.correctedSlots.next_action ? 
-            result.correctedSlots.next_action.replace(/,\s*/g, '\n') : prev.next_action,
-          issues: result.correctedSlots.issues ? 
-            result.correctedSlots.issues.replace(/,\s*/g, '\n') : prev.issues,
-        }));
-        toast.success('AI補正が完了しました');
-      }
-    } catch (error) {
-      console.error('AI補正エラー:', error);
-      toast.error('AI補正に失敗しました');
-    } finally {
-      setIsCorrecting(false);
-    }
   };
 
   return (
@@ -709,16 +622,6 @@ const ReportEditPage = () => {
           </Form>
         </FormContainer>
       </Card>
-      
-      <AICorrectionButton 
-        onClick={handleAICorrection}
-        disabled={isCorrecting}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M13 3L13.707 2.293C13.5195 2.10545 13.2652 2.00006 13 2.00006C12.7348 2.00006 12.4805 2.10545 12.293 2.293L13 3ZM11 5L10.293 5.707C10.4805 5.89455 10.7348 5.99994 11 5.99994C11.2652 5.99994 11.5195 5.89455 11.707 5.707L11 5ZM13 7L13.707 7.707C13.8945 7.5195 13.9999 7.26519 13.9999 7C13.9999 6.73481 13.8945 6.4805 13.707 6.293L13 7ZM11 9L10.293 8.293C10.1055 8.4805 10.0001 8.73481 10.0001 9C10.0001 9.26519 10.1055 9.5195 10.293 9.707L11 9ZM13 11L13.707 10.293C13.5195 10.1055 13.2652 10.0001 13 10.0001C12.7348 10.0001 12.4805 10.1055 12.293 10.293L13 11ZM11 13L10.293 13.707C10.4805 13.8945 10.7348 13.9999 11 13.9999C11.2652 13.9999 11.5195 13.8945 11.707 13.707L11 13ZM13 15L13.707 15.707C13.8945 15.5195 13.9999 15.2652 13.9999 15C13.9999 14.7348 13.8945 14.4805 13.707 14.293L13 15ZM11 17L10.293 16.293C10.1055 16.4805 10.0001 16.7348 10.0001 17C10.0001 17.2652 10.1055 17.5195 10.293 17.707L11 17ZM13 19L13.707 18.293C13.5195 18.1055 13.2652 18.0001 13 18.0001C12.7348 18.0001 12.4805 18.1055 12.293 18.293L13 19ZM11 21L10.293 21.707C10.4805 21.8945 10.7348 21.9999 11 21.9999C11.2652 21.9999 11.5195 21.8945 11.707 21.707L11 21ZM2 12H7V10H2V12ZM17 12H22V10H17V12ZM12.293 3.707L10.293 5.707L11.707 6.293L13.707 4.293L12.293 3.707ZM11.707 4.293L13.707 6.293L12.293 7.707L10.293 5.707L11.707 4.293ZM12.293 6.293L10.293 8.293L11.707 9.707L13.707 7.707L12.293 6.293ZM11.707 9.293L13.707 11.293L12.293 10.707L10.293 8.707L11.707 9.293ZM12.293 10.293L10.293 12.293L11.707 13.707L13.707 11.707L12.293 10.293ZM11.707 13.293L13.707 15.293L12.293 14.707L10.293 12.707L11.707 13.293ZM12.293 14.293L10.293 16.293L11.707 17.707L13.707 15.707L12.293 14.293ZM11.707 17.293L13.707 19.293L12.293 18.707L10.293 16.707L11.707 17.293ZM12.293 18.293L10.293 20.293L11.707 21.707L13.707 19.707L12.293 18.293Z" fill="currentColor"/>
-        </svg>
-        {isCorrecting ? 'AI補正中...' : 'AIで文章を補正'}
-      </AICorrectionButton>
     </Container>
   );
 };

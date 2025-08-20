@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../contexts/AuthContext';
 import styled from '@emotion/styled';
+import { FaUserTie } from 'react-icons/fa';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -24,8 +25,8 @@ const Container = styled.div`
     right: 0;
     bottom: 0;
     background-image: 
-      linear-gradient(rgba(0,0,0,0.01) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,0,0,0.01) 1px, transparent 1px);
+      linear-gradient(rgba(0,0,0,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px);
     background-size: var(--space-7) var(--space-7);
     pointer-events: none;
     z-index: 0;
@@ -86,37 +87,19 @@ const LogoContainer = styled.div`
 const Logo = styled.div`
   width: 64px;
   height: 64px;
-  background-color: var(--color-primary);
-  border-radius: var(--radius-none);
+  background: var(--color-accent);
+  border-radius: var(--radius-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: var(--space-3);
   position: relative;
   box-shadow: var(--shadow-elevation);
+  overflow: hidden;
   
-  /* Architectural blueprint style */
-  &::after {
-    content: '';
-    position: absolute;
-    width: 28px;
-    height: 28px;
-    border: 3px solid var(--color-text-inverse);
-    border-radius: var(--radius-none);
-    background: transparent;
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    background: var(--color-accent);
-    border-radius: var(--radius-none);
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1;
+  svg {
+    font-size: 32px;
+    color: white;
   }
 
   @media (max-width: 768px) {
@@ -141,7 +124,7 @@ const Title = styled.h1`
   font-weight: var(--font-weight-thin);
   text-align: center;
   margin-bottom: var(--space-2);
-  color: var(--color-primary);
+  color: var(--color-accent);
   letter-spacing: -0.025em;
   line-height: var(--line-height-compressed);
   position: relative;
@@ -252,6 +235,16 @@ const Input = styled.input`
   position: relative;
   height: 52px;
 
+  /* オートフィル時の背景色を白に固定 */
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus,
+  &:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: var(--color-text-primary) !important;
+    background-color: var(--color-background) !important;
+  }
+
   &::placeholder {
     color: var(--color-text-tertiary);
     transition: opacity 0.2s ease;
@@ -289,10 +282,10 @@ const ErrorMessage = styled.div`
 `;
 
 const Button = styled.button`
-  background-color: var(--color-primary);
+  background-color: var(--color-accent);
   color: var(--color-text-inverse);
   padding: var(--space-5) var(--space-6);
-  border: 2px solid var(--color-primary);
+  border: 2px solid var(--color-accent);
   border-radius: var(--radius-none);
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-bold);
@@ -306,8 +299,8 @@ const Button = styled.button`
   -webkit-tap-highlight-color: transparent;
 
   &:hover:not(:disabled) {
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
+    background-color: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
     transform: translateY(-1px);
     box-shadow: var(--shadow-structure);
   }
@@ -352,7 +345,7 @@ const DemoInfo = styled.div`
 const DemoTitle = styled.h3`
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-bold);
-  color: var(--color-primary);
+  color: var(--color-accent);
   margin-bottom: var(--space-3);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -402,8 +395,8 @@ const DemoAccount = styled.div`
 `;
 
 const Divider = styled.div`
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, var(--color-border) 20%, var(--color-accent) 50%, var(--color-border) 80%, transparent 100%);
+  height: 1px;
+  background: var(--color-border);
   margin: var(--space-6) 0;
   position: relative;
   
@@ -441,7 +434,7 @@ const Link = styled.button`
   -webkit-tap-highlight-color: transparent;
 
   &:hover {
-    color: var(--color-primary);
+    color: var(--color-accent-hover);
     
     &::after {
       width: 100%;
@@ -456,7 +449,7 @@ const Link = styled.button`
     left: 0;
     width: 0;
     height: 1px;
-    background-color: var(--color-primary);
+    background-color: var(--color-accent-hover);
     transition: width 0.2s ease;
   }
 
@@ -503,9 +496,11 @@ const LoginPage = () => {
     <Container>
       <Card>
         <LogoContainer>
-          <Logo />
+          <Logo>
+            <FaUserTie />
+          </Logo>
         </LogoContainer>
-        <Title>Archi Daily</Title>
+        <Title>にっぽ係長</Title>
         <Subtitle>営業日報をAIでスマートに管理</Subtitle>
         
         <Form onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -605,7 +600,7 @@ const LoginPage = () => {
               borderRight: '2px solid var(--color-accent)'
             }}></div>
             <p style={{
-              color: 'var(--color-primary)',
+              color: 'var(--color-accent)',
               fontSize: 'var(--font-size-small)',
               marginBottom: 'var(--space-2)',
               fontWeight: 'var(--font-weight-bold)',
@@ -620,16 +615,16 @@ const LoginPage = () => {
               marginBottom: 'var(--space-4)',
               lineHeight: 'var(--line-height-standard)'
             }}>
-              新規登録してArchi Dailyを始めましょう！
+              新規登録してにっぽ係長を始めましょう！
             </p>
             <button
               onClick={handleSignupClick}
               style={{
-                backgroundColor: 'var(--color-primary)',
+                backgroundColor: 'var(--color-accent)',
                 color: 'var(--color-text-inverse)',
                 padding: 'var(--space-3) var(--space-5)',
                 borderRadius: 'var(--radius-none)',
-                border: '2px solid var(--color-primary)',
+                border: '2px solid var(--color-accent)',
                 fontSize: 'var(--font-size-small)',
                 fontWeight: 'var(--font-weight-bold)',
                 cursor: 'pointer',
@@ -645,8 +640,8 @@ const LoginPage = () => {
                 e.target.style.boxShadow = 'var(--shadow-structure)';
               }}
               onMouseOut={(e) => {
-                e.target.style.backgroundColor = 'var(--color-primary)';
-                e.target.style.borderColor = 'var(--color-primary)';
+                e.target.style.backgroundColor = 'var(--color-accent)';
+                e.target.style.borderColor = 'var(--color-accent)';
                 e.target.style.transform = 'translateY(0)';
                 e.target.style.boxShadow = 'var(--shadow-elevation)';
               }}

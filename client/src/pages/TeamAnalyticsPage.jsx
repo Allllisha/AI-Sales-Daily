@@ -316,7 +316,7 @@ const INDUSTRY_COLORS = {
   '金融': '#AAAAAA', // ライトグレー
   '医療': '#CCCCCC', // ベリーライトグレー
   '教育': '#E8E8E8', // ボーダーグレー
-  'その他': '#FF6B00'  // アクセントオレンジ
+  'その他': '#2563EB'  // ビジネスブルー
 };
 
 // アーキテクチャルカラーパレット
@@ -327,7 +327,7 @@ const COLORS = [
   '#4A4A4A', // セカンダリーグレー
   '#666666', // ライトグレー
   '#888888', // ターシャリーグレー
-  '#FF6B00', // アクセントオレンジ
+  '#2563EB', // ビジネスブルー
   '#E8E8E8', // ボーダーグレー
 ];
 
@@ -576,7 +576,7 @@ const TeamAnalyticsPage = () => {
           <StatLabel>アクション完了数</StatLabel>
         </StatCard>
         <StatCard>
-          <StatValue style={{ color: '#FF6B00' }}>{actualActionStats.pending}</StatValue>
+          <StatValue style={{ color: '#2563EB' }}>{actualActionStats.pending}</StatValue>
           <StatLabel>アクション未完了数</StatLabel>
         </StatCard>
         <StatCard>

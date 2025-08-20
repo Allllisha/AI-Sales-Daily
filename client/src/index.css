@@ -1,9 +1,9 @@
 /* 建築デザイン事務所 - ウルトラミニマル パレット */
 :root {
-  /* Core Architecture Colors - Pure Minimalism */
-  --color-primary: #000000;          /* Pure Black - Strong statements */
-  --color-secondary: #1A1A1A;        /* Dark Charcoal - Primary text */
-  --color-tertiary: #333333;         /* Medium Gray - Subtle elements */
+  /* Core Business Colors - Professional Palette */
+  --color-primary: #1E293B;          /* Navy Blue - Professional depth */
+  --color-secondary: #334155;        /* Slate Blue - Secondary elements */
+  --color-tertiary: #64748B;         /* Blue Gray - Subtle elements */
   
   /* Neutral Foundation - Paper White to Concrete */
   --color-background: #FFFFFF;       /* Pure Paper White */
@@ -12,12 +12,16 @@
   --color-border: #E8E8E8;          /* Hairline Gray - Precise lines */
   --color-border-light: #F2F2F2;    /* Barely visible separations */
   
-  /* Accent - Single Bold Color */
-  --color-accent: #FF6B00;          /* Architectural Orange - Bold accent */
-  --color-accent-light: #FFF4F0;   /* Warm Paper - Accent backgrounds */
-  --color-success: #00C851;        /* Pure Green - Success */
-  --color-warning: #FF8A00;        /* Warm Orange - Warnings */
-  --color-error: #FF4444;          /* Pure Red - Errors */
+  /* Accent - Vibrant Orange Theme */
+  --color-accent: #F97316;          /* Orange - Main accent */
+  --color-accent-light: #FED7AA;   /* Light Orange - Subtle backgrounds */
+  --color-accent-hover: #EA580C;   /* Dark Orange - Hover states */
+  --color-accent-soft: #FB923C;    /* Medium Orange - Secondary elements */
+  --color-success: #0F766E;        /* Deep Teal - Success (Blue-green harmony) */
+  --color-success-light: #99F6E4;  /* Light Teal - Success light */
+  --color-success-dark: #065F46;   /* Dark Teal - Success dark */
+  --color-warning: #2563EB;        /* Business Blue - Warnings */
+  --color-error: #DC2626;          /* Business Red - Errors */
   
   /* Text Hierarchy - High Contrast */
   --color-text-primary: #000000;   /* Pure Black - Maximum impact */
@@ -29,7 +33,7 @@
   --shadow-paper: 0 1px 2px rgba(0, 0, 0, 0.02);        /* Paper on desk */
   --shadow-elevation: 0 4px 8px rgba(0, 0, 0, 0.04);    /* Floating elements */
   --shadow-structure: 0 8px 24px rgba(0, 0, 0, 0.06);   /* Major components */
-  --shadow-focused: 0 0 0 2px rgba(255, 107, 0, 0.2);   /* Focus state */
+  --shadow-focused: 0 0 0 2px rgba(82, 82, 82, 0.2);   /* Focus state - Gray */
   
   /* Border Radius - Architectural Precision */
   --radius-none: 0px;        /* Pure geometric */

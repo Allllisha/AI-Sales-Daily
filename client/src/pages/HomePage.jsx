@@ -11,6 +11,7 @@ import MeetingNotesModal from '../components/MeetingNotesModal';
 import Dynamics365Modal from '../components/Dynamics365Modal';
 import SalesforceModal from '../components/SalesforceModal';
 import ConfirmModal from '../components/ConfirmModal';
+import { SiSalesforce } from 'react-icons/si';
 
 const Container = styled.div`
   max-width: 1400px;
@@ -79,7 +80,7 @@ const ActionButtons = styled.div`
   &.report-buttons {
     grid-template-columns: repeat(3, 1fr);
     
-    @media (max-width: 1024px) {
+    @media (max-width: 1200px) {
       grid-template-columns: repeat(2, 1fr);
     }
     
@@ -101,9 +102,9 @@ const ActionButtons = styled.div`
 `;
 
 const StyledPrimaryButton = styled.button`
-  background-color: var(--color-primary);
+  background-color: var(--color-accent);
   color: var(--color-text-inverse);
-  border: 2px solid var(--color-primary);
+  border: 2px solid var(--color-accent);
   padding: var(--space-4) var(--space-6);
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-bold);
@@ -121,8 +122,8 @@ const StyledPrimaryButton = styled.button`
   min-height: 56px;
   
   &:hover:not(:disabled) {
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
+    background-color: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
     box-shadow: var(--shadow-structure);
     transform: translateY(-1px);
   }
@@ -353,9 +354,9 @@ const ReportStatus = styled.span`
   border: 1px solid;
   background-color: ${props => props.status === 'completed' ? 
     'rgba(45, 125, 50, 0.1)' : 
-    'rgba(245, 124, 0, 0.1)'};
-  color: ${props => props.status === 'completed' ? 'var(--color-success)' : 'var(--color-warning)'};
-  border-color: ${props => props.status === 'completed' ? 'var(--color-success)' : 'var(--color-warning)'};
+    'var(--color-accent-light)'};
+  color: ${props => props.status === 'completed' ? 'var(--color-success)' : 'var(--color-accent)'};
+  border-color: ${props => props.status === 'completed' ? 'var(--color-success)' : 'var(--color-accent)'};
   text-transform: uppercase;
   letter-spacing: 0.08em;
 `;
@@ -654,6 +655,8 @@ const HomePage = () => {
       setShowMeetingModal(true);
     } else if (mode === 'voice' && isOnline) {
       navigate('/hearing');
+    } else if (mode === 'realtime-voice' && isOnline) {
+      navigate('/hearing/realtime');
     } else {
       navigate('/hearing?mode=text');
     }
@@ -1003,6 +1006,15 @@ const HomePage = () => {
                 </svg>
                 音声で開始
               </StyledPrimaryButton>
+              <StyledPrimaryButton 
+                onClick={() => handleNewReport('realtime-voice')}
+                disabled={!isOnline}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2s2-.9 2-2V4c0-1.1-.9-2-2-2zm6 6c0 3.31-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.17 8.09 7.31 8.71V20h-2v2h5.38v-2h-2v-2.29C16.83 16.09 20 12.42 20 8h-2z"/>
+                </svg>
+                リアルタイム音声で開始
+              </StyledPrimaryButton>
               <StyledSecondaryButton onClick={() => handleNewReport('text')}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
@@ -1025,9 +1037,7 @@ const HomePage = () => {
                 Dynamics 365から開始
               </StyledSecondaryButton>
               <StyledSecondaryButton onClick={() => setShowSalesforceModal(true)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="#00A1E0">
-                  <path d="M7.8 8.5c-1.4 0-2.7.8-3.3 2-.5-.2-1.1-.4-1.7-.4-1.9 0-3.4 1.5-3.4 3.4 0 .4.1.8.2 1.2-.6.5-1 1.2-1 2 0 1.4 1.1 2.6 2.5 2.6h14.2c2.4 0 4.3-1.9 4.3-4.3 0-2.1-1.4-3.9-3.4-4.2.1-.3.1-.7.1-1 0-2.4-1.9-4.3-4.3-4.3-.9 0-1.7.3-2.3.7-.8-1.4-2.2-2.3-3.9-2.3z"/>
-                </svg>
+                <SiSalesforce size={20} color="#00A1E0" />
                 Salesforceから開始
               </StyledSecondaryButton>
             </ActionButtons>

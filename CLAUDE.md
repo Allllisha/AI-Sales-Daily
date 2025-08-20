@@ -2,7 +2,7 @@
 
 **選択プラットフォーム: Web/PWA (Azure 完結)**
 
-- Azure Static Web Apps でホスティング
+- Azure App Service でホスティング
 
 - ブラウザの Azure Speech-to-Text で音声認識
 
@@ -242,7 +242,7 @@
 
 ### Phase 1: 基盤構築（1 週間）
 
-- Azure 環境セットアップ（Functions, PostgreSQL, Static Web Apps）
+- Azure 環境セットアップ（Functions, PostgreSQL, App Service）
 - 認証機能実装（営業・マネージャー権限管理）
 - DB 設計（ユーザー、日報、階層管理）
 - 基本的な UI/UX フレームワーク構築

@@ -248,7 +248,7 @@ const UploadIcon = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  background: var(--color-primary);
   border-radius: 50%;
   position: relative;
   
@@ -311,7 +311,7 @@ const ButtonContainer = styled.div`
 `;
 
 const PrimaryButton = styled.button`
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  background: var(--color-primary);
   color: white;
   border: none;
   padding: var(--space-3) var(--space-7);

@@ -66,8 +66,8 @@ const PeriodSelector = styled.div`
 
 const PeriodButton = styled.button`
   padding: var(--space-3) var(--space-4);
-  border: 2px solid ${props => props.active ? 'var(--color-primary)' : 'var(--color-border)'};
-  background: ${props => props.active ? 'var(--color-primary)' : 'var(--color-background)'};
+  border: 2px solid ${props => props.active ? 'var(--color-accent)' : 'var(--color-border)'};
+  background: ${props => props.active ? 'var(--color-accent)' : 'var(--color-background)'};
   color: ${props => props.active ? 'var(--color-text-inverse)' : 'var(--color-text-primary)'};
   border-radius: var(--radius-none);
   font-size: var(--font-size-small);
@@ -79,8 +79,8 @@ const PeriodButton = styled.button`
   letter-spacing: 0.05em;
 
   &:hover {
-    background: ${props => props.active ? 'var(--color-accent)' : 'var(--color-surface)'};
-    border-color: ${props => props.active ? 'var(--color-accent)' : 'var(--color-primary)'};
+    background: ${props => props.active ? 'var(--color-accent-hover)' : 'var(--color-surface)'};
+    border-color: ${props => props.active ? 'var(--color-accent-hover)' : 'var(--color-accent)'};
     transform: translateY(-1px);
   }
 `;
@@ -110,7 +110,7 @@ const StatCard = styled.div`
 const StatValue = styled.div`
   font-size: var(--font-size-display);
   font-weight: var(--font-weight-thin);
-  color: var(--color-primary);
+  color: var(--color-accent);
   margin-bottom: var(--space-2);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   letter-spacing: -0.02em;
@@ -168,30 +168,30 @@ const LoadingSpinner = styled.div`
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 `;
 
-// アーキテクチャルデザインに統一した色パレット
+// オレンジテーマに統一した色パレット
 const INDUSTRY_COLORS = {
-  '建設': '#000000', // ブラック
-  '製造': '#1A1A1A', // ダークチャコール
-  'IT': '#333333', // ミディアムグレー
-  '小売': '#4A4A4A', // セカンダリーグレー
-  'サービス': '#666666', // ライトグレー
-  '不動産': '#888888', // ターシャリーグレー
-  '金融': '#AAAAAA', // ライトグレー
-  '医療': '#CCCCCC', // ベリーライトグレー
-  '教育': '#E8E8E8', // ボーダーグレー
-  'その他': '#FF6B00'  // アクセントオレンジ
+  '建設': '#F97316', // メインオレンジ
+  '製造': '#FB923C', // ソフトオレンジ
+  'IT': '#FED7AA', // ライトオレンジ
+  '小売': '#EA580C', // ダークオレンジ
+  'サービス': '#DC2626', // レッドオレンジ
+  '不動産': '#FBBF24', // イエローオレンジ
+  '金融': '#F59E0B', // アンバー
+  '医療': '#D97706', // バーントオレンジ
+  '教育': '#FDE68A', // ペールイエロー
+  'その他': '#FCA5A5'  // ライトコーラル
 };
 
-// アーキテクチャルカラーパレット
+// オレンジテーマカラーパレット
 const COLORS = [
-  '#000000', // プライマリー（ブラック）
-  '#1A1A1A', // ダークチャコール
-  '#333333', // ミディアムグレー
-  '#4A4A4A', // セカンダリーグレー
-  '#666666', // ライトグレー
-  '#888888', // ターシャリーグレー
-  '#FF6B00', // アクセントオレンジ
-  '#E8E8E8', // ボーダーグレー
+  '#F97316', // メインオレンジ
+  '#FB923C', // ソフトオレンジ
+  '#FED7AA', // ライトオレンジ
+  '#EA580C', // ダークオレンジ
+  '#DC2626', // レッドオレンジ
+  '#FBBF24', // イエローオレンジ
+  '#F59E0B', // アンバー
+  '#D97706', // バーントオレンジ
 ];
 
 const ActionsList = styled.div`
@@ -601,27 +601,27 @@ const MyAnalyticsPage = () => {
               <Line 
                 type="monotone" 
                 dataKey="count" 
-                stroke={visibleLines.count ? 'var(--color-primary)' : 'transparent'}
+                stroke={visibleLines.count ? '#F97316' : 'transparent'}
                 strokeWidth={2}
-                dot={visibleLines.count ? { fill: 'var(--color-primary)', r: 4 } : false}
+                dot={visibleLines.count ? { fill: '#F97316', r: 4 } : false}
                 name="日報数"
                 hide={!visibleLines.count}
               />
               <Line 
                 type="monotone" 
                 dataKey="completedActions" 
-                stroke={visibleLines.completedActions ? 'var(--color-success)' : 'transparent'}
+                stroke={visibleLines.completedActions ? '#10B981' : 'transparent'}
                 strokeWidth={2}
-                dot={visibleLines.completedActions ? { fill: 'var(--color-success)', r: 4 } : false}
+                dot={visibleLines.completedActions ? { fill: '#10B981', r: 4 } : false}
                 name="アクション完了数"
                 hide={!visibleLines.completedActions}
               />
               <Line 
                 type="monotone" 
                 dataKey="customerCount" 
-                stroke={visibleLines.customerCount ? 'var(--color-accent)' : 'transparent'}
+                stroke={visibleLines.customerCount ? '#FB923C' : 'transparent'}
                 strokeWidth={2}
-                dot={visibleLines.customerCount ? { fill: 'var(--color-accent)', r: 4 } : false}
+                dot={visibleLines.customerCount ? { fill: '#FB923C', r: 4 } : false}
                 name="取引先数"
                 hide={!visibleLines.customerCount}
               />
@@ -645,7 +645,7 @@ const MyAnalyticsPage = () => {
                 cx="50%"
                 cy="40%"
                 outerRadius={60}
-                fill="#8884d8"
+                fill="#F97316"
                 dataKey="count"
               >
                 {industryAnalysis.map((entry, index) => (
@@ -866,7 +866,7 @@ const MyAnalyticsPage = () => {
                 <XAxis dataKey="hobby" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="count" fill="var(--color-accent)" />
+                <Bar dataKey="count" fill="#F97316" />
               </BarChart>
             </ResponsiveContainer>
           )}

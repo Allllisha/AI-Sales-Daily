@@ -134,7 +134,4 @@ echo -e "\n${YELLOW}次のステップ:${NC}"
 echo -e "1. 環境変数を本番用の値に更新してください"
 echo -e "2. Azure PostgreSQLまたはCosmos DBを設定してください"
 echo -e "3. Azure Cache for Redisを設定してください"
-echo -e "4. フロントエンドをAzure Static Web Appsにデプロイすることを推奨します"
-
-echo -e "\n${GREEN}フロントエンドのStatic Web Appsデプロイ:${NC}"
-echo -e "  az staticwebapp create --name salesdaily-frontend --resource-group $RESOURCE_GROUP --source ./client --location $LOCATION --branch main --app-location \"/\" --output-location \"dist\" --login-with-github"
+echo -e "4. フロントエンドをAzure App Serviceにデプロイしてください"

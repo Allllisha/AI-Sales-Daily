@@ -31,6 +31,20 @@ export const colors = {
     900: '#4C1D95'
   },
   
+  // Accent palette - vibrant orange
+  accent: {
+    50: '#FFF7ED',
+    100: '#FFEDD5',
+    200: '#FED7AA',
+    300: '#FDBA74',
+    400: '#FB923C',
+    500: '#F97316',
+    600: '#EA580C',
+    700: '#C2410C',
+    800: '#9A3412',
+    900: '#7C2D12'
+  },
+  
   // Secondary palette - warm gray
   secondary: {
     50: '#FAFAF9',
@@ -47,15 +61,15 @@ export const colors = {
   
   // Semantic colors
   success: {
-    light: '#86EFAC',
-    main: '#22C55E',
-    dark: '#16A34A'
+    light: '#99F6E4',
+    main: '#0F766E',
+    dark: '#134E4A'
   },
   
   warning: {
-    light: '#FDE68A',
-    main: '#F59E0B',
-    dark: '#D97706'
+    light: '#DBEAFE',
+    main: '#2563EB',
+    dark: '#1E40AF'
   },
   
   error: {

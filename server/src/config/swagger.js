@@ -5,12 +5,12 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Sales Daily API',
+      title: 'にっぽ係長 API',
       version: '1.0.0',
       description: '営業日報アプリケーションのAPI仕様書',
       contact: {
-        name: 'Sales Daily Support',
-        email: 'support@salesdaily.com',
+        name: 'にっぽ係長 Support',
+        email: 'support@nippo-kakarityou.com',
       },
     },
     servers: [

@@ -1,7 +1,7 @@
 {
-  "name": "sales-daily-server",
+  "name": "nippo-kakarityou-server",
   "version": "1.0.0",
-  "description": "Sales Daily Report API Server",
+  "description": "にっぽ係長 API Server",
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
@@ -25,10 +25,12 @@
     "helmet": "^7.1.0",
     "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.2",
+    "microsoft-cognitiveservices-speech-sdk": "^1.45.0",
     "multer": "^2.0.2",
     "openai": "^4.20.1",
     "pg": "^8.11.3",
     "redis": "^5.8.0",
+    "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0"

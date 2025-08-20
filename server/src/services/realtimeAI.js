@@ -59,6 +59,11 @@ ${JSON.stringify(slots, null, 2)}
 ${conversationHistory}
 
 直前の回答: "${lastAnswer}"
+
+【重要】直前の回答の分析:
+- ユーザーは「${lastAnswer}」と答えています
+- この内容を正確に理解し、適切にフォローアップしてください
+- 既に答えた内容を再度聞かないでください
 ${hasPositiveSignal ? '→ ポジティブな反応が見られます。この流れを深掘りしてください。' : ''}
 ${hasNegativeSignal ? '→ 課題や懸念が示されています。詳細や対策を聞いてください。' : ''}
 ${hasSpecificInfo ? '→ 具体的な情報が出ています。関連する詳細を確認してください。' : ''}
@@ -93,10 +98,10 @@ ${hasSpecificInfo ? '→ 具体的な情報が出ています。関連する詳�
       
       const response = await axios.post(url, {
         messages: [
-          { role: 'system', content: 'You are a helpful assistant for creating sales reports.' },
+          { role: 'system', content: 'あなたは営業日報作成を支援する優秀なAIアシスタントです。ユーザーの回答内容を正確に理解し、自然な日本語で適切なフォローアップ質問を生成してください。前の回答の内容を必ず踏まえて、関連性のある質問をしてください。' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 100,
+        max_tokens: 500,
         temperature: 0.7,
       }, {
         headers: {
@@ -121,6 +126,23 @@ ${hasSpecificInfo ? '→ 具体的な情報が出ています。関連する詳�
   }
 
   async extractSlots(answer, currentSlots) {
+    // 訂正パターンの検出
+    const correctionPatterns = [
+      /(.+?)(?:では|じゃ)なく(?:て)?[、]?(.+)/,
+      /(.+?)(?:じゃなくて|ではなくて)[、]?(.+)/,
+      /間違(?:い|え)ました[、。]?(.+)/,
+      /(?:訂正|修正)します[、。]?(.+)/,
+      /(?:違います|違って)[、。]?(.+)/
+    ];
+
+    let hasCorrectionIntent = false;
+    for (const pattern of correctionPatterns) {
+      if (pattern.test(answer)) {
+        hasCorrectionIntent = true;
+        break;
+      }
+    }
+
     const prompt = `
 以下の回答から営業日報の情報を抽出してください。
 
@@ -128,6 +150,18 @@ ${hasSpecificInfo ? '→ 具体的な情報が出ています。関連する詳�
 
 現在の情報:
 ${JSON.stringify(currentSlots, null, 2)}
+
+${hasCorrectionIntent ? `
+【重要】訂正の検出:
+ユーザーが「〜ではなく」「間違えました」などの表現を使っている場合、
+以前の情報を訂正しようとしている可能性があります。
+訂正が検出された場合、corrections フィールドに以下の形式で返してください:
+corrections: [{
+  field: "訂正対象のフィールド名",
+  oldValue: "訂正前の値",
+  newValue: "訂正後の値"
+}]
+` : ''}
 
 以下の項目を抽出してJSON形式で返してください:
 - customer: 顧客名・会社名
@@ -147,8 +181,10 @@ ${JSON.stringify(currentSlots, null, 2)}
 - concerns_mood: 懸念事項の雰囲気・温度感
 - next_step_mood: 次ステップへの温度感・確度
 - closing_possibility: 成約可能性（%）
+${hasCorrectionIntent ? '- corrections: 訂正情報の配列（上記形式）' : ''}
 
 回答に含まれない項目は現在の値を維持してください。
+訂正が検出された場合は、該当フィールドを新しい値で更新してください。
 JSONのみを返してください。`;
 
     try {
@@ -173,11 +209,25 @@ JSONのみを返してください。`;
       content = content.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
       const extracted = JSON.parse(content);
       
-      // 現在のスロットとマージ
+      // 訂正処理
+      let updatedSlots = { ...currentSlots };
+      
+      if (extracted.corrections && Array.isArray(extracted.corrections)) {
+        for (const correction of extracted.corrections) {
+          if (correction.field && updatedSlots[correction.field]) {
+            console.log(`訂正検出: ${correction.field}: "${correction.oldValue}" → "${correction.newValue}"`);
+            updatedSlots[correction.field] = correction.newValue;
+          }
+        }
+      }
+      
+      // 新しい情報をマージ（correctionsフィールド以外）
+      const { corrections, ...newSlots } = extracted;
+      
       return {
-        ...currentSlots,
-        ...Object.entries(extracted).reduce((acc, [key, value]) => {
-          if (value && value !== '' && value !== currentSlots[key]) {
+        ...updatedSlots,
+        ...Object.entries(newSlots).reduce((acc, [key, value]) => {
+          if (value && value !== '' && value !== updatedSlots[key]) {
             acc[key] = value;
           }
           return acc;
@@ -237,7 +287,7 @@ ${JSON.stringify(slots, null, 2)}
 会話履歴:
 ${questionsAnswers.map(qa => `Q: ${qa.question}\nA: ${qa.answer}`).join('\n')}
 
-200文字以内で、要点をまとめた日報サマリーを作成してください:`;
+要点をまとめた日報サマリーを作成してください:`;
 
     try {
       const url = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_OPENAI_API_VERSION}`;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import styled from '@emotion/styled';
+import { FaUserTie } from 'react-icons/fa';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -64,36 +65,18 @@ const LogoContainer = styled.div`
 const LogoIcon = styled.div`
   width: 42px;
   height: 42px;
-  background-color: var(--color-primary);
+  background: var(--color-accent);
   border-radius: var(--radius-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   box-shadow: var(--shadow-elevation);
+  overflow: hidden;
   
-  /* Simple architectural element */
-  &::after {
-    content: '';
-    position: absolute;
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--color-text-inverse);
-    border-radius: var(--radius-subtle);
-    background: transparent;
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    background: var(--color-text-inverse);
-    border-radius: var(--radius-subtle);
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1;
+  svg {
+    font-size: 24px;
+    color: white;
   }
 
   @media (max-width: 768px) {
@@ -632,8 +615,10 @@ const Layout = () => {
       <Header>
         <Nav>
           <LogoContainer>
-            <LogoIcon />
-            <Logo to="/">Archi Daily</Logo>
+            <LogoIcon>
+              <FaUserTie />
+            </LogoIcon>
+            <Logo to="/">にっぽ係長</Logo>
           </LogoContainer>
           <NavLinks>
             <NavLink to="/">ホーム</NavLink>

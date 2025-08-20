@@ -188,8 +188,8 @@ class SessionManager {
     const hasRequired = requiredSlots.every(slot => slots[slot] && slots[slot].trim() !== '');
     
     if (!hasRequired) {
-      // 10回質問しても必須情報が埋まらない場合は終了
-      return questionsAnswers.length >= 10;
+      // 12回質問しても必須情報が埋まらない場合は終了
+      return questionsAnswers.length >= 12;
     }
     
     // 情報の質を評価（必須スロットが埋まっている場合）

@@ -256,9 +256,9 @@ const RealtimeText = styled.div`
     height: 3px;
     background: linear-gradient(90deg, 
       transparent 0%, 
-      var(--color-accent) 25%, 
-      var(--color-accent) 50%, 
-      var(--color-accent) 75%, 
+      var(--color-primary) 25%, 
+      var(--color-primary) 50%, 
+      var(--color-primary) 75%, 
       transparent 100%);
     animation: pulse-line 2s ease-in-out infinite;
   }

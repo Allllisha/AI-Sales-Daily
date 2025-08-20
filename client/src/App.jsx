@@ -15,6 +15,7 @@ import MyAnalyticsPage from './pages/MyAnalyticsPage';
 import TeamAnalyticsPage from './pages/TeamAnalyticsPage';
 import RegisterPage from './pages/RegisterPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
+import RealtimeHearingPage from './pages/RealtimeHearingPage';
 
 // Components
 import Layout from './components/Layout';
@@ -58,6 +59,7 @@ function App() {
                 <Route element={<Layout />}>
                   <Route path="/" element={<HomePage />} />
                 <Route path="/hearing" element={<HearingPage />} />
+                <Route path="/hearing/realtime" element={<RealtimeHearingPage />} />
                 <Route path="/reports/:id" element={<ReportDetailPage />} />
                 <Route path="/reports/:id/edit" element={<ReportEditPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
