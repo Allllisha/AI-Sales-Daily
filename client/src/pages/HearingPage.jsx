@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { aiAPI, reportAPI } from '../services/api';
+import { aiAPI, reportAPI, hearingSettingsAPI } from '../services/api';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
 import VoiceInput from '../components/VoiceInput';
@@ -503,6 +503,7 @@ const HearingPage = () => {
   const dynamics365Mode = searchParams.get('mode') === 'dynamics365';
   const salesforceMode = searchParams.get('mode') === 'salesforce';
   const sessionIdFromParams = searchParams.get('sessionId');
+  const settingIdFromParams = searchParams.get('settingId');
   
   const [sessionId, setSessionId] = useState(sessionIdFromParams || null);
   const [currentQuestion, setCurrentQuestion] = useState('');
@@ -510,6 +511,7 @@ const HearingPage = () => {
   const [totalQuestions, setTotalQuestions] = useState(5);
   const [answer, setAnswer] = useState('');
   const [inputMode, setInputMode] = useState(forceTextMode ? 'text' : 'voice');
+  const [allowInputModeSwitch, setAllowInputModeSwitch] = useState(true); // 入力モード切り替え可否
   const [slots, setSlots] = useState({});
   const [completed, setCompleted] = useState(false);
   const [isOnline] = useState(navigator.onLine);
@@ -545,6 +547,8 @@ const HearingPage = () => {
       return aiAPI.startHearing(requestData);
     },
     onSuccess: (data) => {
+      console.log('Start hearing response:', data);
+      console.log('Received question:', data.question);
       setSessionId(data.sessionId);
       setCurrentQuestion(data.question);
       setQuestionIndex(data.questionIndex);
@@ -700,12 +704,77 @@ const HearingPage = () => {
       } else if (salesforceMode) {
         // Salesforceモードの場合
         handleSalesforceModeInit();
+      } else if (settingIdFromParams) {
+        // 特定の設定IDで開始
+        handleHearingWithSetting(settingIdFromParams);
       } else {
         // 通常のヒアリングモード
         startMutation.mutate();
       }
     }
   }, []);
+
+  const handleHearingWithSetting = async (settingId) => {
+    try {
+      // 設定を読み込む
+      const setting = await hearingSettingsAPI.get(settingId);
+      
+      if (setting) {
+        // 設定を使用してヒアリングを開始
+        const requestData = {
+          settingId: setting.id,
+          greeting: setting.greeting,
+          customQuestions: setting.custom_questions,
+          maxQuestions: setting.max_questions,
+          inputMode: setting.input_mode,
+          requiredSlots: setting.required_slots,
+          optionalSlots: setting.optional_slots,
+          enableFollowUp: setting.enable_follow_up,
+          followUpThreshold: setting.follow_up_threshold,
+          enableSmartSkip: setting.enable_smart_skip
+        };
+        
+        // 入力モードを設定から適用
+        if (setting.input_mode) {
+          if (setting.input_mode === 'both') {
+            // 両方の場合は音声をデフォルトにして切り替え可能
+            setInputMode('voice');
+            setAllowInputModeSwitch(true);
+          } else {
+            // 単一モードの場合は切り替え不可
+            setInputMode(setting.input_mode);
+            setAllowInputModeSwitch(false);
+          }
+        }
+        
+        // 最大質問数を設定
+        if (setting.max_questions) {
+          setTotalQuestions(setting.max_questions);
+        }
+        
+        console.log('Starting hearing with setting:', requestData);
+        startMutation.mutate(requestData);
+        
+        // 設定の使用回数を記録するためにセッション作成
+        hearingSettingsAPI.createSession({
+          setting_id: setting.id,
+          session_start: new Date()
+        }).catch(error => {
+          console.error('Failed to record session:', error);
+          // セッション記録の失敗は続行に影響しない
+        });
+      } else {
+        toast.error('設定が見つかりませんでした');
+        // デフォルト設定で開始
+        startMutation.mutate();
+      }
+    } catch (error) {
+      console.error('Failed to load hearing setting:', error);
+      toast.error('設定の読み込みに失敗しました');
+      // エラーの場合もデフォルト設定で開始
+      startMutation.mutate();
+    }
+  };
 
   const handleRealtimeDataInit = async () => {
     try {
@@ -774,15 +843,35 @@ const HearingPage = () => {
       if (extractedInfoToUse) {
         setExtractedInfo(extractedInfoToUse);
         setSlots(extractedInfoToUse);
-        
-        // AIヒアリングセッションを開始（議事録データを参考データとして送信）
+
+        // 議事録モード用の設定を取得
+        let meetingSettings = null;
+        try {
+          const allSettings = await hearingSettingsAPI.getAll();
+          // 議事録モード用の設定を優先、なければデフォルト設定
+          meetingSettings = allSettings.find(s => s.input_mode === 'meeting' && s.is_default) ||
+                           allSettings.find(s => s.input_mode === 'meeting') ||
+                           allSettings.find(s => s.is_default);
+
+          console.log('Meeting mode settings:', meetingSettings);
+        } catch (err) {
+          console.log('No meeting settings found, using defaults');
+        }
+
+        // AIヒアリングセッションを開始（議事録データ + カスタム設定）
         const requestData = {
           referenceData: extractedInfoToUse,
           dataSource: 'meeting',
-          meetingContent: stateMeetingContent // 議事録の原文も送信
+          meetingContent: stateMeetingContent, // 議事録の原文も送信
+          // カスタム設定を適用（greetingは議事録から自動生成されるため含めない）
+          customQuestions: meetingSettings?.custom_questions,
+          maxQuestions: meetingSettings?.max_questions,
+          requiredSlots: meetingSettings?.required_slots,
+          enableFollowUp: meetingSettings?.enable_follow_up,
+          enableSmartSkip: meetingSettings?.enable_smart_skip
         };
-        
-        console.log('Sending meeting data to server:', requestData);
+
+        console.log('Sending meeting data with custom settings to server:', requestData);
         startMutation.mutate(requestData);
       } else {
         toast.error('セッション情報が見つかりません');
@@ -1538,31 +1627,34 @@ const HearingPage = () => {
         </QuestionSection>
 
         <AnswerSection>
-          <InputModeButtons>
-            <ModeButton
-              active={inputMode === 'voice'}
-              onClick={() => {
-                setInputMode('voice');
-              }}
-              disabled={!isOnline || forceTextMode}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '0.5rem' }}>
-                <path d="M12 2c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2s2-.9 2-2V4c0-1.1-.9-2-2-2zm6 6c0 3.31-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.17 8.09 7.31 8.71V20h-2v2h5.38v-2h-2v-2.29C16.83 16.09 20 12.42 20 8h-2z"/>
-              </svg>
-              音声入力
-            </ModeButton>
-            <ModeButton
-              active={inputMode === 'text'}
-              onClick={() => {
-                setInputMode('text');
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '0.5rem' }}>
-                <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-              </svg>
-              テキスト入力
-            </ModeButton>
-          </InputModeButtons>
+          {/* 入力モード切り替えボタン（切り替え可能な場合のみ表示） */}
+          {allowInputModeSwitch && (
+            <InputModeButtons>
+              <ModeButton
+                active={inputMode === 'voice'}
+                onClick={() => {
+                  setInputMode('voice');
+                }}
+                disabled={!isOnline || forceTextMode}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                  <path d="M12 2c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2s2-.9 2-2V4c0-1.1-.9-2-2-2zm6 6c0 3.31-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.17 8.09 7.31 8.71V20h-2v2h5.38v-2h-2v-2.29C16.83 16.09 20 12.42 20 8h-2z"/>
+                </svg>
+                音声入力
+              </ModeButton>
+              <ModeButton
+                active={inputMode === 'text'}
+                onClick={() => {
+                  setInputMode('text');
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                  <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+                </svg>
+                テキスト入力
+              </ModeButton>
+            </InputModeButtons>
+          )}
 
           {inputMode === 'voice' ? (
             <VoiceInput 

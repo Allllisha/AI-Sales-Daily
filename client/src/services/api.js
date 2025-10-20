@@ -27,6 +27,7 @@ const api = axios.create({
 // リクエストインターセプター
 api.interceptors.request.use(
   (config) => {
+    console.log('[API Request]', config.method?.toUpperCase(), config.url);
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -34,14 +35,19 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('[API Request Error]', error);
     return Promise.reject(error);
   }
 );
 
 // レスポンスインターセプター
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('[API Response]', response.config.method?.toUpperCase(), response.config.url, 'Status:', response.status);
+    return response;
+  },
   (error) => {
+    console.error('[API Response Error]', error.config?.method?.toUpperCase(), error.config?.url, 'Status:', error.response?.status, 'Error:', error.message);
     if (error.response?.status === 401) {
       // Don't redirect if we're already on the login page
       const currentPath = window.location.pathname;
@@ -117,6 +123,10 @@ export const reportAPI = {
   },
   getTeamReports: async (params = {}) => {
     const response = await api.get('/api/reports/team', { params });
+    return response.data;
+  },
+  generateSuggestions: async (reportId) => {
+    const response = await api.post(`/api/reports/${reportId}/generate-suggestions`);
     return response.data;
   }
 };
@@ -286,6 +296,57 @@ export const salesforceAPI = {
   }
 };
 
+// Hearing Settings API
+export const hearingSettingsAPI = {
+  // 設定一覧取得
+  getAll: async () => {
+    const response = await api.get('/api/hearing-settings');
+    return response.data;
+  },
+  
+  // 特定の設定取得
+  get: async (id) => {
+    const response = await api.get(`/api/hearing-settings/${id}`);
+    return response.data;
+  },
+  
+  // デフォルト設定取得
+  getDefault: async () => {
+    const response = await api.get('/api/hearing-settings/default');
+    return response.data;
+  },
+  
+  // 設定作成
+  create: async (settings) => {
+    const response = await api.post('/api/hearing-settings', settings);
+    return response.data;
+  },
+  
+  // 設定更新
+  update: async (id, settings) => {
+    const response = await api.put(`/api/hearing-settings/${id}`, settings);
+    return response.data;
+  },
+  
+  // 設定削除
+  delete: async (id) => {
+    const response = await api.delete(`/api/hearing-settings/${id}`);
+    return response.data;
+  },
+  
+  // セッション記録
+  createSession: async (sessionData) => {
+    const response = await api.post('/api/hearing-settings/sessions', sessionData);
+    return response.data;
+  },
+  
+  // セッション履歴取得
+  getSessions: async (limit = 10, offset = 0) => {
+    const response = await api.get(`/api/hearing-settings/sessions?limit=${limit}&offset=${offset}`);
+    return response.data;
+  }
+};
+
 // OAuth API
 export const oauthAPI = {
   getStatus: async () => {
@@ -325,6 +386,26 @@ export const crmAPI = {
       crmType,
       config
     });
+    return response.data;
+  }
+};
+
+// Tags API
+export const tagsAPI = {
+  getDetail: async (tagId) => {
+    const response = await api.get(`/api/tags/${tagId}/detail`);
+    return response.data;
+  },
+  fetchInfo: async (tagId, force = false) => {
+    const response = await api.post(`/api/tags/${tagId}/fetch-info`, { force });
+    return response.data;
+  },
+  deleteWebInfo: async (tagId) => {
+    const response = await api.delete(`/api/tags/${tagId}/web-info`);
+    return response.data;
+  },
+  getReports: async (tagId, limit = 50, offset = 0) => {
+    const response = await api.get(`/api/tags/${tagId}/reports?limit=${limit}&offset=${offset}`);
     return response.data;
   }
 };

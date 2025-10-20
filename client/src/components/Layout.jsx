@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import styled from '@emotion/styled';
-import { FaUserTie } from 'react-icons/fa';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -63,42 +62,30 @@ const LogoContainer = styled.div`
 `;
 
 const LogoIcon = styled.div`
-  width: 42px;
-  height: 42px;
-  background: var(--color-accent);
-  border-radius: var(--radius-subtle);
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  box-shadow: var(--shadow-elevation);
   overflow: hidden;
   
-  svg {
-    font-size: 24px;
-    color: white;
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 
   @media (max-width: 768px) {
-    width: 36px;
-    height: 36px;
-    
-    &::after {
-      width: 14px;
-      height: 14px;
-    }
-
-    &::before {
-      width: 6px;
-      height: 6px;
-    }
+    width: 40px;
+    height: 40px;
   }
 `;
 
 const Logo = styled(Link)`
   font-size: var(--font-size-title);
   font-weight: var(--font-weight-bold);
-  color: var(--color-primary);
+  color: var(--color-accent);
   text-decoration: none;
   letter-spacing: -0.02em;
   transition: all 0.2s ease-in-out;
@@ -616,12 +603,13 @@ const Layout = () => {
         <Nav>
           <LogoContainer>
             <LogoIcon>
-              <FaUserTie />
+              <img src="/logo.png" alt="にっぽ係長" />
             </LogoIcon>
             <Logo to="/">にっぽ係長</Logo>
           </LogoContainer>
           <NavLinks>
             <NavLink to="/">ホーム</NavLink>
+            <NavLink to="/scripts">スクリプト管理</NavLink>
             <NavLink to="/my-analytics">マイ分析</NavLink>
             {isManager && (
               <NavLink to="/team-analytics">チーム分析</NavLink>
@@ -662,6 +650,7 @@ const Layout = () => {
         
         <MobileNavLinks>
           <MobileNavLink to="/" onClick={handleMobileLinkClick}>ホーム</MobileNavLink>
+          <MobileNavLink to="/scripts" onClick={handleMobileLinkClick}>スクリプト管理</MobileNavLink>
           <MobileNavLink to="/my-analytics" onClick={handleMobileLinkClick}>マイ分析</MobileNavLink>
           {isManager && (
             <MobileNavLink to="/team-analytics" onClick={handleMobileLinkClick}>チーム分析</MobileNavLink>

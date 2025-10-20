@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { authAPI, userAPI } from '../services/api';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
-import { FaUserTie } from 'react-icons/fa';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -39,7 +38,7 @@ const Container = styled.div`
 `;
 
 const Card = styled.div`
-  background-color: var(--color-surface);
+  background-color: white;
   padding: var(--space-6);
   border-radius: var(--radius-none);
   border: 2px solid var(--color-border);
@@ -76,45 +75,30 @@ const LogoContainer = styled.div`
   position: relative;
 
   @media (max-width: 768px) {
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-3);
   }
 `;
 
 const Logo = styled.div`
-  width: 64px;
-  height: 64px;
-  background: var(--color-neutral-800);
-  border-radius: var(--radius-subtle);
+  width: 80px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: var(--space-3);
   position: relative;
-  box-shadow: var(--shadow-elevation);
   overflow: hidden;
   
-  svg {
-    font-size: 32px;
-    color: var(--color-text-inverse);
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 
   @media (max-width: 768px) {
-    width: 64px;
-    height: 64px;
-    
-    &::after {
-      width: 24px;
-      height: 24px;
-      border-width: 2px;
-    }
-
-    &::before {
-      width: 10px;
-      height: 10px;
-    }
-      width: 6px;
-      height: 6px;
-    }
+    width: 72px;
+    height: 72px;
+    margin-bottom: var(--space-2);
   }
 `;
 
@@ -123,7 +107,7 @@ const Title = styled.h1`
   font-weight: var(--font-weight-bold);
   text-align: center;
   margin-bottom: var(--space-2);
-  color: var(--color-primary);
+  color: var(--color-accent);
   letter-spacing: -0.02em;
   line-height: var(--line-height-compressed);
   text-transform: uppercase;
@@ -132,7 +116,7 @@ const Title = styled.h1`
   /* Removed excessive underline accent */
 
   @media (max-width: 768px) {
-    font-size: var(--font-size-title);
+    font-size: 2rem;
     
     &::after {
       width: 80px;
@@ -140,7 +124,7 @@ const Title = styled.h1`
   }
 
   @media (max-width: 480px) {
-    font-size: var(--font-size-lead);
+    font-size: 1.75rem;
     
     &::after {
       width: 60px;
@@ -550,7 +534,7 @@ const RegisterPage = () => {
       <Card>
         <LogoContainer>
           <Logo>
-            <FaUserTie />
+            <img src="/logo.png" alt="にっぽ係長" />
           </Logo>
         </LogoContainer>
         <Title>新規登録</Title>

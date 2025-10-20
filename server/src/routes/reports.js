@@ -1,8 +1,95 @@
 const express = require('express');
 const { authMiddleware, managerOnly } = require('../middleware/auth');
 const pool = require('../db/pool');
+const { generateSuggestions } = require('../services/suggestionGenerator');
+const { searchCompanyInfo } = require('../services/bingSearch');
 
 const router = express.Router();
+
+/**
+ * 日報完了時に会社タグのWeb情報を自動取得
+ * @param {number} reportId - 日報ID
+ */
+async function autoFetchCompanyWebInfo(reportId) {
+  try {
+    console.log('[Auto Fetch] Starting web info fetch for report:', reportId);
+
+    // 日報に紐付く会社タグを取得（categoryが'company'のもの）
+    const tagsResult = await pool.query(`
+      SELECT DISTINCT t.id, t.name, twi.last_fetched_at
+      FROM report_tags rt
+      INNER JOIN tags t ON rt.tag_id = t.id
+      LEFT JOIN tag_web_info twi ON t.id = twi.tag_id
+      WHERE rt.report_id = $1 AND t.category = 'company'
+    `, [reportId]);
+
+    const companyTags = tagsResult.rows;
+
+    if (companyTags.length === 0) {
+      console.log('[Auto Fetch] No company tags found for report:', reportId);
+      return;
+    }
+
+    console.log('[Auto Fetch] Found', companyTags.length, 'company tags');
+
+    // 各会社タグについて、Web情報が古いか存在しない場合は取得
+    for (const tag of companyTags) {
+      const daysSinceLastFetch = tag.last_fetched_at
+        ? (Date.now() - new Date(tag.last_fetched_at).getTime()) / (1000 * 60 * 60 * 24)
+        : 999;
+
+      // 7日以上経過している、または未取得の場合に取得
+      if (daysSinceLastFetch > 7) {
+        console.log('[Auto Fetch] Fetching web info for tag:', tag.name);
+
+        // 非同期で取得（エラーが起きても処理は継続）
+        searchCompanyInfo(tag.name)
+          .then(searchResult => {
+            if (searchResult.success) {
+              // データベースに保存（upsert）
+              return pool.query(`
+                INSERT INTO tag_web_info (
+                  tag_id,
+                  company_info,
+                  latest_news,
+                  related_people,
+                  last_fetched_at
+                ) VALUES ($1, $2, $3, $4, NOW())
+                ON CONFLICT (tag_id)
+                DO UPDATE SET
+                  company_info = EXCLUDED.company_info,
+                  latest_news = EXCLUDED.latest_news,
+                  related_people = EXCLUDED.related_people,
+                  last_fetched_at = NOW(),
+                  updated_at = NOW()
+              `, [
+                tag.id,
+                JSON.stringify(searchResult.company_info || {}),
+                JSON.stringify(searchResult.latest_news || []),
+                JSON.stringify(searchResult.related_people || [])
+              ]);
+            }
+          })
+          .then(() => {
+            console.log('[Auto Fetch] Successfully saved web info for tag:', tag.name);
+          })
+          .catch(error => {
+            console.error('[Auto Fetch] Failed to fetch/save web info for tag:', tag.name, error.message);
+          });
+
+        // レート制限対策で少し待機
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else {
+        console.log('[Auto Fetch] Skipping tag (recently fetched):', tag.name);
+      }
+    }
+
+    console.log('[Auto Fetch] Completed web info fetch for report:', reportId);
+
+  } catch (error) {
+    console.error('[Auto Fetch] Error in autoFetchCompanyWebInfo:', error);
+  }
+}
 
 /**
  * @swagger
@@ -414,10 +501,42 @@ router.get('/', authMiddleware, async (req, res) => {
     query += ' ORDER BY r.report_date DESC, r.created_at DESC';
 
     const result = await pool.query(query, params);
-    
+
     // データはすでに文字列形式なので、特別な処理は不要
     const processedRows = result.rows;
-    
+
+    // 各レポートのタグを取得
+    if (processedRows.length > 0) {
+      const reportIds = processedRows.map(r => r.id);
+      const tagsResult = await pool.query(
+        `SELECT rt.report_id, t.id, t.name, t.category, t.color
+         FROM report_tags rt
+         INNER JOIN tags t ON rt.tag_id = t.id
+         WHERE rt.report_id = ANY($1)
+         ORDER BY t.category, t.name`,
+        [reportIds]
+      );
+
+      // レポートIDごとにタグをグループ化
+      const tagsByReportId = {};
+      tagsResult.rows.forEach(tag => {
+        if (!tagsByReportId[tag.report_id]) {
+          tagsByReportId[tag.report_id] = [];
+        }
+        tagsByReportId[tag.report_id].push({
+          id: tag.id,
+          name: tag.name,
+          category: tag.category,
+          color: tag.color
+        });
+      });
+
+      // 各レポートにタグを追加
+      processedRows.forEach(report => {
+        report.tags = tagsByReportId[report.id] || [];
+      });
+    }
+
     res.json(processedRows);
   } catch (error) {
     console.error('Get reports error:', error);
@@ -468,6 +587,38 @@ router.get('/team', authMiddleware, managerOnly, async (req, res) => {
     // データはすでにクリーンな文字列形式なので、特別な処理は不要
     const processedRows = result.rows;
 
+    // 各レポートのタグを取得
+    if (processedRows.length > 0) {
+      const reportIds = processedRows.map(r => r.id);
+      const tagsResult = await pool.query(
+        `SELECT rt.report_id, t.id, t.name, t.category, t.color
+         FROM report_tags rt
+         INNER JOIN tags t ON rt.tag_id = t.id
+         WHERE rt.report_id = ANY($1)
+         ORDER BY t.category, t.name`,
+        [reportIds]
+      );
+
+      // レポートIDごとにタグをグループ化
+      const tagsByReportId = {};
+      tagsResult.rows.forEach(tag => {
+        if (!tagsByReportId[tag.report_id]) {
+          tagsByReportId[tag.report_id] = [];
+        }
+        tagsByReportId[tag.report_id].push({
+          id: tag.id,
+          name: tag.name,
+          category: tag.category,
+          color: tag.color
+        });
+      });
+
+      // 各レポートにタグを追加
+      processedRows.forEach(report => {
+        report.tags = tagsByReportId[report.id] || [];
+      });
+    }
+
     res.json(processedRows);
   } catch (error) {
     console.error('Get team reports error:', error);
@@ -514,10 +665,23 @@ router.get('/:id', authMiddleware, async (req, res) => {
     // スロットデータはすでにクリーンな文字列形式
     const slots = slotsResult.rows[0] || {};
 
+    // タグ情報取得
+    const tagsResult = await pool.query(
+      `SELECT t.id, t.name, t.category, t.color
+       FROM report_tags rt
+       INNER JOIN tags t ON rt.tag_id = t.id
+       WHERE rt.report_id = $1
+       ORDER BY t.category, t.name`,
+      [id]
+    );
+
+    const tags = tagsResult.rows;
+
     res.json({
       ...report,
       questions_answers: qaResult.rows,
-      slots
+      slots,
+      tags
     });
   } catch (error) {
     console.error('Get report detail error:', error);
@@ -708,6 +872,45 @@ router.post('/', authMiddleware, async (req, res) => {
       }
     }
 
+    // タグの自動抽出と登録（全モード対応：voice, text, meeting, realtime）
+    // 質問回答またはスロットデータがあれば実行
+    if (questions_answers || slots) {
+      (async () => {
+        try {
+          const { extractTagsFromReport } = require('../services/tagExtractor');
+          const { getOrCreateTag } = require('./tags');
+
+          console.log(`Starting tag extraction for report ${reportId}, mode: ${mode || 'hearing'}`);
+
+          const tags = await extractTagsFromReport({
+            questions_answers,
+            slots,
+            mode: mode || 'hearing'  // モード情報も渡す
+          });
+
+          console.log(`Auto-extracted ${tags.length} tags for report ${reportId} (mode: ${mode || 'hearing'})`);
+
+          // タグを登録
+          for (const tag of tags) {
+            try {
+              const tagId = await getOrCreateTag(tag.name, tag.category);
+              await pool.query(
+                `INSERT INTO report_tags (report_id, tag_id, auto_generated, confidence)
+                 VALUES ($1, $2, true, $3)
+                 ON CONFLICT (report_id, tag_id) DO NOTHING`,
+                [reportId, tagId, tag.confidence || 0.8]
+              );
+            } catch (tagErr) {
+              console.error(`Error adding tag ${tag.name}:`, tagErr.message);
+            }
+          }
+        } catch (extractErr) {
+          console.error('Error extracting tags:', extractErr.message);
+          // タグ抽出のエラーは無視（日報作成自体は成功させる）
+        }
+      })();
+    }
+
     await client.query('COMMIT');
 
     res.status(201).json({
@@ -833,6 +1036,28 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     await client.query('COMMIT');
 
+    // 完了状態になった場合、AI提案を自動生成（非同期）
+    if (status === 'completed') {
+      console.log('[AI Suggestions] Auto-generating suggestions for report:', id);
+      generateSuggestions(id)
+        .then(suggestions => {
+          pool.query(
+            'UPDATE reports SET ai_suggestions = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            [JSON.stringify(suggestions), id]
+          );
+          console.log('[AI Suggestions] Auto-generated successfully for report:', id);
+        })
+        .catch(error => {
+          console.error('[AI Suggestions] Auto-generation failed for report:', id, error);
+        });
+
+      // 会社タグのWeb情報を自動取得（非同期）
+      autoFetchCompanyWebInfo(id)
+        .catch(error => {
+          console.error('[Auto Fetch] Failed for report:', id, error);
+        });
+    }
+
     res.json({ message: '日報を更新しました' });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -929,17 +1154,217 @@ router.put('/:id/status', authMiddleware, async (req, res) => {
       'UPDATE reports SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [status, id]
     );
-    
-    res.json({ 
-      success: true, 
-      message: `日報を${status === 'draft' ? '下書き' : '完了'}に変更しました` 
+
+    // 完了状態になった場合、AI提案を自動生成（非同期）
+    if (status === 'completed') {
+      console.log('[AI Suggestions] Auto-generating suggestions for report:', id);
+      generateSuggestions(id)
+        .then(suggestions => {
+          pool.query(
+            'UPDATE reports SET ai_suggestions = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            [JSON.stringify(suggestions), id]
+          );
+          console.log('[AI Suggestions] Auto-generated successfully for report:', id);
+        })
+        .catch(error => {
+          console.error('[AI Suggestions] Auto-generation failed for report:', id, error);
+        });
+
+      // 会社タグのWeb情報を自動取得（非同期）
+      autoFetchCompanyWebInfo(id)
+        .catch(error => {
+          console.error('[Auto Fetch] Failed for report:', id, error);
+        });
+    }
+
+    res.json({
+      success: true,
+      message: `日報を${status === 'draft' ? '下書き' : '完了'}に変更しました`
     });
-    
+
   } catch (error) {
     console.error('Update report status error:', error);
     res.status(500).json({ error: 'ステータスの更新に失敗しました' });
   } finally {
     client.release();
+  }
+});
+
+// 日報にタグを追加
+router.post('/:reportId/tags', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { reportId } = req.params;
+    const { tagId } = req.body;
+
+    if (!tagId) {
+      return res.status(400).json({ success: false, message: 'タグIDが必要です' });
+    }
+
+    // 日報の所有者確認
+    const reportCheck = await client.query(
+      'SELECT user_id FROM reports WHERE id = $1',
+      [reportId]
+    );
+
+    if (reportCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: '日報が見つかりません' });
+    }
+
+    if (reportCheck.rows[0].user_id !== req.userId) {
+      return res.status(403).json({ success: false, message: '権限がありません' });
+    }
+
+    // タグが存在するか確認
+    const tagCheck = await client.query(
+      'SELECT id FROM tags WHERE id = $1',
+      [tagId]
+    );
+
+    if (tagCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'タグが見つかりません' });
+    }
+
+    // 既に追加済みか確認
+    const existingCheck = await client.query(
+      'SELECT id FROM report_tags WHERE report_id = $1 AND tag_id = $2',
+      [reportId, tagId]
+    );
+
+    if (existingCheck.rows.length > 0) {
+      return res.status(409).json({ success: false, message: 'このタグは既に追加されています' });
+    }
+
+    // タグを追加
+    await client.query(
+      'INSERT INTO report_tags (report_id, tag_id) VALUES ($1, $2)',
+      [reportId, tagId]
+    );
+
+    // タグの使用回数を更新
+    await client.query(
+      'UPDATE tags SET usage_count = usage_count + 1 WHERE id = $1',
+      [tagId]
+    );
+
+    // 追加したタグの情報を取得
+    const tagResult = await client.query(
+      'SELECT * FROM tags WHERE id = $1',
+      [tagId]
+    );
+
+    res.json({
+      success: true,
+      message: 'タグを追加しました',
+      tag: tagResult.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Add tag to report error:', error);
+    res.status(500).json({ success: false, message: 'タグの追加に失敗しました' });
+  } finally {
+    client.release();
+  }
+});
+
+// 日報からタグを削除
+router.delete('/:reportId/tags/:tagId', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { reportId, tagId } = req.params;
+
+    // 日報の所有者確認
+    const reportCheck = await client.query(
+      'SELECT user_id FROM reports WHERE id = $1',
+      [reportId]
+    );
+
+    if (reportCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: '日報が見つかりません' });
+    }
+
+    if (reportCheck.rows[0].user_id !== req.userId) {
+      return res.status(403).json({ success: false, message: '権限がありません' });
+    }
+
+    // タグが日報に紐づいているか確認
+    const existingCheck = await client.query(
+      'SELECT id FROM report_tags WHERE report_id = $1 AND tag_id = $2',
+      [reportId, tagId]
+    );
+
+    if (existingCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'このタグは日報に紐づいていません' });
+    }
+
+    // タグを削除
+    await client.query(
+      'DELETE FROM report_tags WHERE report_id = $1 AND tag_id = $2',
+      [reportId, tagId]
+    );
+
+    // タグの使用回数を更新（0以下にならないように）
+    await client.query(
+      'UPDATE tags SET usage_count = GREATEST(usage_count - 1, 0) WHERE id = $1',
+      [tagId]
+    );
+
+    res.json({
+      success: true,
+      message: 'タグを削除しました'
+    });
+
+  } catch (error) {
+    console.error('Remove tag from report error:', error);
+    res.status(500).json({ success: false, message: 'タグの削除に失敗しました' });
+  } finally {
+    client.release();
+  }
+});
+
+// AI提案を生成
+router.post('/:reportId/generate-suggestions', authMiddleware, async (req, res) => {
+  const { generateSuggestions } = require('../services/suggestionGenerator');
+
+  try {
+    const { reportId } = req.params;
+
+    // 日報の所有者確認
+    const reportCheck = await pool.query(
+      'SELECT user_id FROM reports WHERE id = $1',
+      [reportId]
+    );
+
+    if (reportCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: '日報が見つかりません' });
+    }
+
+    if (reportCheck.rows[0].user_id !== req.userId) {
+      return res.status(403).json({ success: false, message: '権限がありません' });
+    }
+
+    // AI提案を生成
+    console.log('Generating AI suggestions for report:', reportId);
+    const suggestions = await generateSuggestions(reportId);
+
+    // データベースに保存
+    await pool.query(
+      'UPDATE reports SET ai_suggestions = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [JSON.stringify(suggestions), reportId]
+    );
+
+    res.json({
+      success: true,
+      suggestions
+    });
+
+  } catch (error) {
+    console.error('Error generating AI suggestions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'AI提案の生成に失敗しました',
+      error: error.message
+    });
   }
 });
 

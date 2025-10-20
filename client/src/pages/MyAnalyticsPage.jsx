@@ -638,34 +638,49 @@ const MyAnalyticsPage = () => {
         <ChartCard>
           <ChartTitle>業界分析</ChartTitle>
           {industryAnalysis && industryAnalysis.length > 0 ? (
-            <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 300}>
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-              <Pie
-                data={industryAnalysis}
-                cx="50%"
-                cy="40%"
-                outerRadius={60}
-                fill="#F97316"
-                dataKey="count"
-              >
-                {industryAnalysis.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={INDUSTRY_COLORS[entry.industry] || COLORS[index % COLORS.length]} 
-                  />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend 
-                verticalAlign="bottom" 
-                height={36}
-                formatter={(value, entry) => `${entry.payload.industry} (${entry.payload.count})`}
-                wrapperStyle={{
-                  paddingTop: '10px'
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+                <Pie
+                  data={industryAnalysis}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={0}
+                  outerRadius={80}
+                  fill="#F97316"
+                  dataKey="count"
+                  nameKey="industry"
+                  label={(entry) => {
+                    const total = industryAnalysis.reduce((sum, item) => sum + item.count, 0);
+                    const percent = ((entry.count / total) * 100).toFixed(0);
+                    // 3%以上の場合のみラベルを表示（小さいセグメントは非表示）
+                    if (percent >= 3) {
+                      // 業界名が長い場合は省略
+                      const displayName = entry.industry.length > 8 ? 
+                        entry.industry.substring(0, 8) + '...' : entry.industry;
+                      return `${displayName} ${percent}%`;
+                    }
+                    return '';
+                  }}
+                  labelLine={{
+                    stroke: '#666',
+                    strokeWidth: 1
+                  }}
+                >
+                  {industryAnalysis.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={INDUSTRY_COLORS[entry.industry] || COLORS[index % COLORS.length]} 
+                    />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value, name, props) => [
+                    `${value}件`,
+                    props.payload.industry
+                  ]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
           ) : (
             <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
               データがありません

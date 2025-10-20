@@ -71,13 +71,13 @@ class RealtimeVoiceHandler {
     this.initializeSpeechRecognition(socket, session);
     
     // イベントハンドラー
-    socket.on('start-listening', () => this.startListening(socket, session));
+    socket.on('start-listening', (data) => this.startListening(socket, session, data));
     socket.on('stop-listening', () => this.stopListening(socket, session));
     socket.on('pause-recognition', () => this.pauseRecognition(socket, session));
     socket.on('resume-recognition', () => this.resumeRecognition(socket, session));
     socket.on('audio-data', (data) => this.processAudioData(socket, session, data));
     socket.on('update-report-data', (data) => this.updateReportData(socket, session, data));
-    socket.on('request-initial-audio', () => this.sendInitialAudio(socket, session));
+    socket.on('request-initial-audio', (data) => this.sendInitialAudio(socket, session, data));
     socket.on('disconnect', () => this.handleDisconnect(socket));
   }
 
@@ -205,7 +205,14 @@ class RealtimeVoiceHandler {
     console.log('Speech synthesis voice set to: ja-JP-NanamiNeural');
   }
 
-  startListening(socket, session) {
+  startListening(socket, session, data) {
+    // カスタム設定がある場合はセッションに保存
+    if (data && data.customSettings) {
+      session.customSettings = data.customSettings;
+      session.customQuestionIndex = 0;  // カスタム質問のインデックスをリセット
+      console.log('Custom settings applied on start-listening:', data.customSettings.greeting);
+    }
+    
     if (session.recognizer) {
       session.isListening = true;
       session.recognizer.startContinuousRecognitionAsync(
@@ -358,13 +365,18 @@ class RealtimeVoiceHandler {
         .replace(/、、+/g, '、')
         .trim();
       
-      // 訂正パターンの検出
+      // 訂正パターンの検出（拡張版）
       const correctionPatterns = [
         /(.+?)(?:では|じゃ)なく(?:て)?[、]?(.+)/,
         /(.+?)(?:じゃなくて|ではなくて)[、]?(.+)/,
         /間違(?:い|え)ました[、。]?(.+)/,
         /(?:訂正|修正)します[、。]?(.+)/,
-        /(?:違います|違って)[、。]?(.+)/
+        /(?:違います|違って)[、。]?(.+)/,
+        /やっぱり(.+)/,
+        /(.+?)に(?:変更|訂正)(?:します|してください)?/,
+        /実は(.+)/,
+        /(.+?)の間違いです/,
+        /すみません[、]?(.+)/
       ];
 
       let hasCorrectionIntent = false;
@@ -392,14 +404,24 @@ ${JSON.stringify(currentReportData, null, 2)}
 
 ${hasCorrectionIntent ? `
 【重要】訂正の検出:
-ユーザーが「〜ではなく」「間違えました」などの表現を使っています。
-以前の情報を訂正しようとしている可能性があります。
+ユーザーが訂正表現を使っています（「〜ではなく」「間違えました」「やっぱり」「実は」など）。
+以前の情報を訂正しようとしています。
+
+訂正処理のルール：
+1. 訂正対象のフィールドを特定してください
+2. 該当フィールドの値を完全に新しい値で置き換えてください
+3. 蓄積型フィールド（issues、next_action等）も訂正時は完全に置き換えます
+
 訂正が検出された場合、corrections フィールドに以下の形式で返してください:
 "corrections": [{
   "field": "訂正対象のフィールド名",
   "oldValue": "訂正前の値",
   "newValue": "訂正後の値"
 }]
+
+例：
+- 「課題は予算ではなく人手不足です」→ issuesを「人手不足」に完全置き換え
+- 「顧客は田中建設ではなく山田工務店でした」→ customerを「山田工務店」に置き換え
 ` : ''}
 
 以下のタスクを実行してください：
@@ -411,17 +433,21 @@ ${hasCorrectionIntent ? `
 
 2. 情報抽出：
    以下の項目を抽出（見つからない場合はnull）：
+   
+   【単一値項目】（既存値がある場合は新しい値で上書きしない）
    - customer: 顧客名（会社名）
    - project: 案件内容・プロジェクト名
    - budget: 予算（金額）
    - schedule: 納期・スケジュール（日付の場合、現在の年${currentYear}年を基準に、適切な年を推定してYYYY-MM-DD形式で返してください。例：「9月30日」→「${currentYear}-09-30」、「来年3月」→「${currentYear + 1}-03」）
-   - next_action: 次のアクション
-   - participants: 参加者（配列形式）
    - location: 場所
-   - issues: 課題・リスク
    - decision_makers: 決定権者
-   - concerns: 懸念事項
-   - competition: 競合情報
+   
+   【蓄積型項目】（既存値があっても新しい情報は追加で抽出）
+   - next_action: 次のアクション（複数可）
+   - participants: 参加者（配列形式）
+   - issues: 課題・リスク（「予算が厳しい」と既にある場合でも、「人手不足」が新たに判明したら追加）
+   - concerns: 懸念事項（複数可）
+   - competition: 競合情報（複数可）
 
 ${hasCorrectionIntent ? '3. 訂正処理：訂正が検出された場合は、該当フィールドを新しい値で更新してください。' : ''}
 
@@ -487,25 +513,64 @@ ${hasCorrectionIntent ? '3. 訂正処理：訂正が検出された場合は、�
   }
 
   mergeExtractedSlots(reportData, extractedSlots, isCorrection = false) {
+    // 蓄積型フィールド（リスト形式で追加していくもの）
+    const accumulativeFields = ['participants', 'issues', 'next_action', 'concerns', 'competition'];
+    
     // 抽出された情報をreportDataに統合
     Object.keys(extractedSlots).forEach(key => {
       const value = extractedSlots[key];
       if (value) {
-        // participantsは配列なので特別処理
-        if (key === 'participants') {
-          if (Array.isArray(value)) {
-            const existingParticipants = reportData[key] ? (Array.isArray(reportData[key]) ? reportData[key] : []) : [];
-            const newParticipants = value.filter(p => !existingParticipants.includes(p));
-            reportData[key] = [...existingParticipants, ...newParticipants];
-          } else if (typeof value === 'string') {
-            const existingParticipants = reportData[key] ? (Array.isArray(reportData[key]) ? reportData[key] : []) : [];
-            if (!existingParticipants.includes(value)) {
-              reportData[key] = [...existingParticipants, value];
+        // 訂正モードの場合は全てのフィールドを上書き
+        if (isCorrection) {
+          // 蓄積型フィールドも訂正時は完全に置き換え
+          if (accumulativeFields.includes(key)) {
+            // 新しいデータを配列化
+            let newData = [];
+            if (Array.isArray(value)) {
+              newData = value;
+            } else if (typeof value === 'string') {
+              // カンマ区切りの文字列を配列に変換
+              newData = value.split(/[,、]/).map(item => item.trim()).filter(item => item);
             }
+            reportData[key] = newData;
+          } else {
+            // 単一値フィールドはそのまま上書き
+            reportData[key] = value;
           }
-        } else if (!reportData[key] || isCorrection) {
-          // 他のフィールドは既存の値がない場合、または訂正の場合は更新
-          reportData[key] = value;
+        } else {
+          // 通常モード（追加モード）
+          if (accumulativeFields.includes(key)) {
+            // 既存データを配列化
+            let existingData = [];
+            if (reportData[key]) {
+              if (Array.isArray(reportData[key])) {
+                existingData = reportData[key];
+              } else if (typeof reportData[key] === 'string') {
+                // カンマ区切りの文字列を配列に変換
+                existingData = reportData[key].split(/[,、]/).map(item => item.trim()).filter(item => item);
+              }
+            }
+            
+            // 新しいデータを配列化
+            let newData = [];
+            if (Array.isArray(value)) {
+              newData = value;
+            } else if (typeof value === 'string') {
+              // カンマ区切りの文字列を配列に変換
+              newData = value.split(/[,、]/).map(item => item.trim()).filter(item => item);
+            }
+            
+            // 重複を除いて統合
+            const combinedData = [...new Set([...existingData, ...newData])];
+            
+            // 配列として保存（フロントエンドでの表示用）
+            if (combinedData.length > 0) {
+              reportData[key] = combinedData;
+            }
+          } else if (!reportData[key]) {
+            // 単一値フィールドは既存の値がない場合のみ更新
+            reportData[key] = value;
+          }
         }
       }
     });
@@ -653,12 +718,37 @@ JSON形式で返してください。`;
   }
 
   async generateAIResponse(session) {
-    const { reportData, conversationHistory, questionCount } = session;
+    const { reportData, conversationHistory, questionCount, customSettings } = session;
     
     try {
       // 質問回数をインクリメント
       session.questionCount++;
       
+      // カスタム質問がある場合はそれを使用
+      if (customSettings && customSettings.customQuestions && customSettings.customQuestions.length > 0) {
+        // 必須スロットの確認（カスタム設定から）
+        const requiredSlots = customSettings.requiredSlots || [];
+        const allRequiredFilled = requiredSlots.every(slot => reportData[slot]);
+        
+        // カスタム質問のインデックスを管理
+        if (!session.customQuestionIndex) {
+          session.customQuestionIndex = 0;
+        }
+        
+        // 全ての必須スロットが埋まった、または全質問を終えた場合は終了
+        if (allRequiredFilled || session.customQuestionIndex >= customSettings.customQuestions.length) {
+          return customSettings.completionMessage || '内容把握いたしました。日報作成お疲れ様でした！';
+        }
+        
+        // 次のカスタム質問を取得
+        const nextQuestion = customSettings.customQuestions[session.customQuestionIndex];
+        session.customQuestionIndex++;
+        
+        // カスタム質問のテキストを返す
+        return nextQuestion.text;
+      }
+      
+      // デフォルトの処理
       // 必須情報が揃っているかチェック
       const hasEssentialInfo = reportData.customer && reportData.project && 
                                (reportData.next_action || reportData.budget || reportData.schedule);
@@ -835,9 +925,22 @@ ${quickCorrected}`;
     }
   }
 
-  async sendInitialAudio(socket, session) {
-    // 初回メッセージの音声を生成して送信
-    const initialMessage = 'お疲れ様です！今日はどのような商談がありましたか？';
+  async sendInitialAudio(socket, session, data) {
+    // カスタム設定から挨拶文を取得、またはデフォルトを使用
+    let initialMessage = 'お疲れ様です！今日はどのような商談がありましたか？';
+    
+    if (data && data.customSettings) {
+      const { customSettings } = data;
+      session.customSettings = customSettings; // セッションに保存
+      
+      // カスタム挨拶文がある場合は使用
+      if (customSettings.greeting) {
+        initialMessage = customSettings.greeting;
+      }
+      
+      console.log('[Initial Audio] Using custom settings with greeting:', initialMessage);
+    }
+    
     console.log('[Initial Audio] Generating initial audio message for client:', socket.id);
     
     try {

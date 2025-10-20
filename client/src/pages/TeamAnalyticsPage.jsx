@@ -707,10 +707,28 @@ const TeamAnalyticsPage = () => {
                 <Pie
                   data={industryAnalysis}
                   cx="50%"
-                  cy="40%"
-                  outerRadius={70}
+                  cy="50%"
+                  innerRadius={0}
+                  outerRadius={80}
                   fill="#8884d8"
                   dataKey="count"
+                  nameKey="industry"
+                  label={(entry) => {
+                    const total = industryAnalysis.reduce((sum, item) => sum + item.count, 0);
+                    const percent = ((entry.count / total) * 100).toFixed(0);
+                    // 3%以上の場合のみラベルを表示（小さいセグメントは非表示）
+                    if (percent >= 3) {
+                      // 業界名が長い場合は省略
+                      const displayName = entry.industry.length > 8 ? 
+                        entry.industry.substring(0, 8) + '...' : entry.industry;
+                      return `${displayName} ${percent}%`;
+                    }
+                    return '';
+                  }}
+                  labelLine={{
+                    stroke: '#666',
+                    strokeWidth: 1
+                  }}
                 >
                   {industryAnalysis.map((entry, index) => (
                     <Cell 
@@ -719,14 +737,11 @@ const TeamAnalyticsPage = () => {
                     />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend 
-                  verticalAlign="bottom" 
-                  height={36}
-                  formatter={(_, entry) => `${entry.payload.industry} (${entry.payload.count})`}
-                  wrapperStyle={{
-                    paddingTop: '10px'
-                  }}
+                <Tooltip 
+                  formatter={(value, name, props) => [
+                    `${value}件`,
+                    props.payload.industry
+                  ]}
                 />
               </PieChart>
             </ResponsiveContainer>

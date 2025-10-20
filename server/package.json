@@ -10,6 +10,7 @@
     "db:seed": "node src/db/seed.js"
   },
   "dependencies": {
+    "@azure/identity": "^4.13.0",
     "@azure/msal-node": "^3.6.4",
     "@azure/web-pubsub": "^1.2.0",
     "@azure/web-pubsub-express": "^1.0.6",

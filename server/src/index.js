@@ -103,8 +103,8 @@ app.get('/health', async (req, res) => {
 
   // Check database connection
   try {
-    const db = require('./config/database');
-    await db.query('SELECT 1');
+    const pool = require('./db/pool');
+    await pool.query('SELECT 1');
     health.services.database = 'connected';
   } catch (error) {
     health.services.database = 'disconnected';
@@ -147,6 +147,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/scripts', require('./routes/scripts'));
+app.use('/api/hearing-settings', require('./routes/hearingSettings'));
+app.use('/api/tags', require('./routes/tags'));
 app.use('/api/ai', aiRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/dynamics365', dynamics365Routes);

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { reportAPI, userAPI, aiAPI, uploadAPI } from '../services/api';
+import tagAPI from '../services/tagAPI';
 import styled from '@emotion/styled';
 import { format, startOfDay, differenceInDays, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -11,7 +12,11 @@ import MeetingNotesModal from '../components/MeetingNotesModal';
 import Dynamics365Modal from '../components/Dynamics365Modal';
 import SalesforceModal from '../components/SalesforceModal';
 import ConfirmModal from '../components/ConfirmModal';
+import Tag, { TagList } from '../components/Tag';
 import { SiSalesforce } from 'react-icons/si';
+import { MdRecordVoiceOver } from 'react-icons/md';
+import { FaMicrophone, FaKeyboard, FaRobot, FaClock, FaListAlt, FaRocket, FaCog, FaPlus, FaSearch } from 'react-icons/fa';
+import { hearingSettingsAPI } from '../services/api';
 
 const Container = styled.div`
   max-width: 1400px;
@@ -231,6 +236,254 @@ const SectionTitle = styled.h2`
     &::after {
       width: 30px;
     }
+  }
+`;
+
+// 検索フィルターセクション
+const SearchFilterSection = styled.div`
+  margin-bottom: var(--space-4);
+  padding: var(--space-5);
+  background: white;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-none);
+  box-shadow: var(--shadow-structure);
+
+  @media (max-width: 768px) {
+    padding: var(--space-4);
+  }
+`;
+
+const SearchBox = styled.div`
+  position: relative;
+  margin-bottom: var(--space-4);
+
+  svg {
+    position: absolute;
+    left: var(--space-4);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-secondary);
+    pointer-events: none;
+  }
+
+  input {
+    width: 100%;
+    padding: var(--space-4) var(--space-4) var(--space-4) calc(var(--space-4) * 3);
+    border: 2px solid var(--color-border);
+    background: var(--color-background);
+    border-radius: var(--radius-none);
+    font-size: var(--font-size-base);
+    color: var(--color-text);
+    transition: all 0.3s ease;
+    font-weight: var(--font-weight-medium);
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      background: white;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    &::placeholder {
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-normal);
+    }
+  }
+`;
+
+const DateFilterContainer = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const DateInputGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+
+  label {
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  input[type="date"] {
+    padding: var(--space-3) var(--space-4);
+    border: 2px solid var(--color-border);
+    background: var(--color-background);
+    border-radius: var(--radius-none);
+    font-size: var(--font-size-base);
+    color: var(--color-text);
+    transition: all 0.3s ease;
+    font-weight: var(--font-weight-medium);
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      background: white;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+  }
+`;
+
+const QuickDateButtons = styled.div`
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    gap: var(--space-2);
+  }
+`;
+
+const QuickDateButton = styled.button`
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid ${props => props.active ? 'var(--color-primary)' : 'var(--color-border)'};
+  background: ${props => props.active ? 'var(--color-primary)' : 'var(--color-background)'};
+  color: ${props => props.active ? 'white' : 'var(--color-text)'};
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+
+  &:hover {
+    background: ${props => props.active ? 'var(--color-primary)' : 'var(--color-surface)'};
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const ClearAllFiltersButton = styled.button`
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: var(--space-3);
+  width: 100%;
+
+  &:hover {
+    background: var(--color-surface);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const TagFilterSection = styled.div`
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-none);
+
+  @media (max-width: 768px) {
+    padding: var(--space-4);
+    margin-bottom: var(--space-5);
+  }
+`;
+
+const TagFilterTitle = styled.h3`
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+`;
+
+const TagFilterGrid = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+`;
+
+const TagFilterControls = styled.div`
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+`;
+
+const SearchModeToggle = styled.div`
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+`;
+
+const SearchModeButton = styled.button`
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid ${props => props.active ? 'var(--color-accent)' : 'var(--color-border)'};
+  background: ${props => props.active ? 'var(--color-accent-light)' : 'transparent'};
+  color: ${props => props.active ? 'var(--color-primary)' : 'var(--color-text)'};
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border-radius: var(--radius-none);
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: var(--color-accent);
+    background: var(--color-accent-light);
+  }
+`;
+
+const ExpandTagsButton = styled.button`
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border-radius: var(--radius-none);
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+`;
+
+const ClearFilterButton = styled.button`
+  background: transparent;
+  border: none;
+  color: var(--color-primary);
+  font-size: var(--font-size-micro);
+  cursor: pointer;
+  padding: var(--space-2) 0;
+  text-decoration: underline;
+  transition: color 0.2s;
+
+  &:hover {
+    color: var(--color-accent);
   }
 `;
 
@@ -504,6 +757,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isManager } = useAuth();
+  const queryClient = useQueryClient();
   const [isOnline] = React.useState(navigator.onLine);
   const [activeTab, setActiveTab] = useState('self'); // 'self', 'team', 'individual'
   const [selectedMembers, setSelectedMembers] = useState([]);
@@ -512,7 +766,19 @@ const HomePage = () => {
   const [showSalesforceModal, setShowSalesforceModal] = useState(false);
   const [expandedArchives, setExpandedArchives] = useState({});
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
+  const [showHearingSettingsModal, setShowHearingSettingsModal] = useState(false);
+  const [hearingSettings, setHearingSettings] = useState([]);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [filteredReports, setFilteredReports] = useState([]);
+  const [tagSearchMode, setTagSearchMode] = useState('OR'); // 'OR' or 'AND'
+  const [showAdvancedTagFilter, setShowAdvancedTagFilter] = useState(false);
 
+  // 検索・日付フィルター用のstate
+  const [searchText, setSearchText] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [quickDateFilter, setQuickDateFilter] = useState('all'); // 'today', 'week', 'month', 'all'
 
   // 部下リストを取得
   const { data: teamMembers } = useQuery({
@@ -520,6 +786,50 @@ const HomePage = () => {
     queryFn: () => userAPI.getTeamMembers(),
     enabled: isManager,
   });
+
+  // 人気のタグを取得
+  const { data: popularTags = [], isLoading: isLoadingTags, error: tagsError, isFetching: isFetchingTags } = useQuery({
+    queryKey: ['popularTags'],
+    queryFn: async () => {
+      console.log('[HomePage] Fetching popular tags...');
+      const result = await tagAPI.getPopular(15);
+      console.log('[HomePage] Popular tags result:', result);
+      return result;
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+
+  // すべてのタグを取得（タグ検索用）
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['allTags'],
+    queryFn: async () => {
+      console.log('[HomePage] Fetching all tags...');
+      const result = await tagAPI.getAll(null, 100);
+      console.log('[HomePage] All tags result:', result);
+      return result;
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+
+  // タグキャッシュをクリアして最新データを取得
+  useEffect(() => {
+    console.log('HomePage mounted - Invalidating tag caches...');
+    queryClient.invalidateQueries(['popularTags']);
+    queryClient.invalidateQueries(['allTags']);
+  }, []); // 初回マウント時のみ実行
+
+  // デバッグ用
+  useEffect(() => {
+    console.log('[HomePage] Popular tags state:', {
+      popularTags,
+      tagsCount: popularTags.length,
+      isLoadingTags,
+      isFetchingTags,
+      tagsError
+    });
+  }, [popularTags, isLoadingTags, isFetchingTags, tagsError]);
 
   // 日報を取得（選択された範囲に応じて）
   const { data: reports, isLoading } = useQuery({
@@ -591,6 +901,161 @@ const HomePage = () => {
     };
   }, [reports]);
 
+  // クイック日付フィルターのヘルパー関数
+  const getDateRangeFromQuickFilter = (filter) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    switch (filter) {
+      case 'today':
+        return { start: today, end: new Date(today.getTime() + 24 * 60 * 60 * 1000) };
+      case 'week':
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return { start: weekAgo, end: new Date() };
+      case 'month':
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return { start: monthAgo, end: new Date() };
+      case 'all':
+      default:
+        return null;
+    }
+  };
+
+  // 統合フィルタリング処理（タグ + テキスト + 日付）
+  useEffect(() => {
+    const applyFilters = async () => {
+      let result = reports || [];
+
+      // タグフィルター
+      if (selectedTags.length > 0) {
+        try {
+          const tagIds = selectedTags.map(tag => tag.id).join(',');
+          const tagFilteredReports = await tagAPI.searchReports(tagIds, user?.id);
+
+          if (tagSearchMode === 'AND' && selectedTags.length > 1) {
+            // AND検索：すべてのタグを含む日報のみ
+            const selectedTagIds = selectedTags.map(t => t.id);
+            result = tagFilteredReports.filter(report => {
+              if (!report.tags || report.tags.length === 0) return false;
+              const reportTagIds = report.tags.map(t => t.id);
+              return selectedTagIds.every(tagId => reportTagIds.includes(tagId));
+            });
+          } else {
+            // OR検索：いずれかのタグを含む日報
+            result = tagFilteredReports;
+          }
+        } catch (error) {
+          console.error('Tag filtering error:', error);
+          toast.error('タグ絞り込みに失敗しました');
+        }
+      }
+
+      // テキスト検索フィルター
+      if (searchText.trim()) {
+        const searchLower = searchText.toLowerCase();
+        result = result.filter(report => {
+          const customerMatch = report.customer?.toLowerCase().includes(searchLower);
+          const projectMatch = report.project?.toLowerCase().includes(searchLower);
+          const nextActionMatch = report.next_action?.toLowerCase().includes(searchLower);
+          const issuesMatch = report.issues?.toLowerCase().includes(searchLower);
+          const locationMatch = report.location?.toLowerCase().includes(searchLower);
+
+          // タグ名での検索
+          const tagMatch = report.tags?.some(tag =>
+            tag.name?.toLowerCase().includes(searchLower)
+          );
+
+          return customerMatch || projectMatch || nextActionMatch || issuesMatch || locationMatch || tagMatch;
+        });
+      }
+
+      // 日付フィルター
+      let dateRange = null;
+
+      if (quickDateFilter !== 'all') {
+        dateRange = getDateRangeFromQuickFilter(quickDateFilter);
+      } else if (startDate || endDate) {
+        // カスタム日付範囲
+        dateRange = {
+          start: startDate ? new Date(startDate) : null,
+          end: endDate ? new Date(endDate) : null
+        };
+        if (dateRange.end) {
+          dateRange.end.setHours(23, 59, 59, 999); // 終日を含める
+        }
+      }
+
+      if (dateRange && (dateRange.start || dateRange.end)) {
+        result = result.filter(report => {
+          const reportDate = new Date(report.report_date);
+          if (dateRange.start && reportDate < dateRange.start) return false;
+          if (dateRange.end && reportDate > dateRange.end) return false;
+          return true;
+        });
+      }
+
+      setFilteredReports(result);
+    };
+
+    applyFilters();
+  }, [selectedTags, user, tagSearchMode, searchText, startDate, endDate, quickDateFilter, reports]);
+
+  // フィルターが有効かチェック
+  const isFilterActive = selectedTags.length > 0 || searchText.trim() || startDate || endDate || quickDateFilter !== 'all';
+
+  // 表示する日報（フィルターが有効な場合はフィルタ済み、無効な場合は全て）
+  const displayReports = isFilterActive ? filteredReports : reports;
+
+  // displayReportsを使ってグループ化
+  const displayGroupedReports = useMemo(() => {
+    if (!displayReports || displayReports.length === 0) return { recent: [], archives: {} };
+
+    const today = startOfDay(new Date());
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const recentReports = [];
+    const archivesByMonth = {};
+
+    displayReports.forEach(report => {
+      const reportDate = parseISO(report.report_date);
+      const daysDiff = differenceInDays(today, reportDate);
+
+      if (daysDiff < 7) {
+        recentReports.push(report);
+      } else {
+        const yearMonth = format(reportDate, 'yyyy年MM月', { locale: ja });
+        if (!archivesByMonth[yearMonth]) {
+          archivesByMonth[yearMonth] = [];
+        }
+        archivesByMonth[yearMonth].push(report);
+      }
+    });
+
+    const recentByDate = {};
+    recentReports.forEach(report => {
+      const dateKey = format(parseISO(report.report_date), 'yyyy-MM-dd');
+      if (!recentByDate[dateKey]) {
+        recentByDate[dateKey] = [];
+      }
+      recentByDate[dateKey].push(report);
+    });
+
+    const sortedRecentDates = Object.keys(recentByDate).sort((a, b) => b.localeCompare(a));
+    const sortedRecent = sortedRecentDates.map(date => ({
+      date,
+      displayDate: format(parseISO(date), 'MM月dd日(E)', { locale: ja }),
+      reports: recentByDate[date]
+    }));
+
+    return {
+      recent: sortedRecent,
+      archives: archivesByMonth
+    };
+  }, [displayReports]);
+
   const handleNewReport = async (mode) => {
     try {
       // 今日の日報をチェック（複数対応）
@@ -649,17 +1114,40 @@ const HomePage = () => {
     }
   };
 
-  const proceedWithNewReport = (mode) => {
+  const proceedWithNewReport = async (mode) => {
     if (mode === 'meeting') {
       // 議事録モーダルを表示
       setShowMeetingModal(true);
     } else if (mode === 'voice' && isOnline) {
-      navigate('/hearing');
+      // ヒアリング設定モーダルを表示
+      setLoadingSettings(true);
+      try {
+        const settings = await hearingSettingsAPI.getAll();
+        setHearingSettings(settings);
+        setShowHearingSettingsModal(true);
+      } catch (error) {
+        console.error('Error loading hearing settings:', error);
+        // 設定が取得できない場合はデフォルトで開始
+        navigate('/hearing');
+      } finally {
+        setLoadingSettings(false);
+      }
     } else if (mode === 'realtime-voice' && isOnline) {
       navigate('/hearing/realtime');
     } else {
       navigate('/hearing?mode=text');
     }
+  };
+
+  const handleHearingSettingSelect = (settingId) => {
+    // 選択された設定で音声ヒアリングを開始
+    if (settingId) {
+      navigate(`/hearing?settingId=${settingId}`);
+    } else {
+      // デフォルト設定で開始
+      navigate('/hearing');
+    }
+    setShowHearingSettingsModal(false);
   };
 
   const handleReportClick = (reportId) => {
@@ -943,6 +1431,48 @@ const HomePage = () => {
     }
   };
 
+  const handleTagSearch = async (searchParams) => {
+    try {
+      console.log('Tag search params:', searchParams);
+      const tagIds = searchParams.tagIds.join(',');
+      const searchResults = await tagAPI.searchReports(tagIds, user?.id);
+
+      console.log('Search results:', searchResults);
+
+      // 期間フィルタリング（クライアント側）
+      let filteredResults = searchResults;
+      if (searchParams.startDate || searchParams.endDate) {
+        filteredResults = searchResults.filter(report => {
+          const reportDate = new Date(report.report_date);
+          if (searchParams.startDate && reportDate < new Date(searchParams.startDate)) {
+            return false;
+          }
+          if (searchParams.endDate && reportDate > new Date(searchParams.endDate)) {
+            return false;
+          }
+          return true;
+        });
+      }
+
+      console.log('Filtered results:', filteredResults);
+
+      setFilteredReports(filteredResults);
+
+      // 検索したタグを選択状態にする
+      if (allTags && allTags.length > 0) {
+        const searchedTags = allTags.filter(tag => searchParams.tagIds.includes(tag.id));
+        console.log('Searched tags:', searchedTags);
+        setSelectedTags(searchedTags);
+      }
+
+      toast.success(`${filteredResults.length}件の日報が見つかりました`);
+    } catch (error) {
+      console.error('Tag search error:', error);
+      console.error('Error details:', error.response || error.message);
+      toast.error('タグ検索に失敗しました');
+    }
+  };
+
   return (
     <Container>
       <WelcomeSection>
@@ -1010,11 +1540,33 @@ const HomePage = () => {
                 onClick={() => handleNewReport('realtime-voice')}
                 disabled={!isOnline}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2s2-.9 2-2V4c0-1.1-.9-2-2-2zm6 6c0 3.31-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.17 8.09 7.31 8.71V20h-2v2h5.38v-2h-2v-2.29C16.83 16.09 20 12.42 20 8h-2z"/>
-                </svg>
-                リアルタイム音声で開始
+                <MdRecordVoiceOver size={22} />
+                リアルタイム音声会話で開始
               </StyledPrimaryButton>
+              <StyledSecondaryButton
+                onClick={() => navigate('/hearing/settings')}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                </svg>
+                ヒアリング設定管理
+              </StyledSecondaryButton>
+              <StyledSecondaryButton
+                onClick={() => navigate('/tags/analytics')}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                </svg>
+                タグ分析
+              </StyledSecondaryButton>
+              <StyledSecondaryButton
+                onClick={() => navigate('/tags/manage')}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                </svg>
+                タグ管理
+              </StyledSecondaryButton>
               <StyledSecondaryButton onClick={() => handleNewReport('text')}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
@@ -1055,7 +1607,170 @@ const HomePage = () => {
 
       <ReportsSection>
         <SectionTitle>最近の日報</SectionTitle>
-        
+
+        {/* 検索・日付フィルター */}
+        <SearchFilterSection>
+          {/* テキスト検索ボックス */}
+          <SearchBox>
+            <FaSearch />
+            <input
+              type="text"
+              placeholder="顧客名、案件名、タグ、場所などで検索..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+            />
+          </SearchBox>
+
+          {/* クイック日付フィルター */}
+          <QuickDateButtons>
+            <QuickDateButton
+              active={quickDateFilter === 'today'}
+              onClick={() => {
+                setQuickDateFilter('today');
+                setStartDate('');
+                setEndDate('');
+              }}
+            >
+              今日
+            </QuickDateButton>
+            <QuickDateButton
+              active={quickDateFilter === 'week'}
+              onClick={() => {
+                setQuickDateFilter('week');
+                setStartDate('');
+                setEndDate('');
+              }}
+            >
+              今週
+            </QuickDateButton>
+            <QuickDateButton
+              active={quickDateFilter === 'month'}
+              onClick={() => {
+                setQuickDateFilter('month');
+                setStartDate('');
+                setEndDate('');
+              }}
+            >
+              今月
+            </QuickDateButton>
+            <QuickDateButton
+              active={quickDateFilter === 'all'}
+              onClick={() => {
+                setQuickDateFilter('all');
+                setStartDate('');
+                setEndDate('');
+              }}
+            >
+              すべて
+            </QuickDateButton>
+          </QuickDateButtons>
+
+          {/* カスタム日付範囲 */}
+          <DateFilterContainer>
+            <DateInputGroup>
+              <label>開始日</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setQuickDateFilter('all');
+                }}
+              />
+            </DateInputGroup>
+            <DateInputGroup>
+              <label>終了日</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setQuickDateFilter('all');
+                }}
+              />
+            </DateInputGroup>
+          </DateFilterContainer>
+
+          {/* フィルタークリアボタン */}
+          {isFilterActive && (
+            <ClearAllFiltersButton
+              onClick={() => {
+                setSearchText('');
+                setStartDate('');
+                setEndDate('');
+                setQuickDateFilter('all');
+                setSelectedTags([]);
+              }}
+            >
+              すべてのフィルターをクリア {isFilterActive && `(${
+                (searchText.trim() ? 1 : 0) +
+                (startDate || endDate ? 1 : 0) +
+                (quickDateFilter !== 'all' ? 1 : 0) +
+                selectedTags.length
+              }個の条件)`}
+            </ClearAllFiltersButton>
+          )}
+        </SearchFilterSection>
+
+        {/* タグフィルター */}
+        {(popularTags?.length > 0 || allTags?.length > 0) && (
+          <TagFilterSection>
+            <TagFilterTitle>タグで絞り込み</TagFilterTitle>
+
+            <TagFilterControls>
+              <SearchModeToggle>
+                <span>検索モード:</span>
+                <SearchModeButton
+                  active={tagSearchMode === 'OR'}
+                  onClick={() => setTagSearchMode('OR')}
+                >
+                  OR (いずれか)
+                </SearchModeButton>
+                <SearchModeButton
+                  active={tagSearchMode === 'AND'}
+                  onClick={() => setTagSearchMode('AND')}
+                >
+                  AND (すべて)
+                </SearchModeButton>
+              </SearchModeToggle>
+
+              {allTags?.length > 0 && popularTags?.length > 0 && allTags.length > popularTags.length && (
+                <ExpandTagsButton onClick={() => setShowAdvancedTagFilter(!showAdvancedTagFilter)}>
+                  {showAdvancedTagFilter ? '人気タグのみ表示' : 'すべてのタグを表示'} ({allTags.length}個)
+                </ExpandTagsButton>
+              )}
+
+              {selectedTags.length > 0 && (
+                <ClearFilterButton onClick={() => setSelectedTags([])}>
+                  フィルターをクリア ({selectedTags.length}個選択中)
+                </ClearFilterButton>
+              )}
+            </TagFilterControls>
+
+            <TagFilterGrid>
+              {(showAdvancedTagFilter ? (allTags || []) : (popularTags || [])).map(tag => (
+                <Tag
+                  key={tag.id}
+                  name={tag.name}
+                  category={tag.category}
+                  color={tag.color}
+                  onClick={() => {
+                    const isSelected = selectedTags.some(t => t.id === tag.id);
+                    if (isSelected) {
+                      setSelectedTags(selectedTags.filter(t => t.id !== tag.id));
+                    } else {
+                      setSelectedTags([...selectedTags, tag]);
+                    }
+                  }}
+                  onRemove={selectedTags.some(t => t.id === tag.id) ? () => {
+                    setSelectedTags(selectedTags.filter(t => t.id !== tag.id));
+                  } : null}
+                />
+              ))}
+            </TagFilterGrid>
+          </TagFilterSection>
+        )}
+
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-8)' }}>
             <div style={{ 
@@ -1067,10 +1782,10 @@ const HomePage = () => {
               animation: 'spin 1s infinite linear' 
             }}></div>
           </div>
-        ) : (groupedReports.recent.length > 0 || Object.keys(groupedReports.archives).length > 0) ? (
+        ) : (displayGroupedReports.recent.length > 0 || Object.keys(displayGroupedReports.archives).length > 0) ? (
           <div>
             {/* 直近1週間の日報（日毎に表示） */}
-            {groupedReports.recent.map(dateGroup => (
+            {displayGroupedReports.recent.map(dateGroup => (
               <DateGroup key={dateGroup.date}>
                 <DateGroupHeader>
                   <span>{dateGroup.displayDate}</span>
@@ -1105,6 +1820,19 @@ const HomePage = () => {
                         {report.project && ` / 案件: ${report.project}`}
                         {isManager && report.user_name && ` (${report.user_name})`}
                       </ReportInfo>
+                      {report.tags && report.tags.length > 0 && (
+                        <div style={{ marginTop: 'var(--space-3)' }}>
+                          <TagList
+                            tags={report.tags.slice(0, 5)}
+                            onTagClick={(tag) => {
+                              const isSelected = selectedTags.some(t => t.id === tag.id);
+                              if (!isSelected) {
+                                setSelectedTags([...selectedTags, tag]);
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
                     </ReportCard>
                   ))}
                 </ReportList>
@@ -1112,12 +1840,12 @@ const HomePage = () => {
             ))}
 
             {/* アーカイブ（年月毎） */}
-            {Object.keys(groupedReports.archives).length > 0 && (
+            {Object.keys(displayGroupedReports.archives).length > 0 && (
               <DateGroup>
                 <DateGroupHeader style={{ marginTop: 'var(--space-6)' }}>
                   <span>アーカイブ</span>
                 </DateGroupHeader>
-                {Object.entries(groupedReports.archives)
+                {Object.entries(displayGroupedReports.archives)
                   .sort((a, b) => b[0].localeCompare(a[0]))
                   .map(([yearMonth, monthReports]) => (
                     <div key={yearMonth} style={{ marginBottom: 'var(--space-4)' }}>
@@ -1215,6 +1943,335 @@ const HomePage = () => {
         onConfirm={confirmModal.onConfirm}
         onCancel={confirmModal.onCancel || (() => setConfirmModal({ isOpen: false }))}
       />
+
+      {/* ヒアリング設定選択モーダル */}
+      {showHearingSettingsModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'var(--color-surface)',
+            padding: 0,
+            borderRadius: '12px',
+            border: '3px solid #ff6b35',
+            maxWidth: '720px',
+            width: '90%',
+            maxHeight: '85vh',
+            overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }}>
+            {/* ヘッダー */}
+            <div style={{
+              background: 'linear-gradient(135deg, #ff6b35 0%, #ff8f5a 100%)',
+              padding: 'var(--space-5) var(--space-6)',
+              color: 'white'
+            }}>
+              <h2 style={{
+                fontSize: 'var(--font-size-display)',
+                fontWeight: 'var(--font-weight-thin)',
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)'
+              }}>
+                <FaMicrophone style={{ fontSize: '1.2em' }} />
+                ヒアリング設定
+              </h2>
+              <p style={{
+                marginTop: 'var(--space-2)',
+                marginBottom: 0,
+                fontSize: 'var(--font-size-body)',
+                opacity: 0.95
+              }}>
+                AIヒアリングの方法を選択してください
+              </p>
+            </div>
+            
+            {/* コンテンツ */}
+            <div style={{
+              padding: 'var(--space-5)',
+              maxHeight: 'calc(85vh - 180px)',
+              overflowY: 'auto'
+            }}>
+              <div style={{
+                display: 'grid',
+                gap: 'var(--space-4)'
+              }}>
+              {/* デフォルト設定カード */}
+              <div
+                onClick={() => handleHearingSettingSelect(null)}
+                style={{
+                  padding: 'var(--space-5)',
+                  background: 'linear-gradient(145deg, #fff9f5, #fff4ed)',
+                  border: '2px solid #ffb088',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateX(8px)';
+                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(255,107,53,0.2)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateX(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{
+                  position: 'absolute',
+                  top: 'var(--space-3)',
+                  right: 'var(--space-3)',
+                  background: '#ff6b35',
+                  color: 'white',
+                  padding: 'var(--space-1) var(--space-3)',
+                  borderRadius: '4px',
+                  fontSize: 'var(--font-size-micro)',
+                  fontWeight: 'var(--font-weight-bold)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
+                }}>
+                  おすすめ
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 'var(--space-4)'
+                }}>
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    background: 'linear-gradient(135deg, #ff6b35, #ff8f5a)',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '1.5em',
+                    flexShrink: 0
+                  }}>
+                    <FaRocket />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{
+                      fontSize: 'var(--font-size-title)',
+                      fontWeight: 'var(--font-weight-bold)',
+                      color: '#ff6b35',
+                      marginBottom: 'var(--space-2)',
+                      margin: 0
+                    }}>
+                      スタンダード設定
+                    </h3>
+                    <p style={{
+                      fontSize: 'var(--font-size-body)',
+                      color: 'var(--color-text-secondary)',
+                      marginBottom: 'var(--space-3)',
+                      lineHeight: 'var(--line-height-relaxed)'
+                    }}>
+                      標準的な5つの質問で効率的に日報を作成
+                    </p>
+                    <div style={{
+                      display: 'flex',
+                      gap: 'var(--space-4)',
+                      fontSize: 'var(--font-size-small)',
+                      color: 'var(--color-text-tertiary)'
+                    }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                        <FaListAlt /> 5問
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                        <FaMicrophone /> 音声入力
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                        <FaClock /> 約3分
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              
+              {/* カスタム設定カード */}
+              {hearingSettings.length > 0 && (
+                <>
+                  <div style={{
+                    padding: '0 var(--space-2)',
+                    fontSize: 'var(--font-size-small)',
+                    color: 'var(--color-text-secondary)',
+                    fontWeight: 'var(--font-weight-medium)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em'
+                  }}>
+                    カスタム設定
+                  </div>
+                  {hearingSettings.filter(s => !s.is_default).slice(-1).map((setting, index) => {
+                    const templateName = setting.question_template === 'detailed' ? '詳細' :
+                                        setting.question_template === 'quick' ? 'クイック' : 
+                                        setting.question_template === 'default' ? 'スタンダード' : 'カスタム';
+                    const inputModeIcon = setting.input_mode === 'voice' ? <FaMicrophone /> :
+                                         setting.input_mode === 'text' ? <FaKeyboard /> :
+                                         <><FaMicrophone /> <FaKeyboard /></>;
+                    const inputModeText = setting.input_mode === 'voice' ? '音声' :
+                                         setting.input_mode === 'text' ? 'テキスト' : '音声・テキスト';
+                    
+                    return (
+                      <div
+                        key={setting.id}
+                        onClick={() => handleHearingSettingSelect(setting.id)}
+                        style={{
+                          padding: 'var(--space-4)',
+                          backgroundColor: 'var(--color-background)',
+                          border: '2px solid var(--color-border)',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          position: 'relative'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.transform = 'translateX(8px)';
+                          e.currentTarget.style.borderColor = '#ff6b35';
+                          e.currentTarget.style.backgroundColor = '#fffaf8';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,107,53,0.15)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.transform = 'translateX(0)';
+                          e.currentTarget.style.borderColor = 'var(--color-border)';
+                          e.currentTarget.style.backgroundColor = 'var(--color-background)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 'var(--space-3)'
+                        }}>
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            background: 'linear-gradient(135deg, #f0f0f0, #e0e0e0)',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--color-text-secondary)',
+                            fontSize: '1.2em',
+                            flexShrink: 0
+                          }}>
+                            <FaCog />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <h3 style={{
+                              fontSize: 'var(--font-size-body)',
+                              fontWeight: 'var(--font-weight-bold)',
+                              color: 'var(--color-text-primary)',
+                              marginBottom: 'var(--space-1)',
+                              margin: 0
+                            }}>
+                              {templateName}テンプレート
+                            </h3>
+                            {setting.greeting && (
+                              <p style={{
+                                fontSize: 'var(--font-size-small)',
+                                color: 'var(--color-text-secondary)',
+                                marginBottom: 'var(--space-2)',
+                                lineHeight: 'var(--line-height-relaxed)'
+                              }}>
+                                {setting.greeting.substring(0, 30)}...
+                              </p>
+                            )}
+                            <div style={{
+                              display: 'flex',
+                              gap: 'var(--space-3)',
+                              fontSize: 'var(--font-size-micro)',
+                              color: 'var(--color-text-tertiary)'
+                            }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                                <FaListAlt /> {setting.max_questions}問
+                              </span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                                {inputModeIcon} {inputModeText}
+                              </span>
+                              {setting.enable_follow_up && (
+                                <span style={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: 'var(--space-1)',
+                                  color: '#4CAF50'
+                                }}>
+                                  <FaRobot /> AI拡張
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {setting.last_used_at && (
+                            <div style={{
+                              position: 'absolute',
+                              top: 'var(--space-2)',
+                              right: 'var(--space-2)',
+                              fontSize: 'var(--font-size-micro)',
+                              color: 'var(--color-text-tertiary)'
+                            }}>
+                              {new Date(setting.last_used_at).toLocaleDateString('ja-JP', { 
+                                month: 'numeric', 
+                                day: 'numeric' 
+                              })}使用
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+            </div>
+            
+            {/* フッター */}
+            <div style={{
+              padding: 'var(--space-4) var(--space-5)',
+              borderTop: '1px solid var(--color-border)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              backgroundColor: '#f9f9f9'
+            }}>
+              <button
+                onClick={() => setShowHearingSettingsModal(false)}
+                style={{
+                  padding: 'var(--space-3) var(--space-5)',
+                  backgroundColor: 'white',
+                  color: 'var(--color-text-primary)',
+                  border: '2px solid var(--color-border)',
+                  borderRadius: '6px',
+                  fontSize: 'var(--font-size-body)',
+                  fontWeight: 'var(--font-weight-medium)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                  e.currentTarget.style.borderColor = '#ff6b35';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = 'white';
+                  e.currentTarget.style.borderColor = 'var(--color-border)';
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Container>
   );
 };

@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reportAPI } from '../services/api';
+import tagAPI from '../services/tagAPI';
 import styled from '@emotion/styled';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import CRMIntegrationSection from '../components/CRMIntegrationSection';
+import { TagList } from '../components/Tag';
 // Using architectural design system variables from CSS
 
 const Container = styled.div`
@@ -194,6 +196,163 @@ const InfoItem = styled.div`
   @media (max-width: 768px) {
     padding: var(--space-4);
   }
+`;
+
+const TagSection = styled.div`
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  background: var(--color-background);
+  border-radius: var(--radius-none);
+  border: 2px solid var(--color-border);
+
+  @media (max-width: 768px) {
+    padding: var(--space-4);
+    margin-top: var(--space-5);
+  }
+`;
+
+const TagSectionTitle = styled.h3`
+  font-size: var(--font-size-small);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+`;
+
+// AI提案セクションのスタイル
+const SuggestionsSection = styled.div`
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  background: var(--color-background);
+  border-radius: var(--radius-none);
+  border: 2px solid var(--color-border);
+
+  @media (max-width: 768px) {
+    padding: var(--space-4);
+    margin-top: var(--space-5);
+  }
+`;
+
+const SuggestionsSectionHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+  gap: var(--space-3);
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
+const SuggestionsSectionTitle = styled.h3`
+  font-size: var(--font-size-small);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+`;
+
+const GenerateButton = styled.button`
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border: 2px solid var(--color-primary);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border-radius: var(--radius-none);
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+  }
+`;
+
+const SuggestionsList = styled.ol`
+  list-style: none;
+  counter-reset: topic-counter;
+  padding: 0;
+  margin: var(--space-4) 0;
+`;
+
+const SuggestionItem = styled.li`
+  counter-increment: topic-counter;
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  background: var(--color-surface);
+  border-radius: var(--radius-none);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-elevation);
+  }
+
+  &:before {
+    content: counter(topic-counter);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    border-radius: 50%;
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-small);
+  }
+`;
+
+const SuggestionsReasoning = styled.div`
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border-radius: var(--radius-none);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-comfortable);
+  margin-top: var(--space-3);
+`;
+
+const EmptyMessage = styled.p`
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: var(--space-5);
+  margin: 0;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-comfortable);
+`;
+
+const LoadingMessage = styled.div`
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: var(--space-5);
+  font-size: var(--font-size-body);
 `;
 
 const InfoLabel = styled.div`
@@ -387,6 +546,40 @@ const DeleteButton = styled.button`
   }
 `;
 
+const ScriptButton = styled.button`
+  background-color: var(--color-accent);
+  color: var(--color-text-inverse);
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-none);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  
+  &:hover:not(:disabled) {
+    background-color: var(--color-text-inverse);
+    color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    background-color: var(--color-text-secondary);
+    border-color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+  
+  @media (max-width: 768px) {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-small);
+  }
+`;
+
 const StatusBadge = styled.span`
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-none);
@@ -471,10 +664,9 @@ const ModalButtons = styled.div`
 `;
 
 const ModalButton = styled.button`
-  background-color: var(--color-primary);
   color: var(--color-text-inverse);
   padding: var(--space-3) var(--space-5);
-  border: 2px solid var(--color-primary);
+  border: 2px solid transparent;
   border-radius: var(--radius-none);
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-medium);
@@ -483,16 +675,14 @@ const ModalButton = styled.button`
   text-transform: uppercase;
   letter-spacing: 0.05em;
   min-width: 120px;
-  
+
   &:hover:not(:disabled) {
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
+    opacity: 0.9;
     transform: translateY(-1px);
   }
-  
+
   &:disabled {
-    background-color: var(--color-text-tertiary);
-    border-color: var(--color-text-tertiary);
+    opacity: 0.6;
     cursor: not-allowed;
   }
 `;
@@ -510,7 +700,7 @@ const ModalCancelButton = styled.button`
   text-transform: uppercase;
   letter-spacing: 0.05em;
   min-width: 120px;
-  
+
   &:hover {
     background-color: var(--color-surface);
     border-color: var(--color-primary);
@@ -532,6 +722,9 @@ const ReportDetailPage = () => {
     queryKey: ['report', id],
     queryFn: () => reportAPI.getReport(id),
   });
+
+  // タグはreportに含まれるようになったので、reportから取得
+  const tags = report?.tags || [];
 
   const completeMutation = useMutation({
     mutationFn: () => reportAPI.updateReport(id, { status: 'completed' }),
@@ -568,6 +761,28 @@ const ReportDetailPage = () => {
       toast.error(error.response?.data?.error || '下書きに戻せませんでした');
     }
   });
+
+  // AI提案の生成
+  const generateSuggestionsMutation = useMutation({
+    mutationFn: () => reportAPI.generateSuggestions(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['report', id]);
+      toast.success('AI提案を生成しました');
+    },
+    onError: (error) => {
+      console.error('Generate suggestions error:', error);
+      toast.error('AI提案の生成に失敗しました');
+    }
+  });
+
+  const handleGenerateSuggestions = () => {
+    generateSuggestionsMutation.mutate();
+  };
+
+  // AI提案データを取得
+  const suggestions = report?.ai_suggestions ?
+    (typeof report.ai_suggestions === 'string' ? JSON.parse(report.ai_suggestions) : report.ai_suggestions) :
+    null;
 
   if (isLoading) {
     return (
@@ -670,6 +885,9 @@ const ReportDetailPage = () => {
               )}
               {isOwner && (
                 <>
+                  <ScriptButton onClick={() => navigate(`/reports/${id}/scripts/generate`)}>
+                    スクリプト生成
+                  </ScriptButton>
                   <EditButton onClick={handleEdit}>
                     編集
                   </EditButton>
@@ -839,6 +1057,61 @@ const ReportDetailPage = () => {
             </QASection>
           </Section>
         )}
+
+        {/* タグセクション */}
+        {tags && tags.length > 0 && (
+          <TagSection>
+            <TagSectionTitle>タグ</TagSectionTitle>
+            <TagList
+              tags={tags}
+              showCategory={true}
+              onTagClick={(tag) => {
+                navigate(`/tags/${tag.id}`);
+              }}
+            />
+          </TagSection>
+        )}
+
+        {/* AI提案セクション */}
+        <SuggestionsSection>
+          <SuggestionsSectionHeader>
+            <SuggestionsSectionTitle>
+              次回商談の提案 (AI生成)
+            </SuggestionsSectionTitle>
+            <GenerateButton
+              onClick={handleGenerateSuggestions}
+              disabled={
+                generateSuggestionsMutation.isPending ||
+                (suggestions && !suggestions.has_past_reports)
+              }
+            >
+              {generateSuggestionsMutation.isPending ? '生成中...' : '提案を再生成'}
+            </GenerateButton>
+          </SuggestionsSectionHeader>
+
+          {generateSuggestionsMutation.isPending ? (
+            <LoadingMessage>AI提案を生成しています...</LoadingMessage>
+          ) : suggestions && suggestions.has_past_reports ? (
+            <>
+              <SuggestionsList>
+                {suggestions.next_topics.map((topic, index) => (
+                  <SuggestionItem key={index}>{topic}</SuggestionItem>
+                ))}
+              </SuggestionsList>
+              {suggestions.reasoning && (
+                <SuggestionsReasoning>
+                  <strong>提案理由：</strong> {suggestions.reasoning}
+                </SuggestionsReasoning>
+              )}
+            </>
+          ) : (
+            <EmptyMessage>
+              {suggestions && !suggestions.has_past_reports
+                ? 'まだ過去の日報がありません。最初の商談として、顧客のニーズと課題をしっかり聞き取ることに集中しましょう。'
+                : 'AI提案を生成するには「提案を再生成」ボタンをクリックしてください。'}
+            </EmptyMessage>
+          )}
+        </SuggestionsSection>
       </Card>
 
       {/* CRM連携セクション */}
@@ -920,6 +1193,7 @@ const ReportDetailPage = () => {
           </ModalContent>
         </ModalOverlay>
       )}
+
     </Container>
   );
 };

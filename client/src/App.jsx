@@ -16,6 +16,13 @@ import TeamAnalyticsPage from './pages/TeamAnalyticsPage';
 import RegisterPage from './pages/RegisterPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import RealtimeHearingPage from './pages/RealtimeHearingPage';
+import ScriptGeneratorPage from './pages/ScriptGeneratorPage';
+import ScriptViewPage from './pages/ScriptViewPage';
+import ScriptListPage from './pages/ScriptListPage';
+import HearingSettingsPage from './pages/HearingSettingsPage';
+import TagManagePage from './pages/TagManagePage';
+import TagAnalyticsPage from './pages/TagAnalyticsPage';
+import TagDetailPage from './pages/TagDetailPage';
 
 // Components
 import Layout from './components/Layout';
@@ -60,8 +67,16 @@ function App() {
                   <Route path="/" element={<HomePage />} />
                 <Route path="/hearing" element={<HearingPage />} />
                 <Route path="/hearing/realtime" element={<RealtimeHearingPage />} />
+                <Route path="/hearing/settings" element={<HearingSettingsPage />} />
+                <Route path="/tags/manage" element={<TagManagePage />} />
+                <Route path="/tags/analytics" element={<TagAnalyticsPage />} />
+                <Route path="/tags/:tagId" element={<TagDetailPage />} />
                 <Route path="/reports/:id" element={<ReportDetailPage />} />
                 <Route path="/reports/:id/edit" element={<ReportEditPage />} />
+                <Route path="/reports/:reportId/scripts/generate" element={<ScriptGeneratorPage />} />
+                <Route path="/script-generator" element={<ScriptGeneratorPage />} />
+                <Route path="/scripts" element={<ScriptListPage />} />
+                <Route path="/scripts/:id" element={<ScriptViewPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/my-analytics" element={<MyAnalyticsPage />} />
                   <Route path="/team-analytics" element={<TeamAnalyticsPage />} />

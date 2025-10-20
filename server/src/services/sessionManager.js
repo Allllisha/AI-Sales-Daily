@@ -4,18 +4,33 @@ class SessionManager {
   constructor() {
     // Redis接続（オプション - なくても動作）
     try {
-      this.redis = new Redis({
-        host: process.env.REDIS_HOST || 'localhost',
-        port: process.env.REDIS_PORT || 6379,
-        password: process.env.REDIS_PASSWORD,
-        retryStrategy: (times) => {
-          if (times > 3) {
-            console.log('Redis connection failed - using in-memory storage');
-            return null;
+      // REDIS_URLを優先的に使用、なければホスト/ポートを使用
+      const redisUrl = process.env.REDIS_URL;
+      
+      if (redisUrl) {
+        this.redis = new Redis(redisUrl, {
+          retryStrategy: (times) => {
+            if (times > 3) {
+              console.log('Redis connection failed - using in-memory storage');
+              return null;
+            }
+            return Math.min(times * 100, 3000);
           }
-          return Math.min(times * 100, 3000);
-        }
-      });
+        });
+      } else {
+        this.redis = new Redis({
+          host: process.env.REDIS_HOST || 'localhost',
+          port: process.env.REDIS_PORT || 6379,
+          password: process.env.REDIS_PASSWORD,
+          retryStrategy: (times) => {
+            if (times > 3) {
+              console.log('Redis connection failed - using in-memory storage');
+              return null;
+            }
+            return Math.min(times * 100, 3000);
+          }
+        });
+      }
 
       this.redis.on('error', (err) => {
         console.error('Redis error:', err);

@@ -520,8 +520,97 @@ Examples:
 // AIヒアリングセッション開始
 router.post('/hearing/start', authMiddleware, async (req, res) => {
   try {
-    const { referenceData = null, dataSource = null, crmType = 'none' } = req.body;
+    const {
+      referenceData = null,
+      dataSource = null,
+      crmType = 'none',
+      settingId = null,
+      greeting = null,
+      customQuestions = null,
+      maxQuestions = null,
+      inputMode = null,
+      requiredSlots = null,
+      optionalSlots = null,
+      enableFollowUp = null,
+      followUpThreshold = null,
+      enableSmartSkip = null
+    } = req.body;
     const sessionId = Date.now().toString();
+    const userId = req.userId;
+
+    console.log('Hearing start parameters:', {
+      greeting,
+      hasReferenceData: !!referenceData,
+      dataSource,
+      maxQuestions,
+      userId
+    });
+
+    // 設定が指定されていない場合、ユーザーのデフォルト設定を取得
+    let finalSettings = {
+      customQuestions: customQuestions || [],
+      maxQuestions: maxQuestions || 5,
+      requiredSlots: requiredSlots || ['customer', 'project', 'next_action'],
+      enableFollowUp: enableFollowUp !== false,
+      enableSmartSkip: enableSmartSkip !== false
+    };
+
+    if (!customQuestions && !settingId) {
+      // デフォルト設定を取得
+      try {
+        const pool = require('../db/pool');
+        const settingResult = await pool.query(
+          'SELECT * FROM hearing_settings WHERE user_id = $1 AND is_default = true LIMIT 1',
+          [userId]
+        );
+
+        if (settingResult.rows.length > 0) {
+          const defaultSetting = settingResult.rows[0];
+          console.log('Using default hearing settings:', {
+            name: defaultSetting.name,
+            hasCustomQuestions: defaultSetting.custom_questions?.length > 0
+          });
+
+          finalSettings = {
+            customQuestions: defaultSetting.custom_questions || [],
+            maxQuestions: defaultSetting.max_questions || 5,
+            requiredSlots: defaultSetting.required_slots || ['customer', 'project', 'next_action'],
+            enableFollowUp: defaultSetting.enable_follow_up !== false,
+            enableSmartSkip: defaultSetting.enable_smart_skip !== false
+          };
+        } else {
+          console.log('No default hearing settings found for user', userId);
+        }
+      } catch (settingError) {
+        console.error('Error fetching default hearing settings:', settingError);
+        // エラーが発生してもデフォルト値で続行
+      }
+    }
+
+    // セッション設定を保存
+    const sessionKey = `session:${sessionId}:settings`;
+    const sessionSettings = {
+      customQuestions: finalSettings.customQuestions,
+      maxQuestions: finalSettings.maxQuestions,
+      requiredSlots: finalSettings.requiredSlots,
+      enableFollowUp: finalSettings.enableFollowUp,
+      enableSmartSkip: finalSettings.enableSmartSkip,
+      currentIndex: 0
+    };
+    
+    await redisWrapper.set(
+      sessionKey,
+      JSON.stringify(sessionSettings),
+      { EX: 3600 } // 1時間保持
+    );
+    
+    console.log('Session settings stored:', {
+      sessionId,
+      hasCustomQuestions: sessionSettings.customQuestions.length > 0,
+      enableFollowUp: sessionSettings.enableFollowUp,
+      enableSmartSkip: sessionSettings.enableSmartSkip,
+      requiredSlots: sessionSettings.requiredSlots
+    });
     
     console.log('===== HEARING START =====');
     console.log('Data source:', dataSource);
@@ -758,6 +847,59 @@ router.post('/hearing/start', authMiddleware, async (req, res) => {
       let question;
       let suggestions = [];
       
+      // セッション設定からカスタム質問を取得
+      const sessionKey = `session:${sessionId}:settings`;
+      const sessionData = await redisWrapper.get(sessionKey);
+      let customQuestionsFromSession = [];
+
+      if (sessionData) {
+        const settings = JSON.parse(sessionData);
+        customQuestionsFromSession = settings.customQuestions || [];
+      }
+
+      // 議事録モードの場合は、カスタム質問の有無に関わらず挨拶文を自動生成
+      if (dataSource === 'meeting' && referenceData) {
+        console.log('Meeting mode: Generating greeting from meeting data:', referenceData.customer);
+        let meetingGreeting;
+        if (referenceData.customer) {
+          meetingGreeting = `お疲れ様でした。${referenceData.customer}様との面談はいかがでしたか？`;
+        } else {
+          meetingGreeting = `お疲れ様でした。今日の面談はいかがでしたか？`;
+        }
+        console.log('Generated meeting greeting:', meetingGreeting);
+        return { question: meetingGreeting, suggestions: [] };
+      }
+
+      // 議事録モード以外：カスタム質問がある場合は最初の質問を使用（最優先）
+      const questionsToUse = customQuestions || customQuestionsFromSession;
+      if (questionsToUse && Array.isArray(questionsToUse) && questionsToUse.length > 0) {
+        console.log('Processing custom questions in firstQuestionPromise');
+        console.log('Custom questions count:', questionsToUse.length);
+        console.log('First question object:', questionsToUse[0]);
+
+        const firstQuestion = questionsToUse[0];
+        if (typeof firstQuestion === 'object') {
+          // 両方の形式に対応: {text: '...'} と {question: '...'}
+          question = firstQuestion.text || firstQuestion.question;
+          console.log('Extracted question text from object:', question);
+        } else if (typeof firstQuestion === 'string') {
+          question = firstQuestion;
+          console.log('Using string question:', question);
+        }
+
+        if (question) {
+          console.log('Using custom question 1:', question);
+          return { question, suggestions: [] };
+        }
+      }
+
+      // カスタム挨拶文がある場合は使用（議事録モード以外）
+      if (greeting) {
+        console.log('Using custom greeting:', greeting);
+        // 挨拶文の場合は選択肢を生成しない（ユーザーが自由に話すため）
+        return { question: greeting, suggestions: [] };
+      }
+
       // まず、参考データ（議事録/CRM）がある場合はそれを優先
       console.log('Question generation - checking conditions...');
       console.log('Has referenceData:', !!referenceData);
@@ -785,6 +927,7 @@ router.post('/hearing/start', authMiddleware, async (req, res) => {
       } else if (dataSource === 'general') {
         // generalモード: 参考データなしで開始
         console.log('Using general mode (no reference data)');
+        // 動的生成（greetingは既に上で処理済み）
         question = await generateInitialQuestion();
         // 議事録と同じgenerateSuggestionsForQuestion関数を使用（参考データなし）
         suggestions = await generateSuggestionsForQuestion(question, null, {}, 'general');
@@ -817,11 +960,20 @@ router.post('/hearing/start', authMiddleware, async (req, res) => {
           question = `お疲れ様でした。${customerDisplay}との${projectDisplay ? projectDisplay + 'に関する' : ''}商談はいかがでしたか？`;
         }
         suggestions = await generateSuggestionsForQuestion(question, referenceData, initialSlots, dataSource);
+      } else if (greeting) {
+        // カスタムグリーティングが指定されている場合は最優先で使用
+        console.log('Using custom greeting:', greeting);
+        question = greeting;
+        if (referenceData && dataSource) {
+          try {
+            suggestions = await generateSuggestionsForQuestion(question, referenceData, {}, dataSource);
+          } catch (error) {
+            console.error('Failed to generate Q1 suggestions:', error);
+          }
+        }
       } else if (context.recentCustomers.length > 0 || context.activeProjects.length > 0) {
         console.log('Using context-based generation');
         // 実データがある場合はデータ駆動型質問生成
-        // question = await questionGenerator.generateQuestionForSlot('customer', context) || await generateInitialQuestion();
-        // suggestions = await questionGenerator.generateSuggestionsForQuestion(question, 'customer', context);
         question = await generateInitialQuestion();
         suggestions = await generateSuggestionsForQuestion(question, referenceData, {}, dataSource);
       } else {
@@ -861,7 +1013,7 @@ router.post('/hearing/start', authMiddleware, async (req, res) => {
         
         // データがない場合または生成できなかった場合
         if (!nextQuestion) {
-          const result = await determineNextQuestionWithAI(0, initialSlots, '', []);
+          const result = await determineNextQuestionWithAI(0, initialSlots, '', [], sessionId);
           nextQuestion = result.nextQuestion;
           
           if (referenceData && dataSource && nextQuestion) {
@@ -901,7 +1053,7 @@ router.post('/hearing/start', authMiddleware, async (req, res) => {
       sessionId,
       question: firstData.question,
       questionIndex: 0,
-      totalQuestions: 5,
+      totalQuestions: maxQuestions || (customQuestions ? customQuestions.length : 5),
       suggestions: firstData.suggestions,
       allowMultiple,
       askedQuestions: [firstData.question],
@@ -1595,8 +1747,13 @@ ${JSON.stringify(currentSlots, null, 2)}
 ${lastQuestion ? `「${lastQuestion}」` : '初回質問'}
 
 重要な処理ルール：
-1. **既に判明している情報**がある場合、その項目は抽出せず空にしてください（上書きしない）
-2. 長い説明は重要なポイントを抽出して簡潔に要約してください
+1. **リスト系項目（issues, next_action, participants, personal_info, relationship_notes, positive_points）**：
+   - 既存の情報があっても新しい情報を抽出してください
+   - 既存の内容と重複しない新しい情報のみ抽出
+   - 例：既にissuesに「予算が厳しい」がある場合、新たに「人手不足」が判明したら「人手不足」を返す
+2. **単一項目（customer, project, budget, schedule, location）**：
+   - 既に判明している場合は空にしてください（上書きしない）
+3. 長い説明は重要なポイントを抽出して簡潔に要約してください
 3. 日報として読みやすい自然な文章に変換してください
 4. 「〜と話していました」「〜と言っていました」などの冗長な表現は削除してください
 5. 過去の行動（「話しました」「説明しました」）は抽出しないでください
@@ -1770,8 +1927,96 @@ next_actionの判定基準：
 }
 
 // AIを使って次の質問を決定する新しい関数
-async function determineNextQuestionWithAI(currentIndex, slots, lastAnswer, askedQuestions = []) {
+async function determineNextQuestionWithAI(currentIndex, slots, lastAnswer, askedQuestions = [], sessionId = null) {
   try {
+    // セッションIDがある場合、設定を読み込む
+    let sessionSettings = null;
+    if (sessionId) {
+      const sessionKey = `session:${sessionId}:settings`;
+      const sessionData = await redisWrapper.get(sessionKey);
+      if (sessionData) {
+        sessionSettings = JSON.parse(sessionData);
+        const { customQuestions, maxQuestions, enableSmartSkip, enableFollowUp, requiredSlots } = sessionSettings;
+        const nextIndex = currentIndex + 1;
+
+        // カスタム質問がまだある場合は優先（スマートスキップより優先）
+        if (customQuestions && nextIndex < customQuestions.length && nextIndex < (maxQuestions || customQuestions.length)) {
+          console.log(`Processing custom question ${nextIndex + 1} from session`);
+          const nextQuestion = customQuestions[nextIndex];
+          console.log('Question object:', nextQuestion);
+
+          let questionText;
+          if (typeof nextQuestion === 'object') {
+            // 両方の形式に対応: {text: '...'} と {question: '...'}
+            questionText = nextQuestion.text || nextQuestion.question;
+            console.log('Extracted text from object:', questionText);
+          } else if (typeof nextQuestion === 'string') {
+            questionText = nextQuestion;
+            console.log('Using string question:', questionText);
+          }
+
+          if (questionText) {
+            console.log(`Using custom question ${nextIndex + 1}:`, questionText);
+            return {
+              nextQuestion: questionText,
+              isComplete: false
+            };
+          } else {
+            console.log('Failed to extract question text from:', nextQuestion);
+          }
+        }
+
+        // カスタム質問がすべて終わった後、スマートスキップ: 必須スロットが全て埋まったら早期終了
+        if (enableSmartSkip && requiredSlots) {
+          const allRequiredFilled = requiredSlots.every(slot => slots[slot] && slots[slot] !== '');
+          if (allRequiredFilled) {
+            console.log('Smart skip: All required slots filled, completing early');
+            return {
+              nextQuestion: null,
+              isComplete: true
+            };
+          }
+        }
+        
+        // 全ての質問が終了した場合、動的フォローアップをチェック
+        if (nextIndex >= (maxQuestions || customQuestions.length)) {
+          if (enableFollowUp && requiredSlots) {
+            // 未入力の必須スロットをチェック
+            const missingSlots = requiredSlots.filter(slot => !slots[slot] || slots[slot] === '');
+            if (missingSlots.length > 0) {
+              console.log('Dynamic follow-up: Missing required slots:', missingSlots);
+              
+              // 未入力スロットについて追加質問を生成
+              const slotQuestions = {
+                customer: 'どちらの会社との商談でしたか？',
+                project: 'どのような案件についてお話しされましたか？',
+                next_action: '次のアクションは何になりますか？',
+                budget: '予算についてはいかがでしたか？',
+                schedule: 'スケジュール感はどのような感じでしょうか？',
+                participants: '参加者はどなたでしたか？',
+                location: '場所はどちらでしたか？',
+                issues: '課題や懸念事項はありましたか？'
+              };
+              
+              const followUpQuestion = slotQuestions[missingSlots[0]] || `${missingSlots[0]}について教えてください。`;
+              console.log('Generated follow-up question:', followUpQuestion);
+              
+              return {
+                nextQuestion: followUpQuestion,
+                isComplete: false
+              };
+            }
+          }
+          
+          console.log('All custom questions completed');
+          return {
+            nextQuestion: null,
+            isComplete: true
+          };
+        }
+      }
+    }
+    
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
     const apiKey = process.env.AZURE_OPENAI_API_KEY;
     const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
@@ -2842,6 +3087,12 @@ function generateDefaultSuggestions(question) {
 
 // 複数選択を許可する質問タイプかどうかを判定
 function checkIfMultipleChoiceQuestion(question) {
+  // questionがnullまたは未定義の場合はデフォルトでtrue
+  if (!question || typeof question !== 'string') {
+    console.log('checkIfMultipleChoiceQuestion: question is null or not a string');
+    return true;
+  }
+
   // 複数選択が適切な質問パターン
   const multipleChoicePatterns = [
     '参加者',
@@ -2863,7 +3114,7 @@ function checkIfMultipleChoiceQuestion(question) {
     '要素',
     '項目'
   ];
-  
+
   // 単一選択が適切な質問パターン
   const singleChoicePatterns = [
     '可能性',
@@ -2875,21 +3126,21 @@ function checkIfMultipleChoiceQuestion(question) {
     'キーパーソン',
     '決定権者'
   ];
-  
+
   // 単一選択パターンが含まれる場合は false
   for (const pattern of singleChoicePatterns) {
     if (question.includes(pattern)) {
       return false;
     }
   }
-  
+
   // 複数選択パターンが含まれる場合は true
   for (const pattern of multipleChoicePatterns) {
     if (question.includes(pattern)) {
       return true;
     }
   }
-  
+
   // デフォルトは複数選択（ユーザーが柔軟に回答できるように）
   return true;
 }
@@ -2930,7 +3181,7 @@ async function preloadNextQuestionAndSuggestions(sessionId, currentIndex, slots,
     
     // データ駆動型で生成できなかった場合は従来の方法
     if (!nextQuestion) {
-      const result = await determineNextQuestionWithAI(currentIndex, slots, lastAnswer, askedQuestions);
+      const result = await determineNextQuestionWithAI(currentIndex, slots, lastAnswer, askedQuestions, sessionId);
       if (result.isComplete || !result.nextQuestion) {
         return null;
       }
@@ -3651,9 +3902,20 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
       updatedSlots.summary = answer;
     }
 
-    // 質問数の強制制限チェック（5問を超えないように）
-    if (questionIndex >= 4) {
-      console.log(`Force completion at question ${questionIndex + 1} - maximum reached`);
+    // セッション設定から最大質問数を取得
+    const sessionKey = `session:${sessionId}:settings`;
+    const sessionData = await redisWrapper.get(sessionKey);
+    let maxQuestions = 5; // デフォルト
+    
+    if (sessionData) {
+      const settings = JSON.parse(sessionData);
+      maxQuestions = settings.maxQuestions || 5;
+      console.log(`Session max questions: ${maxQuestions}`);
+    }
+    
+    // 質問数の強制制限チェック（maxQuestionsを超えないように）
+    if (questionIndex >= maxQuestions - 1) {
+      console.log(`Force completion at question ${questionIndex + 1} - maximum ${maxQuestions} reached`);
       return res.json({
         sessionId,
         completed: true,
@@ -3679,7 +3941,7 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
       await redisWrapper.del(cacheKey);
     } else {
       // キャッシュがない場合は通常の生成
-      const result = await determineNextQuestionWithAI(questionIndex, updatedSlots, answer, askedQuestions);
+      const result = await determineNextQuestionWithAI(questionIndex, updatedSlots, answer, askedQuestions, sessionId);
       nextQuestion = result.nextQuestion;
       isComplete = result.isComplete;
       allowMultiple = checkIfMultipleChoiceQuestion(nextQuestion);
@@ -3732,7 +3994,7 @@ router.post('/hearing/answer', authMiddleware, async (req, res) => {
     // 現在+2番目の質問を先読み（非同期で実行）
     // 例: 現在Q1に回答中ならQ3を生成、Q2に回答中ならQ4を生成
     const nextToPreloadIndex = questionIndex + 2;
-    if (nextToPreloadIndex <= 4) { // 最大質問数以内の場合
+    if (nextToPreloadIndex < maxQuestions) { // 最大質問数以内の場合
       setImmediate(() => {
         // 会話履歴を構築
         const conversationHistory = [];

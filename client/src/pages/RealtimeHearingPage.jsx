@@ -5,6 +5,9 @@ import styled from '@emotion/styled';
 import io from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { reportAPI } from '../services/api';
+import { IoChatbubblesOutline, IoChatbubbles, IoMicOutline } from 'react-icons/io5';
+import { BiConversation } from 'react-icons/bi';
+import { MdRecordVoiceOver } from 'react-icons/md';
 
 const Container = styled.div`
   max-width: 1200px;
@@ -431,6 +434,31 @@ const RealtimeHearingPage = () => {
   const { user } = useAuth();
   const [isListening, setIsListening] = useState(false);
   const [status, setStatus] = useState('disconnected');
+  
+  // カスタム設定の取得
+  const [customSettings, setCustomSettings] = useState(null);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [answeredQuestions, setAnsweredQuestions] = useState(0);
+  
+  // URLパラメータから設定があるか確認
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('configured') === 'true') {
+      const settings = localStorage.getItem('hearingSettings');
+      if (settings) {
+        const parsed = JSON.parse(settings);
+        setCustomSettings(parsed);
+        // カスタム設定がある場合は挨拶文を設定
+        if (parsed.greeting) {
+          setMessages([{
+            role: 'assistant',
+            text: parsed.greeting
+          }]);
+        }
+      }
+    }
+  }, []);
+  
   const [messages, setMessages] = useState([
     { 
       role: 'assistant', 
@@ -438,6 +466,7 @@ const RealtimeHearingPage = () => {
     }
   ]);
   const [hasPlayedInitialMessage, setHasPlayedInitialMessage] = useState(false);
+  const [hasAutoStarted, setHasAutoStarted] = useState(false); // 自動開始フラグ
   const messagesRef = useRef(messages); // messagesの最新値を保持するref
   const [partialTranscript, setPartialTranscript] = useState('');
   const [reportData, setReportData] = useState({});
@@ -472,8 +501,9 @@ const RealtimeHearingPage = () => {
   const audioQueueRef = useRef([]);
   const isPlayingRef = useRef(false);
   const audioEnabledRef = useRef(false); // iOS音声有効化フラグ
-  const webAudioContextRef = useRef(null); // iOS用のWeb Audio Context
+  const webAudioContextRef = useRef(null); // Web Audio Context（再生用）
   const isAISpeakingRef = useRef(false); // AI音声再生中フラグ
+  const currentSourceRef = useRef(null); // 現在再生中のBufferSourceNode
 
   useEffect(() => {
     // iOS: ページ読み込み時に音声コンテキストを初期化
@@ -543,12 +573,30 @@ const RealtimeHearingPage = () => {
       setStatus('connected');
       toast.success('サーバーに接続しました');
       
+      // カスタム設定を取得
+      const params = new URLSearchParams(window.location.search);
+      let settings = null;
+      if (params.get('configured') === 'true') {
+        const storedSettings = localStorage.getItem('hearingSettings');
+        if (storedSettings) {
+          settings = JSON.parse(storedSettings);
+        }
+      }
+      
       // 初回メッセージの音声を常に準備（モバイル・PC共通）
       if (!hasPlayedInitialMessage) {
         console.log('Requesting initial audio message on connect');
-        // 即座に送信
-        socketRef.current.emit('request-initial-audio');
+        // カスタム設定も一緒に送信
+        socketRef.current.emit('request-initial-audio', { customSettings: settings });
         setHasPlayedInitialMessage(true);
+      }
+      
+      // 自動的に会話を開始
+      if (!hasAutoStarted) {
+        setHasAutoStarted(true);
+        setTimeout(() => {
+          autoStartConversation();
+        }, 500); // 接続後少し待ってから開始
       }
     });
 
@@ -741,10 +789,70 @@ const RealtimeHearingPage = () => {
     }
   }, [messages, currentUserMessage, partialTranscript]);
 
+  // statusがcompletedになったら自動的に日報を保存
+  useEffect(() => {
+    if (status === 'completed') {
+      console.log('Status changed to completed, saving report...');
+      handleComplete();
+    }
+  }, [status]);
+
+  // 自動開始用の関数
+  const autoStartConversation = async () => {
+    try {
+      // Web Audio Contextを作成またはresume
+      if (!webAudioContextRef.current) {
+        webAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('Created new AudioContext on auto start');
+      }
+      
+      // AudioContextのstateに関わらず音声を有効化を試みる
+      try {
+        if (webAudioContextRef.current.state === 'suspended') {
+          await webAudioContextRef.current.resume();
+        }
+        
+        // 無音音声を再生して音声コンテキストを有効化
+        const oscillator = webAudioContextRef.current.createOscillator();
+        const gainNode = webAudioContextRef.current.createGain();
+        gainNode.gain.value = 0.00001; // ほぼ無音
+        oscillator.connect(gainNode);
+        gainNode.connect(webAudioContextRef.current.destination);
+        oscillator.start();
+        oscillator.stop(webAudioContextRef.current.currentTime + 0.01);
+        
+        audioEnabledRef.current = true;
+        console.log('Audio context enabled silently');
+      } catch (error) {
+        console.log('Audio context setup:', error.message);
+        audioEnabledRef.current = true; // エラーでも有効化フラグを立てる
+      }
+      
+      // マイクを開始（これによりユーザージェスチャーとして認識される）
+      startListening();
+    } catch (e) {
+      console.log('Auto start error:', e);
+      startListening();
+    }
+  };
+
   const startListening = async () => {
     try {
       // iOS: 再生用AudioContextがある場合はキープ
       const playbackContext = webAudioContextRef.current;
+      
+      // ブラウザがサポートするmimeTypeを検出
+      let mimeType = 'audio/wav'; // デフォルト
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          mimeType = 'audio/ogg';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        }
+        console.log('Using mimeType:', mimeType);
+      }
       
       // マイクのアクセス許可を取得（エコーキャンセレーション強化）
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -852,8 +960,18 @@ const RealtimeHearingPage = () => {
         processorRef.current = processor;
       }
       
-      // サーバーに録音開始を通知
-      socketRef.current.emit('start-listening');
+      // カスタム設定を取得して送信
+      const params = new URLSearchParams(window.location.search);
+      let settings = null;
+      if (params.get('configured') === 'true') {
+        const storedSettings = localStorage.getItem('hearingSettings');
+        if (storedSettings) {
+          settings = JSON.parse(storedSettings);
+        }
+      }
+      
+      // サーバーに録音開始を通知（カスタム設定も送信）
+      socketRef.current.emit('start-listening', { customSettings: settings });
       
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -879,13 +997,31 @@ const RealtimeHearingPage = () => {
       audioContextRef.current = null;
     }
     
-    // iOS: 再生用AudioContextをアクティブに保つ
-    if (webAudioContextRef.current && webAudioContextRef.current.state === 'suspended') {
-      webAudioContextRef.current.resume().then(() => {
-        console.log('Playback context resumed after stopping recording');
-      }).catch(e => {
-        console.log('Could not resume playback context:', e);
-      });
+    // iOS Safari: AudioContextを維持するためのサイレント音を定期的に再生
+    if (webAudioContextRef.current) {
+      // AudioContextが生きていることを確認
+      if (webAudioContextRef.current.state === 'suspended') {
+        webAudioContextRef.current.resume().then(() => {
+          console.log('Playback context resumed after stopping recording');
+        }).catch(e => {
+          console.log('Could not resume playback context:', e);
+        });
+      }
+      
+      // 無音のオシレーターを作成して短時間再生（AudioContextを維持）
+      try {
+        const oscillator = webAudioContextRef.current.createOscillator();
+        const gainNode = webAudioContextRef.current.createGain();
+        gainNode.gain.value = 0.00001; // ほぼ無音
+        oscillator.connect(gainNode);
+        gainNode.connect(webAudioContextRef.current.destination);
+        oscillator.frequency.value = 440;
+        oscillator.start();
+        oscillator.stop(webAudioContextRef.current.currentTime + 0.01);
+        console.log('Silent oscillator played to keep AudioContext active');
+      } catch (e) {
+        console.log('Could not play silent oscillator:', e);
+      }
     }
     
     // サーバーに停止を通知
@@ -899,6 +1035,9 @@ const RealtimeHearingPage = () => {
     // 部分的なトランスクリプトのみクリア（currentUserMessageは残す）
     setPartialTranscript('');
   };
+
+  // Web Audio APIに移行したため、このuseEffectは不要になりました
+  // currentAudioUrlとaudioRefも使用しなくなります
 
   const playNextAudio = async () => {
     if (audioQueueRef.current.length === 0) {
@@ -914,91 +1053,69 @@ const RealtimeHearingPage = () => {
     const audioData = audioQueueRef.current.shift();
     
     try {
-      // iOS: 再生前にAudioContextを確認・再開
-      if (webAudioContextRef.current && webAudioContextRef.current.state === 'suspended') {
+      // Web Audio APIで完全制御
+      if (!webAudioContextRef.current) {
+        webAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      // AudioContextを確実にアクティブにする
+      if (webAudioContextRef.current.state === 'suspended') {
         await webAudioContextRef.current.resume();
-        console.log('Resumed playback context before playing audio');
+        console.log('Resumed audio context for playback');
       }
       
       // Base64デコード
       const audioBuffer = Uint8Array.from(atob(audioData.audio), c => c.charCodeAt(0));
-      const blob = new Blob([audioBuffer], { type: 'audio/wav' });
-      const audioUrl = URL.createObjectURL(blob);
       
-      const audio = new Audio(audioUrl);
-      // iOS対応: 音量を明示的に設定
-      audio.volume = 1.0;
-      audio.muted = false; // ミュートを明示的に解除
-      audio.playsinline = true; // iOSでインライン再生
+      // ArrayBufferに変換（正しい方法）
+      const arrayBuffer = new ArrayBuffer(audioBuffer.length);
+      const view = new Uint8Array(arrayBuffer);
+      for (let i = 0; i < audioBuffer.length; i++) {
+        view[i] = audioBuffer[i];
+      }
       
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
-        setIsSpeaking(false);
-        isAISpeakingRef.current = false; // AI音声再生終了
-        playNextAudio(); // 次の音声を再生
-      };
-      
-      audio.oncanplaythrough = () => {
-        console.log('Audio can play through');
-      };
-      
-      audio.onerror = (e) => {
-        console.error('Audio error:', e);
-        URL.revokeObjectURL(audioUrl);
-        isPlayingRef.current = false;
-        setIsSpeaking(false);
-      };
-      
-      // iOS Safari対応: play()の結果を適切に処理
-      const playPromise = audio.play();
-      
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          console.log('Audio playback started successfully');
-        }).catch(error => {
-          console.error('Audio playback failed:', error);
-          isPlayingRef.current = false;
+      // Web Audio APIでデコードして再生
+      try {
+        const decodedData = await webAudioContextRef.current.decodeAudioData(arrayBuffer);
+        const source = webAudioContextRef.current.createBufferSource();
+        source.buffer = decodedData;
+        
+        // 音量調整用のGainNodeを追加
+        const gainNode = webAudioContextRef.current.createGain();
+        gainNode.gain.value = 1.0; // 音量100%
+        
+        // 接続: source -> gain -> destination
+        source.connect(gainNode);
+        gainNode.connect(webAudioContextRef.current.destination);
+        
+        // 再生終了時の処理
+        source.onended = () => {
+          console.log('Audio playback ended');
           setIsSpeaking(false);
           isAISpeakingRef.current = false;
-          
-          // iOS Safariの場合、音声再生には初回ユーザーインタラクションが必要
-          if (error.name === 'NotAllowedError' || error.name === 'NotSupportedError') {
-            // 音声が再生できなかった音をキューに戻す
-            audioQueueRef.current.unshift(audioData);
-            
-            // 初回のみ通知
-            if (!audioEnabledRef.current) {
-              toast.info('音声再生には画面タップが必要です', { autoClose: 3000 });
-            }
-            
-            // ユーザーが画面をタップしたら再生を試みる
-            const handleUserInteraction = async () => {
-              console.log('User interaction detected, enabling audio');
-              
-              // AudioContextを再開
-              if (webAudioContextRef.current && webAudioContextRef.current.state === 'suspended') {
-                await webAudioContextRef.current.resume();
-              }
-              
-              audioEnabledRef.current = true;
-              
-              // キューから再生を再開
-              if (audioQueueRef.current.length > 0 && !isPlayingRef.current) {
-                playNextAudio();
-              }
-            };
-            
-            document.addEventListener('click', handleUserInteraction, { once: true });
-            document.addEventListener('touchstart', handleUserInteraction, { once: true });
-          }
-        });
+          playNextAudio(); // 次の音声を再生
+        };
+        
+        // 再生開始
+        source.start(0);
+        console.log('Started playing audio with Web Audio API');
+        
+      } catch (decodeError) {
+        console.error('Error decoding audio:', decodeError);
+        // デコードエラーの場合も次の音声を試す
+        setIsSpeaking(false);
+        isAISpeakingRef.current = false;
+        playNextAudio();
       }
+      
     } catch (error) {
       console.error('Error in playNextAudio:', error);
       isPlayingRef.current = false;
       setIsSpeaking(false);
+      isAISpeakingRef.current = false;
     }
   };
+
 
   const handleComplete = async () => {
     stopListening();
@@ -1082,11 +1199,18 @@ const RealtimeHearingPage = () => {
       
       const response = await reportAPI.createReport(reportToSave);
       
+      console.log('Report creation response:', response);
+      
       toast.dismiss();
       toast.success('日報を保存しました');
       
       // 保存した日報の詳細画面へ遷移
-      navigate(`/reports/${response.id}`);
+      if (response && response.id) {
+        navigate(`/reports/${response.id}`);
+      } else {
+        console.error('No report ID in response:', response);
+        toast.error('日報は保存されましたが、詳細画面への遷移に失敗しました');
+      }
       
     } catch (error) {
       console.error('Failed to save report:', error);
@@ -1258,62 +1382,21 @@ const RealtimeHearingPage = () => {
         )}
 
         <ControlsContainer>
-          {!isListening ? (
-            <ControlButton primary onClick={async () => {
-              // iOS/Android: ユーザーインタラクションで音声を有効化
-              try {
-                // Web Audio Contextを作成またはresume
-                if (!webAudioContextRef.current) {
-                  webAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-                  console.log('Created new AudioContext on button click');
-                }
-                
-                if (webAudioContextRef.current.state === 'suspended') {
-                  await webAudioContextRef.current.resume();
-                  console.log('Resumed AudioContext on button click');
-                }
-                
-                // 無音を再生して音声を有効化
-                const silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-                silentAudio.volume = 0.01;
-                
-                try {
-                  await silentAudio.play();
-                  audioEnabledRef.current = true;
-                  console.log('Audio fully enabled via button click');
-                } catch (error) {
-                  console.log('Silent audio error:', error.message);
-                  audioEnabledRef.current = true;
-                }
-                
-                // 初回メッセージの音声を即座に要求（モバイル/デスクトップ共通）
-                if (!hasPlayedInitialMessage && socketRef.current && socketRef.current.connected) {
-                  console.log('Requesting initial audio message');
-                  setTimeout(() => {
-                    socketRef.current.emit('request-initial-audio');
-                    setHasPlayedInitialMessage(true);
-                  }, 100); // 少し遅延を入れて確実に送信
-                }
-              } catch (e) {
-                console.log('Audio setup error:', e);
-              }
-              
-              // マイクを開始
-              startListening();
-            }}>
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
-              </svg>
-              会話を開始
-            </ControlButton>
-          ) : (
-            <ControlButton onClick={stopListening}>
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 6h12v12H6z"/>
-              </svg>
-              話し終わる
-            </ControlButton>
-          )}
+          {status === 'connected' || status === 'listening' ? (
+            isListening ? (
+              <ControlButton primary onClick={stopListening}>
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                一時停止
+              </ControlButton>
+            ) : (
+              <ControlButton primary onClick={startListening}>
+                <MdRecordVoiceOver size={20} />
+                再開
+              </ControlButton>
+            )
+          ) : null}
           
           <ControlButton onClick={() => navigate('/')}>
             <svg viewBox="0 0 24 24" fill="currentColor">

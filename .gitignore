@@ -44,3 +44,13 @@ lerna-debug.log*
 *.tmp
 *.temp
 .cache/.env.docker
+
+# Test files with secrets
+server/test-*.js
+server/bing-raw-response.txt
+
+# Deployment logs
+webapp_logs/
+
+# Screenshots
+*.png

@@ -8,7 +8,8 @@ const initRedis = async () => {
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
   
   try {
-    console.log('Connecting to Redis:', redisUrl.split('@')[1]); // URLのパスワード部分を隠して表示
+    console.log('REDIS_URL env var:', process.env.REDIS_URL);
+    console.log('Connecting to Redis:', redisUrl); // デバッグ用に完全なURLを表示
     
     client = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
@@ -50,6 +51,17 @@ const initRedis = async () => {
 
     client.on('ready', () => {
       console.log('Redis Client Ready');
+    });
+
+    // 接続が確立されるまで待つ
+    await new Promise((resolve, reject) => {
+      if (client.status === 'ready') {
+        resolve();
+      } else {
+        client.once('ready', resolve);
+        client.once('error', reject);
+        setTimeout(() => reject(new Error('Redis connection timeout')), 5000);
+      }
     });
 
     await client.ping();
