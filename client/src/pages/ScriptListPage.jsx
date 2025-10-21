@@ -545,10 +545,24 @@ const CloseButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   &:hover {
     color: var(--color-text-primary);
   }
+`;
+
+const FormGroup = styled.div`
+  margin-bottom: var(--space-4);
+`;
+
+const Label = styled.label`
+  display: block;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 `;
 
 const ModalBody = styled.div`
@@ -592,19 +606,58 @@ const ScriptListPage = () => {
   const [filterType, setFilterType] = useState('all'); // all, favorites, recent
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, scriptId: null, scriptName: '' });
   const [editModal, setEditModal] = useState({ isOpen: false, scriptId: null, scriptName: '' });
+  const [createModal, setCreateModal] = useState({
+    isOpen: false,
+    customer: '',
+    visitPurpose: '',
+    customPurpose: '',
+    situation: '初回訪問',
+    customInput: false
+  });
+  const [companyTags, setCompanyTags] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
     favorites: 0,
     thisMonth: 0
   });
 
+  // ScriptGeneratorPageと同じ訪問目的オプション
+  const visitPurposes = [
+    { value: 'initial', label: '初回訪問' },
+    { value: 'follow_up', label: 'フォローアップ' },
+    { value: 'proposal', label: '提案' },
+    { value: 'negotiation', label: '価格交渉' },
+    { value: 'closing', label: 'クロージング' },
+    { value: 'after_service', label: 'アフターフォロー' },
+    { value: 'custom', label: 'その他（自由入力）' }
+  ];
+
   useEffect(() => {
     fetchScripts();
+    fetchCompanyTags();
   }, []);
 
   useEffect(() => {
     filterScripts();
   }, [scripts, searchTerm, filterType]);
+
+  const fetchCompanyTags = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/tags?category=company&limit=100', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCompanyTags(data);
+      }
+    } catch (error) {
+      console.error('Error fetching company tags:', error);
+    }
+  };
 
   const fetchScripts = async () => {
     try {
@@ -786,7 +839,7 @@ const ScriptListPage = () => {
       });
 
       if (response.ok) {
-        setScripts(scripts.map(s => 
+        setScripts(scripts.map(s =>
           s.id === scriptId ? { ...s, script_name: scriptName.trim() } : s
         ));
         toast.success('スクリプト名を更新しました');
@@ -796,6 +849,57 @@ const ScriptListPage = () => {
       console.error('Error updating script name:', error);
       toast.error('スクリプト名の更新に失敗しました');
     }
+  };
+
+  const openCreateModal = () => {
+    setCreateModal({
+      isOpen: true,
+      customer: '',
+      visitPurpose: '',
+      customPurpose: '',
+      situation: '初回訪問',
+      customInput: false
+    });
+  };
+
+  const closeCreateModal = () => {
+    setCreateModal({
+      isOpen: false,
+      customer: '',
+      visitPurpose: '',
+      customPurpose: '',
+      situation: '初回訪問',
+      customInput: false
+    });
+  };
+
+  const handleCreateScript = () => {
+    const { customer, visitPurpose, customPurpose, situation } = createModal;
+
+    if (!customer.trim()) {
+      toast.error('顧客名を入力してください');
+      return;
+    }
+
+    if (!visitPurpose) {
+      toast.error('訪問目的を選択してください');
+      return;
+    }
+
+    if (visitPurpose === 'custom' && !customPurpose.trim()) {
+      toast.error('訪問目的を入力してください');
+      return;
+    }
+
+    // ScriptGeneratorPageに顧客情報を渡して遷移
+    navigate('/script-generator', {
+      state: {
+        customer: customer.trim(),
+        visitPurpose,
+        customPurpose: customPurpose.trim(),
+        situation
+      }
+    });
   };
 
   if (loading) {
@@ -864,7 +968,7 @@ const ScriptListPage = () => {
           {!(searchTerm || filterType !== 'all') && (
             <p>新しいスクリプトを作成しましょう</p>
           )}
-          <CreateButton onClick={() => navigate('/script-generator')}>
+          <CreateButton onClick={openCreateModal}>
             <FaRobot /> 新しいスクリプトを作成
           </CreateButton>
         </EmptyState>
@@ -992,6 +1096,167 @@ const ScriptListPage = () => {
               </ModalButton>
               <ModalButton onClick={updateScriptName} style={{ backgroundColor: '#ff6b35', borderColor: '#ff6b35', color: 'white' }}>
                 更新
+              </ModalButton>
+            </ModalFooter>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+
+      {createModal.isOpen && (
+        <ModalOverlay onClick={closeCreateModal}>
+          <ModalContent onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <ModalHeader>
+              <ModalTitle>新しいスクリプトを作成</ModalTitle>
+              <CloseButton onClick={closeCreateModal}>
+                <FaTimes />
+              </CloseButton>
+            </ModalHeader>
+            <ModalBody>
+              <FormGroup>
+                <Label>顧客名</Label>
+                {!createModal.customInput && companyTags.length > 0 ? (
+                  <>
+                    <select
+                      value={createModal.customer}
+                      onChange={(e) => {
+                        if (e.target.value === '__custom__') {
+                          setCreateModal({ ...createModal, customInput: true, customer: '' });
+                        } else {
+                          setCreateModal({ ...createModal, customer: e.target.value });
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: 'var(--space-3)',
+                        border: '2px solid var(--color-border)',
+                        borderRadius: 'var(--radius-none)',
+                        backgroundColor: 'var(--color-background)',
+                        fontSize: 'var(--font-size-body)',
+                        color: 'var(--color-text-primary)',
+                        marginBottom: 'var(--space-2)'
+                      }}
+                    >
+                      <option value="">顧客を選択してください</option>
+                      {companyTags.map((tag) => (
+                        <option key={tag.id} value={tag.name}>{tag.name}</option>
+                      ))}
+                      <option value="__custom__">--- 新しい顧客を入力 ---</option>
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={createModal.customer}
+                      onChange={(e) => setCreateModal({ ...createModal, customer: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: 'var(--space-3)',
+                        border: '2px solid var(--color-border)',
+                        borderRadius: 'var(--radius-none)',
+                        backgroundColor: 'var(--color-background)',
+                        fontSize: 'var(--font-size-body)',
+                        color: 'var(--color-text-primary)',
+                        marginBottom: 'var(--space-2)'
+                      }}
+                      placeholder="顧客名を入力"
+                      autoFocus
+                    />
+                    {companyTags.length > 0 && (
+                      <button
+                        onClick={() => setCreateModal({ ...createModal, customInput: false, customer: '' })}
+                        style={{
+                          fontSize: 'var(--font-size-small)',
+                          color: '#ff6b35',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: 0,
+                          textDecoration: 'underline'
+                        }}
+                      >
+                        既存の顧客から選択
+                      </button>
+                    )}
+                  </>
+                )}
+              </FormGroup>
+
+              <FormGroup>
+                <Label>訪問目的</Label>
+                <select
+                  value={createModal.visitPurpose}
+                  onChange={(e) => setCreateModal({ ...createModal, visitPurpose: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: 'var(--space-3)',
+                    border: '2px solid var(--color-border)',
+                    borderRadius: 'var(--radius-none)',
+                    backgroundColor: 'var(--color-background)',
+                    fontSize: 'var(--font-size-body)',
+                    color: 'var(--color-text-primary)'
+                  }}
+                >
+                  <option value="">選択してください</option>
+                  {visitPurposes.map(purpose => (
+                    <option key={purpose.value} value={purpose.value}>
+                      {purpose.label}
+                    </option>
+                  ))}
+                </select>
+              </FormGroup>
+              {createModal.visitPurpose === 'custom' && (
+                <FormGroup>
+                  <Label>訪問目的（自由入力）</Label>
+                  <input
+                    type="text"
+                    value={createModal.customPurpose}
+                    onChange={(e) => setCreateModal({ ...createModal, customPurpose: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: 'var(--space-3)',
+                      border: '2px solid var(--color-border)',
+                      borderRadius: 'var(--radius-none)',
+                      backgroundColor: 'var(--color-background)',
+                      fontSize: 'var(--font-size-body)',
+                      color: 'var(--color-text-primary)'
+                    }}
+                    placeholder="訪問目的を入力してください"
+                  />
+                </FormGroup>
+              )}
+
+              <FormGroup style={{ marginBottom: 0 }}>
+                <Label>商談段階</Label>
+                <select
+                  value={createModal.situation}
+                  onChange={(e) => setCreateModal({ ...createModal, situation: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: 'var(--space-3)',
+                    border: '2px solid var(--color-border)',
+                    borderRadius: 'var(--radius-none)',
+                    backgroundColor: 'var(--color-background)',
+                    fontSize: 'var(--font-size-body)',
+                    color: 'var(--color-text-primary)'
+                  }}
+                >
+                  <option value="初回訪問">初回訪問</option>
+                  <option value="ヒアリング">ヒアリング</option>
+                  <option value="提案">提案</option>
+                  <option value="見積提示">見積提示</option>
+                  <option value="クロージング">クロージング</option>
+                  <option value="契約締結">契約締結</option>
+                  <option value="アフターフォロー">アフターフォロー</option>
+                </select>
+              </FormGroup>
+            </ModalBody>
+            <ModalFooter>
+              <ModalButton onClick={closeCreateModal}>
+                キャンセル
+              </ModalButton>
+              <ModalButton onClick={handleCreateScript} style={{ backgroundColor: '#ff6b35', borderColor: '#ff6b35', color: 'white' }}>
+                作成
               </ModalButton>
             </ModalFooter>
           </ModalContent>

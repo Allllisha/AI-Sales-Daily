@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
 import { FaRobot, FaCheckCircle, FaArrowRight, FaArrowLeft, FaClipboardList } from 'react-icons/fa';
@@ -290,6 +290,7 @@ const LoadingSpinner = styled.div`
 const ScriptGeneratorPage = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [report, setReport] = useState(null);
@@ -343,6 +344,20 @@ const ScriptGeneratorPage = () => {
       fetchReport();
     }
   }, [reportId]);
+
+  // ScriptListPageから渡された情報を設定
+  useEffect(() => {
+    if (location.state) {
+      const { visitPurpose, customPurpose } = location.state;
+      if (visitPurpose) {
+        setFormData(prev => ({
+          ...prev,
+          visitPurpose,
+          customPurpose: customPurpose || ''
+        }));
+      }
+    }
+  }, [location.state]);
 
   const fetchReport = async () => {
     try {
