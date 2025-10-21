@@ -10,28 +10,42 @@ const { searchCompanyInfo } = require('../services/bingSearch');
  * @param {string} tagName - タグ名
  * @param {string} category - カテゴリ
  * @param {string} color - カラーコード（オプション）
+ * @param {object} client - PostgreSQL client (optional, defaults to pool)
  * @returns {Promise<number>} - タグID
  */
-async function getOrCreateTag(tagName, category, color = null) {
+async function getOrCreateTag(tagName, category, color = null, client = null) {
   const displayColor = color || getCategoryColor(category);
+  const db = client || pool;
 
-  // 既存タグを検索
-  const existingTag = await pool.query(
-    'SELECT id FROM tags WHERE name = $1 AND category = $2',
-    [tagName, category]
-  );
+  try {
+    // INSERT with ON CONFLICT to handle race conditions
+    // Note: tags table has UNIQUE constraint on 'name' only
+    const result = await db.query(
+      `INSERT INTO tags (name, category, color)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (name)
+       DO UPDATE SET
+         category = EXCLUDED.category,
+         color = EXCLUDED.color,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING id`,
+      [tagName, category, displayColor]
+    );
 
-  if (existingTag.rows.length > 0) {
-    return existingTag.rows[0].id;
+    return result.rows[0].id;
+  } catch (error) {
+    // Fallback: try to get existing tag if INSERT somehow failed
+    const existingTag = await db.query(
+      'SELECT id FROM tags WHERE name = $1',
+      [tagName]
+    );
+
+    if (existingTag.rows.length > 0) {
+      return existingTag.rows[0].id;
+    }
+
+    throw error; // Re-throw if we couldn't get the tag
   }
-
-  // 新規タグを作成
-  const newTag = await pool.query(
-    'INSERT INTO tags (name, category, color) VALUES ($1, $2, $3) RETURNING id',
-    [tagName, category, displayColor]
-  );
-
-  return newTag.rows[0].id;
 }
 
 // 新規タグを作成

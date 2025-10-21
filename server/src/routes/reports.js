@@ -892,7 +892,7 @@ router.post('/', authMiddleware, async (req, res) => {
         // タグを登録
         for (const tag of tags) {
           try {
-            const tagId = await getOrCreateTag(tag.name, tag.category);
+            const tagId = await getOrCreateTag(tag.name, tag.category, null, client);
             await client.query(
               `INSERT INTO report_tags (report_id, tag_id, auto_generated, confidence)
                VALUES ($1, $2, true, $3)
