@@ -85,25 +85,49 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// すべてのタグを取得
+// すべてのタグを取得（ユーザーがアクセス可能な日報に紐付いているタグのみ）
 router.get('/', authMiddleware, async (req, res) => {
   console.log('GET /api/tags - Request received from userId:', req.userId);
   try {
     const { category, limit = 100 } = req.query;
-    console.log('GET /api/tags - Query params:', { category, limit });
+    const userId = req.userId;
+    const userRole = req.userRole;
+    console.log('GET /api/tags - Query params:', { category, limit, userId, userRole });
 
-    let query = 'SELECT * FROM tags';
-    const params = [];
+    // ユーザーがアクセス可能な日報のフィルター
+    let userFilter = 'r.user_id = $1';
+    const params = [userId];
 
+    if (userRole === 'manager') {
+      // マネージャーの場合は部下の日報も含める
+      userFilter = `(r.user_id = $1 OR r.user_id IN (
+        SELECT id FROM users WHERE manager_id = $1
+      ))`;
+    }
+
+    // カテゴリフィルター
+    let categoryFilter = '';
     if (category) {
-      query += ' WHERE category = $1';
+      categoryFilter = `AND t.category = $${params.length + 1}`;
       params.push(category);
     }
 
-    query += ' ORDER BY usage_count DESC, name ASC LIMIT $' + (params.length + 1);
+    // ユーザーがアクセス可能な日報に紐付いているタグのみを取得
+    const query = `
+      SELECT DISTINCT t.id, t.name, t.category, t.color, t.usage_count, t.created_at, t.updated_at
+      FROM tags t
+      INNER JOIN report_tags rt ON t.id = rt.tag_id
+      INNER JOIN reports r ON rt.report_id = r.id
+      WHERE ${userFilter}
+        ${categoryFilter}
+      ORDER BY t.usage_count DESC, t.name ASC
+      LIMIT $${params.length + 1}
+    `;
     params.push(limit);
 
     const result = await pool.query(query, params);
+
+    console.log(`GET /api/tags - Found ${result.rows.length} tags for user ${userId}`);
 
     res.json({
       success: true,
@@ -119,21 +143,36 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// 人気のタグを取得（使用回数順）
+// 人気のタグを取得（使用回数順、ユーザーがアクセス可能な日報のみ）
 router.get('/popular', authMiddleware, async (req, res) => {
   console.log('GET /api/tags/popular - Request received from userId:', req.userId);
   try {
     const { limit = 20 } = req.query;
-    console.log('GET /api/tags/popular - Limit:', limit);
+    const userId = req.userId;
+    const userRole = req.userRole;
+    console.log('GET /api/tags/popular - Limit:', limit, 'userId:', userId, 'role:', userRole);
+
+    // ユーザーがアクセス可能な日報のフィルター
+    let userFilter = 'r.user_id = $1';
+    const params = [userId];
+
+    if (userRole === 'manager') {
+      // マネージャーの場合は部下の日報も含める
+      userFilter = `(r.user_id = $1 OR r.user_id IN (
+        SELECT id FROM users WHERE manager_id = $1
+      ))`;
+    }
 
     const result = await pool.query(
-      `SELECT t.*, COUNT(rt.id) as report_count
+      `SELECT t.id, t.name, t.category, t.color, t.usage_count, COUNT(rt.id) as report_count
        FROM tags t
-       LEFT JOIN report_tags rt ON t.id = rt.tag_id
-       GROUP BY t.id
+       INNER JOIN report_tags rt ON t.id = rt.tag_id
+       INNER JOIN reports r ON rt.report_id = r.id
+       WHERE ${userFilter}
+       GROUP BY t.id, t.name, t.category, t.color, t.usage_count
        ORDER BY report_count DESC, t.usage_count DESC
-       LIMIT $1`,
-      [limit]
+       LIMIT $${params.length + 1}`,
+      [...params, limit]
     );
 
     res.json({
@@ -408,7 +447,10 @@ router.get('/stats', authMiddleware, async (req, res) => {
 
     // カテゴリ別トップタグ（各カテゴリTop 10）
     const categoryRankings = {};
-    const categories = ['company', 'person', 'topic', 'emotion', 'stage', 'industry', 'product'];
+    const categories = [
+      'company', 'person', 'topic', 'emotion', 'stage', 'industry', 'product',
+      'ステータス', '業界', '規模', 'アクション', 'フェーズ', '優先度', '見込み'
+    ];
 
     for (const category of categories) {
       const result = await pool.query(
@@ -841,9 +883,12 @@ router.post('/:tagId/fetch-info', authMiddleware, async (req, res) => {
     const searchResult = await searchCompanyInfo(companyName);
 
     if (!searchResult.success) {
+      console.error('[Tags API] Bing Search failed:', searchResult.error || 'Unknown error');
       return res.status(500).json({
         success: false,
-        error: 'Failed to fetch company information'
+        error: 'Failed to fetch company information',
+        message: searchResult.error || 'Bing Search API returned an error',
+        details: searchResult.details || null
       });
     }
 

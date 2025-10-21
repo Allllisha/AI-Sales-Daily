@@ -292,9 +292,10 @@ const ScriptGeneratorPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
   const [report, setReport] = useState(null);
   const [formData, setFormData] = useState({
+    customer: '',
+    customInput: false,
     visitPurpose: '',
     customPurpose: '',
     objectives: [],
@@ -303,8 +304,16 @@ const ScriptGeneratorPage = () => {
   });
   const [generatedScript, setGeneratedScript] = useState(null);
   const [customObjectives, setCustomObjectives] = useState([]);
+  const [companyTags, setCompanyTags] = useState([]);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const steps = ['訪問目的', '達成目標', 'スクリプト生成'];
+  // 日報から来た場合はステップ0（顧客選択）をスキップ
+  const steps = reportId
+    ? ['訪問目的', '達成目標', 'スクリプト生成']
+    : ['顧客選択', '訪問目的', '達成目標', 'スクリプト生成'];
+
+  const [activeStep, setActiveStep] = useState(0);
 
   const visitPurposes = [
     { value: 'initial', label: '初回訪問' },
@@ -342,22 +351,11 @@ const ScriptGeneratorPage = () => {
   useEffect(() => {
     if (reportId) {
       fetchReport();
+    } else {
+      // reportIdがない場合は企業タグを取得
+      fetchCompanyTags();
     }
   }, [reportId]);
-
-  // ScriptListPageから渡された情報を設定
-  useEffect(() => {
-    if (location.state) {
-      const { visitPurpose, customPurpose } = location.state;
-      if (visitPurpose) {
-        setFormData(prev => ({
-          ...prev,
-          visitPurpose,
-          customPurpose: customPurpose || ''
-        }));
-      }
-    }
-  }, [location.state]);
 
   const fetchReport = async () => {
     try {
@@ -380,7 +378,48 @@ const ScriptGeneratorPage = () => {
     }
   };
 
+  const fetchCompanyTags = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/tags?category=company&limit=100', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[ScriptGenerator] Fetched company tags:', data);
+        console.log('[ScriptGenerator] Number of tags:', data.tags?.length);
+        setCompanyTags(data.tags || []);
+      }
+    } catch (error) {
+      console.error('Error fetching company tags:', error);
+      setCompanyTags([]);
+    }
+  };
+
   const handleNext = () => {
+    const currentStepName = steps[activeStep];
+
+    // バリデーション
+    if (currentStepName === '顧客選択' && !formData.customer.trim()) {
+      toast.error('顧客名を入力してください');
+      return;
+    }
+    if (currentStepName === '訪問目的' && !formData.visitPurpose) {
+      toast.error('訪問目的を選択してください');
+      return;
+    }
+    if (currentStepName === '訪問目的' && formData.visitPurpose === 'custom' && !formData.customPurpose.trim()) {
+      toast.error('訪問目的を入力してください');
+      return;
+    }
+    if (currentStepName === '達成目標' && formData.objectives.length === 0) {
+      toast.error('少なくとも1つの目標を選択してください');
+      return;
+    }
+
     if (activeStep === steps.length - 1) {
       generateScript();
     } else {
@@ -433,18 +472,26 @@ const ScriptGeneratorPage = () => {
         ? formData.customPurpose 
         : visitPurposes.find(p => p.value === formData.visitPurpose)?.label;
 
+      const requestBody = {
+        visitPurpose,
+        objectives: formData.objectives,
+        focusPoints: formData.focusPoints
+      };
+
+      // reportIdがある場合は含める、ない場合はcustomerを含める
+      if (reportId) {
+        requestBody.reportId = reportId;
+      } else {
+        requestBody.customer = formData.customer;
+      }
+
       const response = await fetch('/api/scripts/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          reportId,
-          visitPurpose,
-          objectives: formData.objectives,
-          focusPoints: formData.focusPoints
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
@@ -467,8 +514,90 @@ const ScriptGeneratorPage = () => {
   // saveAndView関数を削除（直接遷移するため不要）
 
   const renderStepContent = () => {
-    switch (activeStep) {
-      case 0:
+    const currentStepName = steps[activeStep];
+
+    switch (currentStepName) {
+      case '顧客選択':
+        const filteredCompanies = Array.isArray(companyTags)
+          ? companyTags.filter(tag =>
+              tag.name.toLowerCase().includes(customerSearch.toLowerCase())
+            )
+          : [];
+
+        console.log('[ScriptGenerator] Rendering customer selection');
+        console.log('[ScriptGenerator] companyTags:', companyTags);
+        console.log('[ScriptGenerator] customerSearch:', customerSearch);
+        console.log('[ScriptGenerator] filteredCompanies:', filteredCompanies);
+        console.log('[ScriptGenerator] showSuggestions:', showSuggestions);
+
+        return (
+          <>
+            <h2>顧客を選択してください</h2>
+            <FormGroup>
+              <Label>顧客名</Label>
+              <div style={{ position: 'relative' }}>
+                <Input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => {
+                    console.log('[ScriptGenerator] Input changed:', e.target.value);
+                    setCustomerSearch(e.target.value);
+                    setFormData({ ...formData, customer: e.target.value });
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  placeholder="顧客名を入力または検索"
+                  autoFocus
+                />
+                {showSuggestions && filteredCompanies.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'var(--color-background)',
+                    border: '2px solid var(--color-border)',
+                    borderTop: 'none',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    zIndex: 1000,
+                    boxShadow: 'var(--shadow-elevation)'
+                  }}>
+                    {filteredCompanies.map((tag) => (
+                      <div
+                        key={tag.id}
+                        onClick={() => {
+                          setCustomerSearch(tag.name);
+                          setFormData({ ...formData, customer: tag.name });
+                          setShowSuggestions(false);
+                        }}
+                        style={{
+                          padding: 'var(--space-3)',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid var(--color-border)',
+                          '&:hover': { backgroundColor: '#f5f5f5' }
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--color-background)'}
+                      >
+                        {tag.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p style={{
+                fontSize: 'var(--font-size-small)',
+                color: 'var(--color-text-secondary)',
+                marginTop: 'var(--space-2)'
+              }}>
+                {companyTags.length > 0 ? '既存の顧客を検索、または新しい顧客名を入力してください' : '顧客名を入力してください'}
+              </p>
+            </FormGroup>
+          </>
+        );
+
+      case '訪問目的':
         return (
           <>
             <h2>次回の訪問目的を選択してください</h2>
@@ -510,7 +639,7 @@ const ScriptGeneratorPage = () => {
           </>
         );
 
-      case 1:
+      case '達成目標':
         return (
           <>
             <h2>達成したい目標を選択してください</h2>
@@ -564,7 +693,7 @@ const ScriptGeneratorPage = () => {
           </>
         );
 
-      case 2:
+      case 'スクリプト生成':
         return (
           <div style={{ textAlign: 'center', padding: 'var(--space-6) 0' }}>
             <FaRobot style={{ fontSize: '64px', color: 'var(--color-primary)', marginBottom: 'var(--space-4)' }} />
@@ -574,10 +703,20 @@ const ScriptGeneratorPage = () => {
             </p>
             <InfoCard style={{ textAlign: 'left', maxWidth: '600px', margin: '0 auto' }}>
               <h3>生成内容のプレビュー</h3>
-              <p><strong>訪問目的:</strong> {formData.visitPurpose === 'custom' 
-                ? formData.customPurpose 
-                : visitPurposes.find(p => p.value === formData.visitPurpose)?.label}</p>
-              <p><strong>達成目標:</strong> {formData.objectives.join(', ')}</p>
+              {!reportId && formData.customer && (
+                <p><strong>顧客:</strong> {formData.customer}</p>
+              )}
+              {report && report.slots?.customer && (
+                <p><strong>顧客:</strong> {report.slots.customer}</p>
+              )}
+              <p><strong>訪問目的:</strong> {
+                formData.visitPurpose === 'custom'
+                  ? formData.customPurpose
+                  : formData.visitPurpose
+                    ? visitPurposes.find(p => p.value === formData.visitPurpose)?.label || formData.visitPurpose
+                    : '未選択'
+              }</p>
+              <p><strong>達成目標:</strong> {formData.objectives.length > 0 ? formData.objectives.join(', ') : '未設定'}</p>
               {formData.focusPoints.length > 0 && (
                 <p><strong>重点ポイント:</strong> {formData.focusPoints.join(', ')}</p>
               )}
@@ -624,7 +763,7 @@ const ScriptGeneratorPage = () => {
           <Button
             primary
             onClick={handleNext}
-            disabled={loading || (activeStep === 0 && !formData.visitPurpose)}
+            disabled={loading}
           >
             {loading ? (
               <LoadingSpinner />

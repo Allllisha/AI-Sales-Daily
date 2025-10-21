@@ -1905,6 +1905,19 @@ const HomePage = () => {
                                   {report.project && ` / 案件: ${report.project}`}
                                   {isManager && report.user_name && ` (${report.user_name})`}
                                 </ReportInfo>
+                                {report.tags && report.tags.length > 0 && (
+                                  <div style={{ marginTop: 'var(--space-3)' }}>
+                                    <TagList
+                                      tags={report.tags.slice(0, 5)}
+                                      onTagClick={(tag) => {
+                                        const isSelected = selectedTags.some(t => t.id === tag.id);
+                                        if (!isSelected) {
+                                          setSelectedTags([...selectedTags, tag]);
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                )}
                               </ReportCard>
                             ))}
                         </ReportList>

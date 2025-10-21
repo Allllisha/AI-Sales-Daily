@@ -875,40 +875,56 @@ router.post('/', authMiddleware, async (req, res) => {
     // タグの自動抽出と登録（全モード対応：voice, text, meeting, realtime）
     // 質問回答またはスロットデータがあれば実行
     if (questions_answers || slots) {
-      (async () => {
-        try {
-          const { extractTagsFromReport } = require('../services/tagExtractor');
-          const { getOrCreateTag } = require('./tags');
+      try {
+        const { extractTagsFromReport } = require('../services/tagExtractor');
+        const { getOrCreateTag } = require('./tags');
 
-          console.log(`Starting tag extraction for report ${reportId}, mode: ${mode || 'hearing'}`);
+        console.log(`Starting tag extraction for report ${reportId}, mode: ${mode || 'hearing'}`);
 
-          const tags = await extractTagsFromReport({
-            questions_answers,
-            slots,
-            mode: mode || 'hearing'  // モード情報も渡す
-          });
+        const tags = await extractTagsFromReport({
+          questions_answers,
+          slots,
+          mode: mode || 'hearing'  // モード情報も渡す
+        });
 
-          console.log(`Auto-extracted ${tags.length} tags for report ${reportId} (mode: ${mode || 'hearing'})`);
+        console.log(`Auto-extracted ${tags.length} tags for report ${reportId} (mode: ${mode || 'hearing'})`);
 
-          // タグを登録
-          for (const tag of tags) {
-            try {
-              const tagId = await getOrCreateTag(tag.name, tag.category);
-              await pool.query(
-                `INSERT INTO report_tags (report_id, tag_id, auto_generated, confidence)
-                 VALUES ($1, $2, true, $3)
-                 ON CONFLICT (report_id, tag_id) DO NOTHING`,
-                [reportId, tagId, tag.confidence || 0.8]
-              );
-            } catch (tagErr) {
-              console.error(`Error adding tag ${tag.name}:`, tagErr.message);
-            }
+        // タグを登録
+        for (const tag of tags) {
+          try {
+            const tagId = await getOrCreateTag(tag.name, tag.category);
+            await client.query(
+              `INSERT INTO report_tags (report_id, tag_id, auto_generated, confidence)
+               VALUES ($1, $2, true, $3)
+               ON CONFLICT (report_id, tag_id) DO NOTHING`,
+              [reportId, tagId, tag.confidence || 0.8]
+            );
+          } catch (tagErr) {
+            console.error(`Error adding tag ${tag.name}:`, tagErr.message);
           }
-        } catch (extractErr) {
-          console.error('Error extracting tags:', extractErr.message);
-          // タグ抽出のエラーは無視（日報作成自体は成功させる）
         }
-      })();
+      } catch (extractErr) {
+        console.error('Error extracting tags:', extractErr.message);
+        // タグ抽出のエラーは無視（日報作成自体は成功させる）
+      }
+    }
+
+    // AI提案の自動生成
+    try {
+      const { generateSuggestions } = require('../services/suggestionGenerator');
+      console.log(`Generating AI suggestions for report ${reportId}`);
+
+      const suggestions = await generateSuggestions(reportId);
+
+      await client.query(
+        'UPDATE reports SET ai_suggestions = $1 WHERE id = $2',
+        [JSON.stringify(suggestions), reportId]
+      );
+
+      console.log(`AI suggestions generated successfully for report ${reportId}`);
+    } catch (suggestErr) {
+      console.error('Error generating AI suggestions:', suggestErr.message);
+      // AI提案のエラーは無視（日報作成自体は成功させる）
     }
 
     await client.query('COMMIT');
@@ -1329,9 +1345,12 @@ router.post('/:reportId/generate-suggestions', authMiddleware, async (req, res) 
   try {
     const { reportId } = req.params;
 
-    // 日報の所有者確認
+    // 日報の所有者確認 + マネージャー権限確認
     const reportCheck = await pool.query(
-      'SELECT user_id FROM reports WHERE id = $1',
+      `SELECT r.user_id, u.manager_id
+       FROM reports r
+       JOIN users u ON r.user_id = u.id
+       WHERE r.id = $1`,
       [reportId]
     );
 
@@ -1339,7 +1358,11 @@ router.post('/:reportId/generate-suggestions', authMiddleware, async (req, res) 
       return res.status(404).json({ success: false, message: '日報が見つかりません' });
     }
 
-    if (reportCheck.rows[0].user_id !== req.userId) {
+    const reportOwnerId = reportCheck.rows[0].user_id;
+    const reportOwnerManagerId = reportCheck.rows[0].manager_id;
+
+    // 日報の所有者、またはその上司のみがAI提案を生成できる
+    if (reportOwnerId !== req.userId && reportOwnerManagerId !== req.userId) {
       return res.status(403).json({ success: false, message: '権限がありません' });
     }
 

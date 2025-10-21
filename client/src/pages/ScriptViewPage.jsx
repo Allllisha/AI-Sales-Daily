@@ -199,7 +199,7 @@ const TextArea = styled.textarea`
 
 const List = styled.ul`
   list-style: none;
-  padding: 0;
+  padding: 0 0 0 1.5em;
   margin: 0;
 `;
 
@@ -208,19 +208,19 @@ const ListItem = styled.li`
   border-bottom: 2px solid var(--color-border);
   color: var(--color-text-primary);
   line-height: var(--line-height-comfortable);
-  
+  position: relative;
+
   &:last-child {
     border-bottom: none;
   }
-  
+
   &:before {
     content: '•';
     color: var(--color-primary);
     font-weight: bold;
     display: inline-block;
-    width: 1em;
-    margin-left: -1em;
-    margin-right: 0.5em;
+    position: absolute;
+    left: -1.5em;
   }
 `;
 
@@ -373,6 +373,91 @@ const ScriptViewPage = () => {
     }));
   };
 
+  const handleArrayEdit = (section, field, index, value) => {
+    setEditedSections(prev => {
+      const currentArray = prev[section]?.[field] || [];
+      const newArray = [...currentArray];
+      newArray[index] = value;
+      return {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: newArray
+        }
+      };
+    });
+  };
+
+  const handleArrayAdd = (section, field) => {
+    setEditedSections(prev => {
+      const currentArray = prev[section]?.[field] || [];
+      return {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: [...currentArray, '']
+        }
+      };
+    });
+  };
+
+  const handleArrayRemove = (section, field, index) => {
+    setEditedSections(prev => {
+      const currentArray = prev[section]?.[field] || [];
+      const newArray = currentArray.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: newArray
+        }
+      };
+    });
+  };
+
+  const handleObjectEdit = (section, oldKey, newKey, value) => {
+    setEditedSections(prev => {
+      const currentObj = { ...(prev[section] || {}) };
+
+      // If key changed, remove old key and add new key
+      if (oldKey !== newKey && oldKey) {
+        delete currentObj[oldKey];
+      }
+
+      currentObj[newKey] = value;
+
+      return {
+        ...prev,
+        [section]: currentObj
+      };
+    });
+  };
+
+  const handleObjectAdd = (section) => {
+    setEditedSections(prev => {
+      const currentObj = { ...(prev[section] || {}) };
+      // Add empty key-value pair
+      currentObj['新しい反論'] = '';
+
+      return {
+        ...prev,
+        [section]: currentObj
+      };
+    });
+  };
+
+  const handleObjectRemove = (section, key) => {
+    setEditedSections(prev => {
+      const currentObj = { ...(prev[section] || {}) };
+      delete currentObj[key];
+
+      return {
+        ...prev,
+        [section]: currentObj
+      };
+    });
+  };
+
   // 練習モード関連の関数を削除
 
   const renderSection = (sectionKey, sectionData) => {
@@ -403,54 +488,139 @@ const ScriptViewPage = () => {
         )}
 
         {/* 代替案 */}
-        {sectionData.alternatives && sectionData.alternatives.length > 0 && (
+        {(sectionData.alternatives && sectionData.alternatives.length > 0) || editMode ? (
           <div style={{ marginBottom: 'var(--space-3)' }}>
             <h4>トーク案</h4>
-            <List>
-              {sectionData.alternatives.map((alt, index) => (
-                <ListItem key={index}>{alt}</ListItem>
-              ))}
-            </List>
+            {editMode ? (
+              <>
+                {(editedSections[sectionKey]?.alternatives || sectionData.alternatives || []).map((alt, index) => (
+                  <div key={index} style={{ marginBottom: 'var(--space-2)', display: 'flex', gap: 'var(--space-2)' }}>
+                    <TextArea
+                      value={alt}
+                      onChange={(e) => handleArrayEdit(sectionKey, 'alternatives', index, e.target.value)}
+                      rows={2}
+                      style={{ flex: 1 }}
+                    />
+                    <Button onClick={() => handleArrayRemove(sectionKey, 'alternatives', index)} style={{ alignSelf: 'flex-start' }}>
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+                <Button onClick={() => handleArrayAdd(sectionKey, 'alternatives')}>+ 追加</Button>
+              </>
+            ) : (
+              <List>
+                {sectionData.alternatives.map((alt, index) => (
+                  <ListItem key={index}>{alt}</ListItem>
+                ))}
+              </List>
+            )}
           </div>
-        )}
+        ) : null}
 
         {/* キーポイント */}
-        {sectionData.key_points && sectionData.key_points.length > 0 && (
+        {(sectionData.key_points && sectionData.key_points.length > 0) || editMode ? (
           <div style={{ marginBottom: 'var(--space-3)' }}>
             <h4>ポイント</h4>
-            <ChipContainer>
-              {sectionData.key_points.map((point, index) => (
-                <Chip key={index}>{point}</Chip>
-              ))}
-            </ChipContainer>
+            {editMode ? (
+              <>
+                {(editedSections[sectionKey]?.key_points || sectionData.key_points || []).map((point, index) => (
+                  <div key={index} style={{ marginBottom: 'var(--space-2)', display: 'flex', gap: 'var(--space-2)' }}>
+                    <input
+                      type="text"
+                      value={point}
+                      onChange={(e) => handleArrayEdit(sectionKey, 'key_points', index, e.target.value)}
+                      style={{ flex: 1, padding: 'var(--space-2)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-none)' }}
+                    />
+                    <Button onClick={() => handleArrayRemove(sectionKey, 'key_points', index)}>
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+                <Button onClick={() => handleArrayAdd(sectionKey, 'key_points')}>+ 追加</Button>
+              </>
+            ) : (
+              <ChipContainer>
+                {sectionData.key_points.map((point, index) => (
+                  <Chip key={index}>{point}</Chip>
+                ))}
+              </ChipContainer>
+            )}
           </div>
-        )}
+        ) : null}
 
         {/* 質問リスト */}
-        {sectionData.questions && sectionData.questions.length > 0 && (
+        {(sectionData.questions && sectionData.questions.length > 0) || editMode ? (
           <div style={{ marginBottom: 'var(--space-3)' }}>
             <h4>質問例</h4>
-            <List>
-              {sectionData.questions.map((question, index) => (
-                <ListItem key={index}>
-                  Q{index + 1}. {question}
-                </ListItem>
-              ))}
-            </List>
+            {editMode ? (
+              <>
+                {(editedSections[sectionKey]?.questions || sectionData.questions || []).map((question, index) => (
+                  <div key={index} style={{ marginBottom: 'var(--space-2)', display: 'flex', gap: 'var(--space-2)' }}>
+                    <TextArea
+                      value={question}
+                      onChange={(e) => handleArrayEdit(sectionKey, 'questions', index, e.target.value)}
+                      rows={2}
+                      style={{ flex: 1 }}
+                    />
+                    <Button onClick={() => handleArrayRemove(sectionKey, 'questions', index)} style={{ alignSelf: 'flex-start' }}>
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+                <Button onClick={() => handleArrayAdd(sectionKey, 'questions')}>+ 追加</Button>
+              </>
+            ) : (
+              <List>
+                {sectionData.questions.map((question, index) => (
+                  <ListItem key={index}>
+                    Q{index + 1}. {question}
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </div>
-        )}
+        ) : null}
 
         {/* 反論処理の表示 */}
         {sectionKey === 'objection_handling' && (
           <div>
-            {Object.entries(sectionData || {}).map(([objection, response]) => (
-              <div key={objection} style={{ marginBottom: 'var(--space-3)' }}>
-                <Alert type="warning">
-                  <strong>「{objection}」への対応</strong>
-                </Alert>
-                <SectionContent>{response}</SectionContent>
-              </div>
-            ))}
+            {editMode ? (
+              <>
+                {Object.entries(editedSections[sectionKey] || sectionData || {}).map(([objection, response]) => (
+                  <div key={objection} style={{ marginBottom: 'var(--space-3)' }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                      <input
+                        type="text"
+                        value={objection}
+                        onChange={(e) => handleObjectEdit(sectionKey, objection, e.target.value, response)}
+                        placeholder="反論内容"
+                        style={{ flex: 1, padding: 'var(--space-2)', border: '2px solid var(--color-warning)', borderRadius: 'var(--radius-none)', fontWeight: 'bold' }}
+                      />
+                      <Button onClick={() => handleObjectRemove(sectionKey, objection)}>
+                        ✕
+                      </Button>
+                    </div>
+                    <TextArea
+                      value={response}
+                      onChange={(e) => handleObjectEdit(sectionKey, objection, objection, e.target.value)}
+                      rows={3}
+                      placeholder="対応方法"
+                    />
+                  </div>
+                ))}
+                <Button onClick={() => handleObjectAdd(sectionKey)}>+ 反論を追加</Button>
+              </>
+            ) : (
+              Object.entries(sectionData || {}).map(([objection, response]) => (
+                <div key={objection} style={{ marginBottom: 'var(--space-3)' }}>
+                  <Alert type="warning">
+                    <strong>「{objection}」への対応</strong>
+                  </Alert>
+                  <SectionContent>{response}</SectionContent>
+                </div>
+              ))
+            )}
           </div>
         )}
         
@@ -458,40 +628,97 @@ const ScriptViewPage = () => {
         {sectionKey === 'value_proposition' && (
           <>
             {/* メインメリット */}
-            {sectionData.main_benefits && sectionData.main_benefits.length > 0 && (
+            {(sectionData.main_benefits && sectionData.main_benefits.length > 0) || editMode ? (
               <div style={{ marginBottom: 'var(--space-3)' }}>
                 <h4>主要メリット</h4>
-                <List>
-                  {sectionData.main_benefits.map((benefit, index) => (
-                    <ListItem key={index}>{benefit}</ListItem>
-                  ))}
-                </List>
+                {editMode ? (
+                  <>
+                    {(editedSections[sectionKey]?.main_benefits || sectionData.main_benefits || []).map((benefit, index) => (
+                      <div key={index} style={{ marginBottom: 'var(--space-2)', display: 'flex', gap: 'var(--space-2)' }}>
+                        <TextArea
+                          value={benefit}
+                          onChange={(e) => handleArrayEdit(sectionKey, 'main_benefits', index, e.target.value)}
+                          rows={2}
+                          style={{ flex: 1 }}
+                        />
+                        <Button onClick={() => handleArrayRemove(sectionKey, 'main_benefits', index)} style={{ alignSelf: 'flex-start' }}>
+                          ✕
+                        </Button>
+                      </div>
+                    ))}
+                    <Button onClick={() => handleArrayAdd(sectionKey, 'main_benefits')}>+ 追加</Button>
+                  </>
+                ) : (
+                  <List>
+                    {sectionData.main_benefits.map((benefit, index) => (
+                      <ListItem key={index}>{benefit}</ListItem>
+                    ))}
+                  </List>
+                )}
               </div>
-            )}
-            
+            ) : null}
+
             {/* 実績・証明ポイント */}
-            {sectionData.proof_points && sectionData.proof_points.length > 0 && (
+            {(sectionData.proof_points && sectionData.proof_points.length > 0) || editMode ? (
               <div style={{ marginBottom: 'var(--space-3)' }}>
                 <h4>実績・証明</h4>
-                <List>
-                  {sectionData.proof_points.map((proof, index) => (
-                    <ListItem key={index}>{proof}</ListItem>
-                  ))}
-                </List>
+                {editMode ? (
+                  <>
+                    {(editedSections[sectionKey]?.proof_points || sectionData.proof_points || []).map((proof, index) => (
+                      <div key={index} style={{ marginBottom: 'var(--space-2)', display: 'flex', gap: 'var(--space-2)' }}>
+                        <TextArea
+                          value={proof}
+                          onChange={(e) => handleArrayEdit(sectionKey, 'proof_points', index, e.target.value)}
+                          rows={2}
+                          style={{ flex: 1 }}
+                        />
+                        <Button onClick={() => handleArrayRemove(sectionKey, 'proof_points', index)} style={{ alignSelf: 'flex-start' }}>
+                          ✕
+                        </Button>
+                      </div>
+                    ))}
+                    <Button onClick={() => handleArrayAdd(sectionKey, 'proof_points')}>+ 追加</Button>
+                  </>
+                ) : (
+                  <List>
+                    {sectionData.proof_points.map((proof, index) => (
+                      <ListItem key={index}>{proof}</ListItem>
+                    ))}
+                  </List>
+                )}
               </div>
-            )}
-            
+            ) : null}
+
             {/* 差別化ポイント */}
-            {sectionData.differentiators && sectionData.differentiators.length > 0 && (
+            {(sectionData.differentiators && sectionData.differentiators.length > 0) || editMode ? (
               <div style={{ marginBottom: 'var(--space-3)' }}>
                 <h4>差別化ポイント</h4>
-                <List>
-                  {sectionData.differentiators.map((diff, index) => (
-                    <ListItem key={index}>{diff}</ListItem>
-                  ))}
-                </List>
+                {editMode ? (
+                  <>
+                    {(editedSections[sectionKey]?.differentiators || sectionData.differentiators || []).map((diff, index) => (
+                      <div key={index} style={{ marginBottom: 'var(--space-2)', display: 'flex', gap: 'var(--space-2)' }}>
+                        <TextArea
+                          value={diff}
+                          onChange={(e) => handleArrayEdit(sectionKey, 'differentiators', index, e.target.value)}
+                          rows={2}
+                          style={{ flex: 1 }}
+                        />
+                        <Button onClick={() => handleArrayRemove(sectionKey, 'differentiators', index)} style={{ alignSelf: 'flex-start' }}>
+                          ✕
+                        </Button>
+                      </div>
+                    ))}
+                    <Button onClick={() => handleArrayAdd(sectionKey, 'differentiators')}>+ 追加</Button>
+                  </>
+                ) : (
+                  <List>
+                    {sectionData.differentiators.map((diff, index) => (
+                      <ListItem key={index}>{diff}</ListItem>
+                    ))}
+                  </List>
+                )}
               </div>
-            )}
+            ) : null}
           </>
         )}
         
@@ -499,36 +726,68 @@ const ScriptViewPage = () => {
         {sectionKey === 'closing' && (
           <>
             {/* トライアルクローズ */}
-            {sectionData.trial_close && (
+            {sectionData.trial_close || editMode ? (
               <div style={{ marginBottom: 'var(--space-3)' }}>
                 <h4>温度感確認</h4>
-                <SectionContent>{sectionData.trial_close}</SectionContent>
+                {editMode ? (
+                  <TextArea
+                    value={editedSections[sectionKey]?.trial_close || ''}
+                    onChange={(e) => handleSectionEdit(sectionKey, 'trial_close', e.target.value)}
+                    rows={3}
+                  />
+                ) : (
+                  <SectionContent>{sectionData.trial_close}</SectionContent>
+                )}
               </div>
-            )}
-            
+            ) : null}
+
             {/* 次のアクション */}
-            {sectionData.next_action && (
+            {sectionData.next_action || editMode ? (
               <div style={{ marginBottom: 'var(--space-3)' }}>
                 <h4>次のステップ提案</h4>
-                <SectionContent>{sectionData.next_action}</SectionContent>
+                {editMode ? (
+                  <TextArea
+                    value={editedSections[sectionKey]?.next_action || ''}
+                    onChange={(e) => handleSectionEdit(sectionKey, 'next_action', e.target.value)}
+                    rows={3}
+                  />
+                ) : (
+                  <SectionContent>{sectionData.next_action}</SectionContent>
+                )}
               </div>
-            )}
-            
+            ) : null}
+
             {/* コミットメント獲得 */}
-            {sectionData.commitment && (
+            {sectionData.commitment || editMode ? (
               <div style={{ marginBottom: 'var(--space-3)' }}>
                 <h4>コミットメント獲得</h4>
-                <SectionContent>{sectionData.commitment}</SectionContent>
+                {editMode ? (
+                  <TextArea
+                    value={editedSections[sectionKey]?.commitment || ''}
+                    onChange={(e) => handleSectionEdit(sectionKey, 'commitment', e.target.value)}
+                    rows={3}
+                  />
+                ) : (
+                  <SectionContent>{sectionData.commitment}</SectionContent>
+                )}
               </div>
-            )}
-            
+            ) : null}
+
             {/* フォローアップ */}
-            {sectionData.follow_up && (
+            {sectionData.follow_up || editMode ? (
               <div style={{ marginBottom: 'var(--space-3)' }}>
                 <h4>フォローアップ</h4>
-                <SectionContent>{sectionData.follow_up}</SectionContent>
+                {editMode ? (
+                  <TextArea
+                    value={editedSections[sectionKey]?.follow_up || ''}
+                    onChange={(e) => handleSectionEdit(sectionKey, 'follow_up', e.target.value)}
+                    rows={3}
+                  />
+                ) : (
+                  <SectionContent>{sectionData.follow_up}</SectionContent>
+                )}
               </div>
-            )}
+            ) : null}
           </>
         )}
       </Section>
@@ -563,7 +822,6 @@ const ScriptViewPage = () => {
           <Title>営業トークスクリプト</Title>
           <BadgeContainer>
             <Badge>{script.customer}</Badge>
-            <Badge>{script.situation}</Badge>
             <Badge>{script.visit_purpose}</Badge>
           </BadgeContainer>
           

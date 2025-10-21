@@ -43,11 +43,51 @@ async function getAzureToken() {
 }
 
 /**
+ * レート制限エラーかどうかを判定
+ */
+function isRateLimitError(error) {
+  if (error.response?.status === 429) {
+    return true;
+  }
+  const errorMessage = error.message || '';
+  return errorMessage.toLowerCase().includes('rate limit');
+}
+
+/**
+ * 指数バックオフでリトライするラッパー関数
+ */
+async function withRetry(fn, maxRetries = 3) {
+  let lastError;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      if (isRateLimitError(error) && attempt < maxRetries - 1) {
+        // レート制限エラーの場合、指数バックオフで待機
+        const waitTime = Math.pow(2, attempt) * 1000; // 1秒, 2秒, 4秒...
+        console.log(`[Bing Search] Rate limit hit, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      // レート制限以外のエラー、または最後の試行の場合はそのまま投げる
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * Bing Search Agentを使用して企業情報を検索
  * @param {string} companyName - 企業名
  * @returns {Promise<Object>} 検索結果
  */
 async function searchCompanyInfo(companyName) {
+  return withRetry(async () => {
   try {
     console.log('[Bing Search] Searching for:', companyName);
 
@@ -203,18 +243,35 @@ async function searchCompanyInfo(companyName) {
       statusText: error.response?.statusText,
       data: error.response?.data,
       endpoint: AZURE_AI_FOUNDRY_ENDPOINT,
-      hasApiKey: !!AZURE_AI_FOUNDRY_API_KEY
+      hasApiKey: !!AZURE_AI_FOUNDRY_API_KEY,
+      hasCredentials: !!(AZURE_TENANT_ID && AZURE_CLIENT_ID && AZURE_CLIENT_SECRET)
     });
 
-    // より詳細なエラーメッセージを返す
+    // エラーオブジェクトを返す（throwではなくreturn）
+    let errorMessage = '';
     if (error.response?.status === 401) {
-      throw new Error('Azure AI Foundry認証エラー: API キーが無効または期限切れです');
+      errorMessage = 'Azure AI Foundry認証エラー: API キーが無効または期限切れです';
     } else if (error.response?.status === 404) {
-      throw new Error('Azure AI Foundry リソースが見つかりません: エンドポイントまたはエージェントIDを確認してください');
+      errorMessage = 'Azure AI Foundry リソースが見つかりません: エンドポイントまたはエージェントIDを確認してください';
+    } else if (error.response?.status === 403) {
+      errorMessage = 'Azure AI Foundry アクセス拒否: 権限を確認してください';
+    } else if (error.response?.status === 429 || isRateLimitError(error)) {
+      errorMessage = 'Azure AI Foundry レート制限エラー: しばらく待ってから再試行してください';
     } else {
-      throw new Error(`Azure AI Foundry エラー: ${error.message}`);
+      errorMessage = `Azure AI Foundry エラー: ${error.message}`;
     }
+
+    return {
+      success: false,
+      error: errorMessage,
+      details: {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        endpoint: AZURE_AI_FOUNDRY_ENDPOINT
+      }
+    };
   }
+  }, 3); // withRetryで最大3回リトライ
 }
 
 /**

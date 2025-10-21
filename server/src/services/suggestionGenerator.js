@@ -117,7 +117,7 @@ async function getPastReports(userId, customer, project, excludeReportId) {
       LEFT JOIN report_slots rs ON r.id = rs.report_id
       WHERE r.user_id = $1
       AND r.id != $2
-      AND r.status = 'completed'
+      AND r.status IN ('completed', 'draft')
     `;
 
     const params = [userId, excludeReportId];

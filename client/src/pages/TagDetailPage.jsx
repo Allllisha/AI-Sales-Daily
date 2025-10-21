@@ -769,6 +769,139 @@ export default function TagDetailPage() {
                   </div>
                 )}
 
+                {/* 日本語カテゴリ: ステータス */}
+                {related_tags['ステータス'] && related_tags['ステータス'].length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-5)' }}>
+                    <SubSectionTitle>ステータス</SubSectionTitle>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                      {related_tags['ステータス'].map((statusTag) => (
+                        <TopicTag
+                          key={statusTag.id}
+                          color={statusTag.color}
+                          onClick={() => navigate(`/tags/${statusTag.id}`)}
+                        >
+                          {statusTag.name}
+                          <TopicCount>{statusTag.usage_count}回</TopicCount>
+                        </TopicTag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 日本語カテゴリ: 業界 */}
+                {related_tags['業界'] && related_tags['業界'].length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-5)' }}>
+                    <SubSectionTitle>業界</SubSectionTitle>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                      {related_tags['業界'].map((industryTag) => (
+                        <TopicTag
+                          key={industryTag.id}
+                          color={industryTag.color}
+                          onClick={() => navigate(`/tags/${industryTag.id}`)}
+                        >
+                          {industryTag.name}
+                          <TopicCount>{industryTag.usage_count}回</TopicCount>
+                        </TopicTag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 日本語カテゴリ: 規模 */}
+                {related_tags['規模'] && related_tags['規模'].length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-5)' }}>
+                    <SubSectionTitle>規模</SubSectionTitle>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                      {related_tags['規模'].map((scaleTag) => (
+                        <TopicTag
+                          key={scaleTag.id}
+                          color={scaleTag.color}
+                          onClick={() => navigate(`/tags/${scaleTag.id}`)}
+                        >
+                          {scaleTag.name}
+                          <TopicCount>{scaleTag.usage_count}回</TopicCount>
+                        </TopicTag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 日本語カテゴリ: アクション */}
+                {related_tags['アクション'] && related_tags['アクション'].length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-5)' }}>
+                    <SubSectionTitle>アクション</SubSectionTitle>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                      {related_tags['アクション'].map((actionTag) => (
+                        <TopicTag
+                          key={actionTag.id}
+                          color={actionTag.color}
+                          onClick={() => navigate(`/tags/${actionTag.id}`)}
+                        >
+                          {actionTag.name}
+                          <TopicCount>{actionTag.usage_count}回</TopicCount>
+                        </TopicTag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 日本語カテゴリ: フェーズ */}
+                {related_tags['フェーズ'] && related_tags['フェーズ'].length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-5)' }}>
+                    <SubSectionTitle>フェーズ</SubSectionTitle>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                      {related_tags['フェーズ'].map((phaseTag) => (
+                        <TopicTag
+                          key={phaseTag.id}
+                          color={phaseTag.color}
+                          onClick={() => navigate(`/tags/${phaseTag.id}`)}
+                        >
+                          {phaseTag.name}
+                          <TopicCount>{phaseTag.usage_count}回</TopicCount>
+                        </TopicTag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 日本語カテゴリ: 優先度 */}
+                {related_tags['優先度'] && related_tags['優先度'].length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-5)' }}>
+                    <SubSectionTitle>優先度</SubSectionTitle>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                      {related_tags['優先度'].map((priorityTag) => (
+                        <TopicTag
+                          key={priorityTag.id}
+                          color={priorityTag.color}
+                          onClick={() => navigate(`/tags/${priorityTag.id}`)}
+                        >
+                          {priorityTag.name}
+                          <TopicCount>{priorityTag.usage_count}回</TopicCount>
+                        </TopicTag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 日本語カテゴリ: 見込み */}
+                {related_tags['見込み'] && related_tags['見込み'].length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-5)' }}>
+                    <SubSectionTitle>見込み</SubSectionTitle>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                      {related_tags['見込み'].map((prospectTag) => (
+                        <TopicTag
+                          key={prospectTag.id}
+                          color={prospectTag.color}
+                          onClick={() => navigate(`/tags/${prospectTag.id}`)}
+                        >
+                          {prospectTag.name}
+                          <TopicCount>{prospectTag.usage_count}回</TopicCount>
+                        </TopicTag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <HintText>
                   この方との日報で共通してタグ付けされた情報です。次回訪問時の参考にしてください。
                 </HintText>
