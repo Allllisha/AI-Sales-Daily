@@ -590,6 +590,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
 // タグを統合
 router.post('/merge', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
   try {
     const { sourceTagIds, targetTagId } = req.body;
 
@@ -608,14 +609,14 @@ router.post('/merge', authMiddleware, async (req, res) => {
     }
 
     // トランザクション開始
-    await pool.query('BEGIN');
+    await client.query('BEGIN');
 
     try {
       // sourceTagsのreport_tagsをtargetTagIdに更新
       // 重複する場合は無視（ON CONFLICT DO NOTHING）
       for (const sourceTagId of sourceTagIds) {
         // まず、report_tagsを更新
-        await pool.query(
+        await client.query(
           `UPDATE report_tags
            SET tag_id = $1
            WHERE tag_id = $2
@@ -628,7 +629,7 @@ router.post('/merge', authMiddleware, async (req, res) => {
         );
 
         // 重複するreport_tagsを削除
-        await pool.query(
+        await client.query(
           `DELETE FROM report_tags
            WHERE tag_id = $1
              AND report_id IN (
@@ -640,14 +641,14 @@ router.post('/merge', authMiddleware, async (req, res) => {
         );
 
         // sourceTagを削除
-        await pool.query(
+        await client.query(
           'DELETE FROM tags WHERE id = $1',
           [sourceTagId]
         );
       }
 
       // targetTagのusage_countを再計算
-      await pool.query(
+      await client.query(
         `UPDATE tags
          SET usage_count = (
            SELECT COUNT(*) FROM report_tags WHERE tag_id = $1
@@ -656,14 +657,14 @@ router.post('/merge', authMiddleware, async (req, res) => {
         [targetTagId]
       );
 
-      await pool.query('COMMIT');
+      await client.query('COMMIT');
 
       res.json({
         success: true,
         message: 'タグを統合しました'
       });
     } catch (err) {
-      await pool.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw err;
     }
   } catch (error) {
@@ -672,6 +673,8 @@ router.post('/merge', authMiddleware, async (req, res) => {
       success: false,
       message: 'タグの統合に失敗しました'
     });
+  } finally {
+    client.release();
   }
 });
 
