@@ -714,13 +714,7 @@ router.get('/:tagId/detail', authMiddleware, async (req, res) => {
     // 全てのタグカテゴリで関連する全てのタグをカテゴリ別に取得
     let relatedTags = {};
     if (tag.category) {
-      // 自分のカテゴリを除外
-      const excludeCategory = tag.category;
-      const includeCategories = ['company', 'person', 'topic', 'emotion', 'stage', 'industry', 'product']
-        .filter(c => c !== excludeCategory)
-        .map(c => `'${c}'`)
-        .join(', ');
-
+      // 自分のカテゴリを除外して、このタグと共起する他のカテゴリのタグを取得
       const relatedTagsResult = await pool.query(`
         SELECT
           t.id,
@@ -734,27 +728,30 @@ router.get('/:tagId/detail', authMiddleware, async (req, res) => {
         INNER JOIN reports r ON rt1.report_id = r.id
         WHERE rt2.tag_id = $1
           AND t.id != $1
-          AND t.category IN (${includeCategories})
+          AND t.category != $3
           AND ${userFilter}
         GROUP BY t.id, t.name, t.category, t.color
         ORDER BY t.category, usage_count DESC, t.name ASC
-      `, params);
+      `, [...params, tag.category]);
 
-      // カテゴリ別にグループ化
+      // カテゴリ別にグループ化（実際のカテゴリ名を使用）
       const allRelatedTags = relatedTagsResult.rows.map(row => ({
         ...row,
         usage_count: parseInt(row.usage_count)
       }));
 
-      relatedTags = {
-        company: allRelatedTags.filter(t => t.category === 'company').slice(0, 10),
-        person: allRelatedTags.filter(t => t.category === 'person').slice(0, 10),
-        topic: allRelatedTags.filter(t => t.category === 'topic').slice(0, 20),
-        emotion: allRelatedTags.filter(t => t.category === 'emotion').slice(0, 10),
-        stage: allRelatedTags.filter(t => t.category === 'stage').slice(0, 10),
-        industry: allRelatedTags.filter(t => t.category === 'industry').slice(0, 10),
-        product: allRelatedTags.filter(t => t.category === 'product').slice(0, 10)
-      };
+      // カテゴリごとに最大10件に制限
+      const categoriesMap = {};
+      allRelatedTags.forEach(tag => {
+        if (!categoriesMap[tag.category]) {
+          categoriesMap[tag.category] = [];
+        }
+        if (categoriesMap[tag.category].length < 10) {
+          categoriesMap[tag.category].push(tag);
+        }
+      });
+
+      relatedTags = categoriesMap;
     }
 
     res.json({
