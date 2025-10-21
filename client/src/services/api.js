@@ -1,9 +1,8 @@
 import axios from 'axios';
 
 // API Base URL configuration for different environments
-const API_BASE_URL = import.meta.env.PROD 
-  ? (import.meta.env.VITE_API_URL || 'https://salesdaily-api.azurewebsites.net')
-  : ''; // Empty in development to use Vite proxy
+// In production, use relative paths since frontend and API are served from the same domain
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // Debug logging
 if (import.meta.env.DEV) {
