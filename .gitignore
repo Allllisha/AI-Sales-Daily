@@ -54,3 +54,8 @@ webapp_logs/
 
 # Screenshots
 *.png
+
+# Deployment logs
+*.zip
+latest-logs.zip
+app-logs*.zip
