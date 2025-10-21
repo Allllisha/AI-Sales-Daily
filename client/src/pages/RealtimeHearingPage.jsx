@@ -557,9 +557,9 @@ const RealtimeHearingPage = () => {
     initAudioContext();
     
     // WebSocket接続を確立
-    const serverUrl = process.env.NODE_ENV === 'production' 
-      ? 'wss://salesdaily-api.azurewebsites.net'
-      : 'ws://localhost:3002';
+    const serverUrl = process.env.NODE_ENV === 'production'
+      ? 'https://salesdaily-web.azurewebsites.net'
+      : 'http://localhost:3002';
       
     socketRef.current = io(serverUrl, {
       transports: ['websocket'],

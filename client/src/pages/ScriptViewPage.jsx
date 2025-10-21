@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
-import { 
-  FaEdit, FaSave, FaTimes, 
+import {
+  FaEdit, FaSave, FaTimes,
   FaPrint, FaShare, FaClipboardList, FaBullseye,
   FaChartLine, FaExclamationTriangle
 } from 'react-icons/fa';
+import { scriptsAPI } from '../services/api';
 
 const Container = styled.div`
   max-width: 1400px;
@@ -312,24 +313,13 @@ const ScriptViewPage = () => {
 
   const fetchScript = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/scripts/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setScript(data);
-        setEditedSections(data.script_sections || {});
-      } else {
-        toast.error('スクリプトの取得に失敗しました');
-        navigate('/');
-      }
+      const data = await scriptsAPI.getScript(id);
+      setScript(data);
+      setEditedSections(data.script_sections || {});
     } catch (error) {
       console.error('Error fetching script:', error);
       toast.error('スクリプトの取得に失敗しました');
+      navigate('/');
     } finally {
       setLoading(false);
     }
@@ -337,26 +327,12 @@ const ScriptViewPage = () => {
 
   const handleSave = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/scripts/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          script_sections: editedSections
-        })
+      const updatedScript = await scriptsAPI.updateScript(id, {
+        script_sections: editedSections
       });
-
-      if (response.ok) {
-        const updatedScript = await response.json();
-        setScript(updatedScript);
-        setEditMode(false);
-        toast.success('スクリプトを保存しました');
-      } else {
-        toast.error('スクリプトの更新に失敗しました');
-      }
+      setScript(updatedScript);
+      setEditMode(false);
+      toast.success('スクリプトを保存しました');
     } catch (error) {
       console.error('Error updating script:', error);
       toast.error('スクリプトの更新に失敗しました');

@@ -22,6 +22,9 @@ RUN npm ci --only=production
 # Copy server source code
 COPY server/ .
 
+# Remove local .env files to ensure production uses environment variables
+RUN rm -f .env .env.local .env.development
+
 # Copy frontend build from previous stage
 COPY --from=frontend-build /frontend/dist ./client/dist
 

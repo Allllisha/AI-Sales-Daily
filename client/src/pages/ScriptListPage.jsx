@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  FaRobot, 
-  FaEdit, 
-  FaEye, 
-  FaTrash, 
-  FaStar, 
+import {
+  FaRobot,
+  FaEdit,
+  FaEye,
+  FaTrash,
+  FaStar,
   FaCopy,
   FaFilter,
   FaSearch,
@@ -19,6 +19,7 @@ import {
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { scriptsAPI } from '../services/api';
 
 const Container = styled.div`
   max-width: 1400px;
@@ -622,20 +623,9 @@ const ScriptListPage = () => {
 
   const fetchScripts = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/scripts?limit=100', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setScripts(data);
-        calculateStats(data);
-      } else {
-        toast.error('スクリプトの取得に失敗しました');
-      }
+      const data = await scriptsAPI.getScripts({ limit: 100 });
+      setScripts(data);
+      calculateStats(data);
     } catch (error) {
       console.error('Error fetching scripts:', error);
       toast.error('スクリプトの取得に失敗しました');
@@ -694,24 +684,13 @@ const ScriptListPage = () => {
 
   const toggleFavorite = async (scriptId, currentState) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/scripts/${scriptId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          is_favorite: !currentState
-        })
+      await scriptsAPI.updateScript(scriptId, {
+        is_favorite: !currentState
       });
-
-      if (response.ok) {
-        setScripts(scripts.map(s => 
-          s.id === scriptId ? { ...s, is_favorite: !currentState } : s
-        ));
-        toast.success(!currentState ? 'お気に入りに追加しました' : 'お気に入りから削除しました');
-      }
+      setScripts(scripts.map(s =>
+        s.id === scriptId ? { ...s, is_favorite: !currentState } : s
+      ));
+      toast.success(!currentState ? 'お気に入りに追加しました' : 'お気に入りから削除しました');
     } catch (error) {
       console.error('Error toggling favorite:', error);
       toast.error('お気に入りの更新に失敗しました');
@@ -729,19 +708,10 @@ const ScriptListPage = () => {
   const deleteScript = async () => {
     const { scriptId } = deleteModal;
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/scripts/${scriptId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        setScripts(scripts.filter(s => s.id !== scriptId));
-        toast.success('スクリプトを削除しました');
-        closeDeleteModal();
-      }
+      await scriptsAPI.deleteScript(scriptId);
+      setScripts(scripts.filter(s => s.id !== scriptId));
+      toast.success('スクリプトを削除しました');
+      closeDeleteModal();
     } catch (error) {
       console.error('Error deleting script:', error);
       toast.error('スクリプトの削除に失敗しました');
@@ -787,25 +757,14 @@ const ScriptListPage = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/scripts/${scriptId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          script_name: scriptName.trim()
-        })
+      await scriptsAPI.updateScript(scriptId, {
+        script_name: scriptName.trim()
       });
-
-      if (response.ok) {
-        setScripts(scripts.map(s =>
-          s.id === scriptId ? { ...s, script_name: scriptName.trim() } : s
-        ));
-        toast.success('スクリプト名を更新しました');
-        closeEditModal();
-      }
+      setScripts(scripts.map(s =>
+        s.id === scriptId ? { ...s, script_name: scriptName.trim() } : s
+      ));
+      toast.success('スクリプト名を更新しました');
+      closeEditModal();
     } catch (error) {
       console.error('Error updating script name:', error);
       toast.error('スクリプト名の更新に失敗しました');

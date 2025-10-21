@@ -23,7 +23,10 @@ const signalrService = require('./config/signalr');
 const { swaggerUi, specs } = require('./config/swagger');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || process.env.WEBSITES_PORT || 3001;
+
+// Trust proxy for Azure App Service
+app.set('trust proxy', true);
 
 // Socket.io setup
 const { createServer } = require('http');
@@ -84,7 +87,23 @@ app.use(cors({
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === 'development' ? 2000 : 1000, // 本番環境でも1000リクエスト/15分
-  message: 'リクエストが多すぎます。しばらくしてからお試しください。'
+  message: 'リクエストが多すぎます。しばらくしてからお試しください。',
+  // Azure App Service用のカスタムキー生成
+  keyGenerator: (req) => {
+    // X-Forwarded-Forヘッダーから最初のIPアドレスを取得
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      const ips = forwarded.split(',');
+      return ips[0].trim();
+    }
+    // フォールバック: req.ipを使用（ポート番号を除去）
+    return (req.ip || 'unknown').split(':')[0];
+  },
+  // trust proxyの検証を無効化（Azureでは必須）
+  validate: {
+    trustProxy: false,
+    xForwardedForHeader: false
+  }
 });
 app.use('/api/', limiter);
 

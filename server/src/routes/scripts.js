@@ -11,54 +11,123 @@ router.post('/generate', requireAuth, async (req, res) => {
     body: req.body
   });
   try {
-    const { reportId, visitPurpose, objectives, focusPoints } = req.body;
+    const { reportId, customer, visitPurpose, objectives, focusPoints } = req.body;
     const userId = req.userId;
 
-    // 関連する日報データを取得（マネージャーの場合は部下の日報も含める）
-    let reportQuery = `
-      SELECT r.*, u.name as user_name,
-             rs.customer, rs.project, rs.next_action, rs.issues,
-             rs.budget, rs.schedule, rs.participants, rs.location
-      FROM reports r
-      JOIN users u ON r.user_id = u.id
-      LEFT JOIN report_slots rs ON r.id = rs.report_id
-      WHERE r.id = $1 AND (r.user_id = $2 OR r.user_id IN (
-        SELECT id FROM users WHERE manager_id = $2
-      ))
-    `;
-    const reportResult = await pool.query(reportQuery, [reportId, userId]);
+    let report = null;
+    let history = { visit_count: 0, success_rate: 0 };
 
-    if (reportResult.rows.length === 0) {
-      return res.status(404).json({
-        error: '日報が見つかりません',
-        details: `reportId: ${reportId}, userId: ${userId}`,
-        message: 'この日報にアクセスする権限がないか、日報が存在しません'
+    // reportIdがある場合：特定の日報からスクリプト生成
+    if (reportId) {
+      // 関連する日報データを取得（マネージャーの場合は部下の日報も含める）
+      let reportQuery = `
+        SELECT r.*, u.name as user_name,
+               rs.customer, rs.project, rs.next_action, rs.issues,
+               rs.budget, rs.schedule, rs.participants, rs.location
+        FROM reports r
+        JOIN users u ON r.user_id = u.id
+        LEFT JOIN report_slots rs ON r.id = rs.report_id
+        WHERE r.id = $1 AND (r.user_id = $2 OR r.user_id IN (
+          SELECT id FROM users WHERE manager_id = $2
+        ))
+      `;
+      const reportResult = await pool.query(reportQuery, [reportId, userId]);
+
+      if (reportResult.rows.length === 0) {
+        return res.status(404).json({
+          error: '日報が見つかりません',
+          details: `reportId: ${reportId}, userId: ${userId}`,
+          message: 'この日報にアクセスする権限がないか、日報が存在しません'
+        });
+      }
+
+      report = reportResult.rows[0];
+
+      // 日報のQ&A内容を取得
+      const qaQuery = `
+        SELECT question, answer, timestamp, order_index
+        FROM report_qa
+        WHERE report_id = $1
+        ORDER BY order_index, created_at
+      `;
+      const qaResult = await pool.query(qaQuery, [reportId]);
+      report.qa_content = qaResult.rows;
+
+      // 過去の顧客履歴を取得（日報作成者のユーザーIDで取得）
+      const historyQuery = `
+        SELECT
+          COUNT(DISTINCT r.id) as visit_count,
+          AVG(CASE WHEN r.status = 'completed' THEN 100 ELSE 0 END) as success_rate
+        FROM reports r
+        LEFT JOIN report_slots rs ON r.id = rs.report_id
+        WHERE r.user_id = $1 AND rs.customer = $2
+      `;
+      const historyResult = await pool.query(historyQuery, [report.user_id, report.customer || '']);
+      history = historyResult.rows[0];
+    }
+    // reportIdがない場合：顧客名だけでスクリプト生成
+    else if (customer) {
+      // 顧客に関する最新の日報を取得
+      const latestReportQuery = `
+        SELECT r.*, u.name as user_name,
+               rs.customer, rs.project, rs.next_action, rs.issues,
+               rs.budget, rs.schedule, rs.participants, rs.location
+        FROM reports r
+        JOIN users u ON r.user_id = u.id
+        LEFT JOIN report_slots rs ON r.id = rs.report_id
+        WHERE rs.customer = $1 AND r.user_id = $2
+        ORDER BY r.report_date DESC
+        LIMIT 1
+      `;
+      const latestReportResult = await pool.query(latestReportQuery, [customer, userId]);
+
+      if (latestReportResult.rows.length > 0) {
+        report = latestReportResult.rows[0];
+
+        // 日報のQ&A内容を取得
+        const qaQuery = `
+          SELECT question, answer, timestamp, order_index
+          FROM report_qa
+          WHERE report_id = $1
+          ORDER BY order_index, created_at
+        `;
+        const qaResult = await pool.query(qaQuery, [report.id]);
+        report.qa_content = qaResult.rows;
+      } else {
+        // 日報がない場合、最小限の情報で新規作成
+        report = {
+          customer: customer,
+          project: null,
+          next_action: null,
+          issues: null,
+          budget: null,
+          schedule: null,
+          participants: null,
+          location: null,
+          user_id: userId,
+          qa_content: []
+        };
+      }
+
+      // 過去の顧客履歴を取得
+      const historyQuery = `
+        SELECT
+          COUNT(DISTINCT r.id) as visit_count,
+          AVG(CASE WHEN r.status = 'completed' THEN 100 ELSE 0 END) as success_rate
+        FROM reports r
+        LEFT JOIN report_slots rs ON r.id = rs.report_id
+        WHERE r.user_id = $1 AND rs.customer = $2
+      `;
+      const historyResult = await pool.query(historyQuery, [userId, customer]);
+      history = historyResult.rows[0];
+    }
+    // reportIdもcustomerもない場合
+    else {
+      return res.status(400).json({
+        error: 'reportIdまたはcustomerが必要です',
+        message: 'スクリプトを生成するにはreportIdまたはcustomerを指定してください'
       });
     }
-
-    const report = reportResult.rows[0];
-
-    // 日報のQ&A内容を取得
-    const qaQuery = `
-      SELECT question, answer, timestamp, order_index
-      FROM report_qa
-      WHERE report_id = $1
-      ORDER BY order_index, created_at
-    `;
-    const qaResult = await pool.query(qaQuery, [reportId]);
-    report.qa_content = qaResult.rows;
-
-    // 過去の顧客履歴を取得（日報作成者のユーザーIDで取得）
-    const historyQuery = `
-      SELECT
-        COUNT(DISTINCT r.id) as visit_count,
-        AVG(CASE WHEN r.status = 'completed' THEN 100 ELSE 0 END) as success_rate
-      FROM reports r
-      LEFT JOIN report_slots rs ON r.id = rs.report_id
-      WHERE r.user_id = $1 AND rs.customer = $2
-    `;
-    const historyResult = await pool.query(historyQuery, [report.user_id, report.customer || '']);
-    const history = historyResult.rows[0];
 
     // AIでスクリプトを生成
     const scriptSections = await generateScriptWithAI(report, history, visitPurpose, objectives, focusPoints);
@@ -82,7 +151,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     ].filter(Boolean);
 
     const values = [
-      reportId,
+      reportId || null, // reportIdがない場合はnull
       userId,
       report.customer,
       determineStage(history.visit_count),

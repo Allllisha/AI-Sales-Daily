@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import styled from '@emotion/styled';
 import toast from 'react-hot-toast';
 import { FaRobot, FaCheckCircle, FaArrowRight, FaArrowLeft, FaClipboardList } from 'react-icons/fa';
+import { scriptsAPI } from '../services/api';
 
 const Container = styled.div`
   max-width: 1400px;
@@ -485,24 +486,10 @@ const ScriptGeneratorPage = () => {
         requestBody.customer = formData.customer;
       }
 
-      const response = await fetch('/api/scripts/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (response.ok) {
-        const script = await response.json();
-        toast.success('スクリプトが生成されました！');
-        // 直接スクリプト表示画面へ遷移
-        navigate(`/scripts/${script.id}`);
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || 'スクリプト生成に失敗しました');
-      }
+      const script = await scriptsAPI.generate(requestBody);
+      toast.success('スクリプトが生成されました！');
+      // 直接スクリプト表示画面へ遷移
+      navigate(`/scripts/${script.id}`);
     } catch (error) {
       console.error('Error generating script:', error);
       toast.error('スクリプト生成中にエラーが発生しました');

@@ -12,9 +12,9 @@ if (process.env.DATABASE_URL) {
     min: 2, // 最小接続数を設定
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 60000, // 60秒に延長（Azure環境での接続を考慮）
-    query_timeout: 30000,
-    statement_timeout: 30000,
-    idle_in_transaction_session_timeout: 30000,
+    query_timeout: 120000, // 120秒に延長（AI処理のため）
+    statement_timeout: 120000, // 120秒に延長（AI処理のため）
+    idle_in_transaction_session_timeout: 60000, // 60秒に延長
     keepAlive: true, // TCP keep-aliveを有効化
     keepAliveInitialDelayMillis: 10000 // 10秒後にkeep-alive開始
   };

@@ -94,19 +94,52 @@ az webapp config container set \
 
 # 10. 環境変数設定
 echo -e "\n${YELLOW}10. 環境変数を設定...${NC}"
-echo -e "${RED}重要: .env.dockerファイルから実際の値を設定してください${NC}"
 
-# 必須の環境変数を設定（実際の値に置き換えてください）
-az webapp config appsettings set --name $WEB_APP_NAME --resource-group $RESOURCE_GROUP --settings \
-    PORT=3002 \
-    NODE_ENV=production \
-    JWT_SECRET="${JWT_SECRET:-your_jwt_secret_here}" \
-    DATABASE_URL="${DATABASE_URL:-your_database_url_here}" \
-    REDIS_URL="${REDIS_URL:-your_redis_url_here}" \
-    AZURE_OPENAI_API_KEY="${AZURE_OPENAI_API_KEY:-your_openai_key_here}" \
-    AZURE_OPENAI_ENDPOINT="${AZURE_OPENAI_ENDPOINT:-your_openai_endpoint_here}" \
-    AZURE_OPENAI_DEPLOYMENT_NAME="${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-4o}" \
-    AZURE_SIGNALR_CONNECTION_STRING="${AZURE_SIGNALR_CONNECTION_STRING:-your_signalr_connection_here}"
+# Load .env.production if it exists
+if [ -f .env.production ]; then
+    echo -e "${GREEN}.env.productionから環境変数を読み込んでいます...${NC}"
+    source .env.production
+else
+    echo -e "${RED}警告: .env.productionファイルが見つかりません${NC}"
+    echo -e "${YELLOW}.env.production.templateを参考に作成してください${NC}"
+fi
+
+# 必須の環境変数を設定
+az webapp config appsettings set --name $WEB_APP_NAME --resource-group $RESOURCE_GROUP --settings WEBSITES_PORT=3001 NODE_ENV=production
+
+# Database URL
+if [ ! -z "$DATABASE_URL" ]; then
+    az webapp config appsettings set --name $WEB_APP_NAME --resource-group $RESOURCE_GROUP --settings DATABASE_URL="$DATABASE_URL"
+fi
+
+# JWT Secret
+if [ ! -z "$JWT_SECRET" ]; then
+    az webapp config appsettings set --name $WEB_APP_NAME --resource-group $RESOURCE_GROUP --settings JWT_SECRET="$JWT_SECRET"
+fi
+
+# Azure OpenAI
+if [ ! -z "$AZURE_OPENAI_API_KEY" ]; then
+    az webapp config appsettings set --name $WEB_APP_NAME --resource-group $RESOURCE_GROUP --settings \
+        AZURE_OPENAI_API_KEY="$AZURE_OPENAI_API_KEY" \
+        AZURE_OPENAI_ENDPOINT="$AZURE_OPENAI_ENDPOINT" \
+        AZURE_OPENAI_API_VERSION="${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}" \
+        AZURE_OPENAI_DEPLOYMENT_NAME="${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-4o}"
+fi
+
+# Redis
+if [ ! -z "$REDIS_URL" ]; then
+    az webapp config appsettings set --name $WEB_APP_NAME --resource-group $RESOURCE_GROUP --settings REDIS_URL="$REDIS_URL"
+fi
+
+# Azure AI Foundry (Optional)
+if [ ! -z "$AZURE_AI_FOUNDRY_ENDPOINT" ]; then
+    az webapp config appsettings set --name $WEB_APP_NAME --resource-group $RESOURCE_GROUP --settings \
+        AZURE_AI_FOUNDRY_ENDPOINT="$AZURE_AI_FOUNDRY_ENDPOINT" \
+        AZURE_BING_SEARCH_AGENT_ID="$AZURE_BING_SEARCH_AGENT_ID" \
+        AZURE_TENANT_ID="$AZURE_TENANT_ID" \
+        AZURE_CLIENT_ID="$AZURE_CLIENT_ID" \
+        AZURE_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+fi
 
 # 11. WebSocketサポート有効化（SignalR用）
 echo -e "\n${YELLOW}11. WebSocketを有効化...${NC}"

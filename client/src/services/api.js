@@ -474,4 +474,28 @@ export const crmIntegrationAPI = {
   }
 };
 
+// トークスクリプトAPI
+export const scriptsAPI = {
+  generate: async (data) => {
+    const response = await api.post('/api/scripts/generate', data);
+    return response.data;
+  },
+  getScripts: async (params) => {
+    const response = await api.get('/api/scripts', { params });
+    return response.data;
+  },
+  getScript: async (id) => {
+    const response = await api.get(`/api/scripts/${id}`);
+    return response.data;
+  },
+  updateScript: async (id, data) => {
+    const response = await api.put(`/api/scripts/${id}`, data);
+    return response.data;
+  },
+  deleteScript: async (id) => {
+    const response = await api.delete(`/api/scripts/${id}`);
+    return response.data;
+  }
+};
+
 export default api;
