@@ -143,6 +143,11 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
   customSiteTitle: 'にっぽ係長 API Documentation',
 }));
 
+// Serve static files from React app (for production)
+const path = require('path');
+const clientBuildPath = path.join(__dirname, '..', '..', 'client', 'dist');
+console.log('Client build path:', clientBuildPath);
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
@@ -159,6 +164,20 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/crm-integration', crmIntegrationRoutes);
 app.use('/api/crm-auth', crmAuthRoutes);
 app.use('/api/realtime', realtimeRoutes);
+
+// Serve static files from React build (must be after API routes)
+const fs = require('fs');
+if (fs.existsSync(clientBuildPath)) {
+  console.log('Serving static files from:', clientBuildPath);
+  app.use(express.static(clientBuildPath));
+
+  // Handle client-side routing - serve index.html for all non-API routes
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+} else {
+  console.warn('Client build directory not found:', clientBuildPath);
+}
 
 // Error handling middleware
 app.use(errorHandler);

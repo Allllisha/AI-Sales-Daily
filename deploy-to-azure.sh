@@ -46,13 +46,13 @@ az acr login --name $ACR_NAME
 # 5. Docker イメージのビルド
 echo -e "\n${YELLOW}5. Docker イメージをビルド...${NC}"
 
-# APIサーバー（リアルタイムAPI含む）
-echo -e "${GREEN}APIサーバーイメージをビルド中...${NC}"
-docker build -t salesdaily-api:latest ./server
+# APIサーバー（リアルタイムAPI含む）- フロントエンドも含む統合イメージ
+echo -e "${GREEN}統合イメージ（API+フロントエンド）をビルド中...${NC}"
+docker build --platform linux/amd64 -t salesdaily-api:latest -f ./server/Dockerfile .
 
-# フロントエンド
+# フロントエンド（スタンドアロン用）
 echo -e "${GREEN}フロントエンドイメージをビルド中...${NC}"
-docker build -t salesdaily-frontend:latest ./client
+docker build --platform linux/amd64 -t salesdaily-frontend:latest ./client
 
 # 6. タグ付け
 echo -e "\n${YELLOW}6. イメージにタグ付け...${NC}"

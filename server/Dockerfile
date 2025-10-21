@@ -1,15 +1,27 @@
+# Build frontend
+FROM node:20-alpine AS frontend-build
+WORKDIR /frontend
+COPY client/package*.json ./
+RUN npm ci
+COPY client/ .
+RUN npm run build
+
+# Build backend
 FROM node:20-alpine
 
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY server/package*.json ./
 
-# Install all dependencies (including @azure/web-pubsub for SignalR)
+# Install dependencies
 RUN npm ci --only=production
 
-# Copy source code
-COPY . .
+# Copy server source code
+COPY server/ .
+
+# Copy frontend build from previous stage
+COPY --from=frontend-build /frontend/dist ./client/dist
 
 # Expose port
 EXPOSE 3001
