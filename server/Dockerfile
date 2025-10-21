@@ -4,6 +4,8 @@ WORKDIR /frontend
 COPY client/package*.json ./
 RUN npm ci
 COPY client/ .
+# Remove local .env files to ensure production build uses only .env.production
+RUN rm -f .env .env.local
 RUN npm run build
 
 # Build backend
