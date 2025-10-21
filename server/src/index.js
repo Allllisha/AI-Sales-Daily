@@ -145,7 +145,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
 
 // Serve static files from React app (for production)
 const path = require('path');
-const clientBuildPath = path.join(__dirname, '..', '..', 'client', 'dist');
+// In Docker: /app/client/dist, In local: ../client/dist
+const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
 console.log('Client build path:', clientBuildPath);
 
 // API routes
