@@ -19,7 +19,6 @@ dist/
 .env.production.local
 .env.production
 .env.docker
-client/.env.production
 
 # Logs
 npm-debug.log*
