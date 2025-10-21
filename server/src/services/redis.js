@@ -26,15 +26,18 @@ const initRedis = async () => {
         rejectUnauthorized: false // Azure Redis Cacheのための設定
       } : undefined,
       lazyConnect: false,
-      enableOfflineQueue: false,
-      keepAlive: 10000, // 10秒ごとにキープアライブ
-      connectTimeout: 30000, // 接続タイムアウト30秒に延長
-      commandTimeout: 5000, // コマンドタイムアウト5秒
+      enableOfflineQueue: true, // オフラインキューを有効化してコマンドを保持
+      keepAlive: 30000, // 30秒ごとにキープアライブ（Azure Redisのタイムアウトを考慮）
+      connectTimeout: 30000, // 接続タイムアウト30秒
+      commandTimeout: 10000, // コマンドタイムアウト10秒に延長
       enableReadyCheck: true, // 接続確認を有効化
+      autoResubscribe: true, // 自動的にサブスクリプションを再登録
+      autoResendUnfulfilledCommands: true, // 未完了のコマンドを自動的に再送信
       reconnectOnError: (err) => {
-        const targetError = 'READONLY';
-        if (err.message.includes(targetError)) {
-          // レプリカへの接続時はtrueを返して再接続
+        // ECONNRESET、READONLY、その他の一時的なエラーで再接続
+        const reconnectErrors = ['READONLY', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND'];
+        if (reconnectErrors.some(errorType => err.message.includes(errorType) || err.code === errorType)) {
+          console.log('Redis: Reconnecting due to error:', err.code || err.message);
           return true;
         }
         return false;
@@ -42,7 +45,12 @@ const initRedis = async () => {
     });
 
     client.on('error', (err) => {
-      console.error('Redis error:', err.message);
+      // ECONNRESETやその他の接続エラーを詳細にログ
+      if (err.code === 'ECONNRESET') {
+        console.error('Redis connection reset - will attempt to reconnect');
+      } else {
+        console.error('Redis error:', err.code || err.message);
+      }
     });
 
     client.on('connect', () => {
@@ -53,19 +61,45 @@ const initRedis = async () => {
       console.log('Redis Client Ready');
     });
 
-    // 接続が確立されるまで待つ
-    await new Promise((resolve, reject) => {
-      if (client.status === 'ready') {
-        resolve();
-      } else {
-        client.once('ready', resolve);
-        client.once('error', reject);
-        setTimeout(() => reject(new Error('Redis connection timeout')), 5000);
-      }
+    client.on('close', () => {
+      console.log('Redis connection closed - reconnecting...');
     });
 
-    await client.ping();
-    console.log('Redis connection successful');
+    client.on('reconnecting', (delay) => {
+      console.log(`Redis reconnecting in ${delay}ms`);
+    });
+
+    client.on('end', () => {
+      console.log('Redis connection ended');
+    });
+
+    // 接続が確立されるまで待つ（タイムアウトを延長し、失敗時は続行）
+    try {
+      await new Promise((resolve, reject) => {
+        if (client.status === 'ready') {
+          resolve();
+        } else {
+          client.once('ready', resolve);
+          client.once('error', reject);
+          setTimeout(() => reject(new Error('Redis connection timeout')), 10000); // 10秒に延長
+        }
+      });
+
+      await client.ping();
+      console.log('Redis connection successful');
+    } catch (connectionError) {
+      console.warn('Redis connection failed:', connectionError.message);
+      console.warn('Redis connection failed - using in-memory storage');
+      if (client) {
+        try {
+          client.disconnect(false); // false = do not wait for pending replies
+        } catch (disconnectError) {
+          // Ignore disconnect errors
+        }
+      }
+      client = null;
+      return null;
+    }
     
     // 定期的にpingを送信して接続を維持
     setInterval(async () => {
@@ -91,105 +125,133 @@ const initRedis = async () => {
 // メモリフォールバック（Redisが利用できない場合）
 const memoryCache = new Map();
 
+// 一時的なエラーかどうかを判定
+const isTransientError = (error) => {
+  const transientCodes = ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED'];
+  return transientCodes.includes(error.code) || error.message.includes('READONLY');
+};
+
+// リトライ付きでRedis操作を実行
+const executeWithRetry = async (operation, fallback, maxRetries = 2) => {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (client && (client.status === 'ready' || client.status === 'connecting')) {
+        return await operation();
+      }
+      // clientが存在しないか、状態が不適切な場合はフォールバック
+      return fallback();
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries;
+      if (isTransientError(error) && !isLastAttempt) {
+        // 一時的なエラーの場合は短時間待機して再試行
+        console.log(`Redis operation retry ${attempt + 1}/${maxRetries} due to ${error.code}`);
+        await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+        continue;
+      }
+      // 永続的なエラーまたは最後の試行の場合はフォールバック
+      console.error('Redis operation error:', error.code || error.message);
+      return fallback();
+    }
+  }
+};
+
 const redisWrapper = {
   async get(key) {
-    try {
-      if (client && client.status === 'ready') {
-        return await client.get(key);
-      }
-    } catch (error) {
-      console.error('Redis get error:', error.message);
-    }
-    return memoryCache.get(key);
+    return executeWithRetry(
+      () => client.get(key),
+      () => memoryCache.get(key)
+    );
   },
 
   async set(key, value, options = {}) {
-    try {
-      if (client && client.status === 'ready') {
+    return executeWithRetry(
+      async () => {
         if (options.EX) {
           return await client.setex(key, options.EX, value);
         }
         return await client.set(key, value);
+      },
+      () => {
+        memoryCache.set(key, value);
+        if (options.EX) {
+          setTimeout(() => memoryCache.delete(key), options.EX * 1000);
+        }
+        return 'OK';
       }
-    } catch (error) {
-      console.error('Redis set error:', error.message);
-    }
-    memoryCache.set(key, value);
-    if (options.EX) {
-      setTimeout(() => memoryCache.delete(key), options.EX * 1000);
-    }
-    return 'OK';
+    );
   },
 
   async del(key) {
-    try {
-      if (client && client.status === 'ready') {
-        return await client.del(key);
-      }
-    } catch (error) {
-      console.error('Redis del error:', error.message);
-    }
-    return memoryCache.delete(key) ? 1 : 0;
+    return executeWithRetry(
+      () => client.del(key),
+      () => memoryCache.delete(key) ? 1 : 0
+    );
   },
 
   async exists(key) {
-    try {
-      if (client && client.status === 'ready') {
-        return await client.exists(key);
-      }
-    } catch (error) {
-      console.error('Redis exists error:', error.message);
-    }
-    return memoryCache.has(key) ? 1 : 0;
+    return executeWithRetry(
+      () => client.exists(key),
+      () => memoryCache.has(key) ? 1 : 0
+    );
   },
 
   async hSet(key, field, value) {
-    if (client && client.status === 'ready') {
-      return await client.hSet(key, field, value);
-    }
-    if (!memoryCache.has(key)) {
-      memoryCache.set(key, new Map());
-    }
-    memoryCache.get(key).set(field, value);
-    return 1;
+    return executeWithRetry(
+      () => client.hSet(key, field, value),
+      () => {
+        if (!memoryCache.has(key)) {
+          memoryCache.set(key, new Map());
+        }
+        memoryCache.get(key).set(field, value);
+        return 1;
+      }
+    );
   },
 
   async hGet(key, field) {
-    if (client && client.status === 'ready') {
-      return await client.hGet(key, field);
-    }
-    const hash = memoryCache.get(key);
-    return hash ? hash.get(field) : null;
+    return executeWithRetry(
+      () => client.hGet(key, field),
+      () => {
+        const hash = memoryCache.get(key);
+        return hash ? hash.get(field) : null;
+      }
+    );
   },
 
   async hGetAll(key) {
-    if (client && client.status === 'ready') {
-      return await client.hGetAll(key);
-    }
-    const hash = memoryCache.get(key);
-    if (!hash) return {};
-    const obj = {};
-    for (const [field, value] of hash) {
-      obj[field] = value;
-    }
-    return obj;
+    return executeWithRetry(
+      () => client.hGetAll(key),
+      () => {
+        const hash = memoryCache.get(key);
+        if (!hash) return {};
+        const obj = {};
+        for (const [field, value] of hash) {
+          obj[field] = value;
+        }
+        return obj;
+      }
+    );
   },
 
   async expire(key, seconds) {
-    if (client && client.status === 'ready') {
-      return await client.expire(key, seconds);
-    }
-    setTimeout(() => memoryCache.delete(key), seconds * 1000);
-    return 1;
+    return executeWithRetry(
+      () => client.expire(key, seconds),
+      () => {
+        setTimeout(() => memoryCache.delete(key), seconds * 1000);
+        return 1;
+      }
+    );
   },
 
   async setex(key, seconds, value) {
-    if (client && client.status === 'ready') {
-      return await client.setex(key, seconds, value);
-    }
-    memoryCache.set(key, value);
-    setTimeout(() => memoryCache.delete(key), seconds * 1000);
-    return 'OK';
+    return executeWithRetry(
+      () => client.setex(key, seconds, value),
+      () => {
+        memoryCache.set(key, value);
+        setTimeout(() => memoryCache.delete(key), seconds * 1000);
+        return 'OK';
+      }
+    );
   }
 };
 
