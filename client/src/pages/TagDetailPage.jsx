@@ -553,8 +553,8 @@ export default function TagDetailPage() {
         <TopBar>
           <BackButton onClick={() => navigate(-1)}>← 戻る</BackButton>
           <ActionButtons>
-            {/* 企業タグの場合のみWeb情報取得ボタンを表示 */}
-            {tag.category === 'company' && (
+            {/* 企業タグ・人物タグの場合Web情報取得ボタンを表示 */}
+            {(tag.category === 'company' || tag.category === 'person') && (
               <>
                 {!web_info ? (
                   // Web情報がない場合：取得ボタンのみ
@@ -955,10 +955,10 @@ export default function TagDetailPage() {
           </Card>
         )}
 
-        {/* 企業情報（企業タグの場合のみ表示） */}
-        {tag.category === 'company' && (
+        {/* 企業情報・人物情報（企業タグ・人物タグの場合のみ表示） */}
+        {(tag.category === 'company' || tag.category === 'person') && (
           <Card>
-            <CardTitle>企業情報</CardTitle>
+            <CardTitle>{tag.category === 'company' ? '企業情報' : '人物情報'}</CardTitle>
             {web_info?.company_info ? (
               <Section>
                 <CompanyInfo
@@ -979,15 +979,15 @@ export default function TagDetailPage() {
             ) : (
               <EmptyState>
                 Web情報がありません<br />
-                「Web情報を取得」ボタンで企業情報を取得できます
+                「Web情報を取得」ボタンで{tag.category === 'company' ? '企業情報' : '人物情報'}を取得できます
             </EmptyState>
           )}
           </Card>
         )}
       </Grid>
 
-      {/* 最新ニュース（企業タグの場合のみ表示） */}
-      {tag.category === 'company' && web_info?.latest_news && Array.isArray(web_info.latest_news) && web_info.latest_news.length > 0 && (
+      {/* 最新ニュース（企業タグ・人物タグの場合のみ表示） */}
+      {(tag.category === 'company' || tag.category === 'person') && web_info?.latest_news && Array.isArray(web_info.latest_news) && web_info.latest_news.length > 0 && (
         <Card style={{ marginBottom: 'var(--space-6)' }}>
           <CardTitle>最新ニュース</CardTitle>
           <Section>
@@ -1028,8 +1028,8 @@ export default function TagDetailPage() {
         </Card>
       )}
 
-      {/* 最近の取り組み・注目トピック（企業タグの場合のみ表示） */}
-      {tag.category === 'company' && web_info?.recent_topics && Array.isArray(web_info.recent_topics) && web_info.recent_topics.length > 0 && (
+      {/* 最近の取り組み・注目トピック（企業タグ・人物タグの場合のみ表示） */}
+      {(tag.category === 'company' || tag.category === 'person') && web_info?.recent_topics && Array.isArray(web_info.recent_topics) && web_info.recent_topics.length > 0 && (
         <Card style={{ marginBottom: 'var(--space-6)' }}>
           <CardTitle>最近の取り組み・注目トピック</CardTitle>
           <Section>

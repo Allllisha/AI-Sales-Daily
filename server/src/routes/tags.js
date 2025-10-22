@@ -863,12 +863,12 @@ router.post('/:tagId/fetch-info', authMiddleware, async (req, res) => {
 
     const tag = tagResult.rows[0];
 
-    // 企業タグでない場合はエラーを返す
-    if (tag.category !== 'company') {
+    // 企業タグまたは人物タグでない場合はエラーを返す
+    if (tag.category !== 'company' && tag.category !== 'person') {
       return res.status(400).json({
         success: false,
-        error: 'Web情報の取得は企業タグのみ対応しています',
-        message: `タグのカテゴリが「${tag.category}」のため、Web情報を取得できません。企業タグを選択してください。`
+        error: 'Web情報の取得は企業タグまたは人物タグのみ対応しています',
+        message: `タグのカテゴリが「${tag.category}」のため、Web情報を取得できません。企業タグまたは人物タグを選択してください。`
       });
     }
 
