@@ -23,13 +23,15 @@ const initRedis = async () => {
         return delay;
       },
       tls: redisUrl.includes('ssl=true') ? {
-        rejectUnauthorized: false // Azure Redis Cacheのための設定
+        rejectUnauthorized: false, // Azure Redis Cacheのための設定
+        servername: 'salesdaily-redis.redis.cache.windows.net' // SNI対応
       } : undefined,
       lazyConnect: false,
       enableOfflineQueue: true, // オフラインキューを有効化してコマンドを保持
-      keepAlive: 30000, // 30秒ごとにキープアライブ（Azure Redisのタイムアウトを考慮）
+      keepAlive: 15000, // 15秒ごとにTCPキープアライブ（Azure Redisのアイドルタイムアウト対策）
       connectTimeout: 30000, // 接続タイムアウト30秒
       commandTimeout: 10000, // コマンドタイムアウト10秒に延長
+      family: 4, // IPv4を優先（Azure Redis Cacheとの互換性）
       enableReadyCheck: true, // 接続確認を有効化
       autoResubscribe: true, // 自動的にサブスクリプションを再登録
       autoResendUnfulfilledCommands: true, // 未完了のコマンドを自動的に再送信
@@ -45,9 +47,12 @@ const initRedis = async () => {
     });
 
     client.on('error', (err) => {
-      // ECONNRESETやその他の接続エラーを詳細にログ
+      // ECONNRESETは自動再接続されるため、警告レベルで記録
       if (err.code === 'ECONNRESET') {
-        console.error('Redis connection reset - will attempt to reconnect');
+        // Azure Redis Cacheでは頻繁に発生するが、自動再接続されるため問題なし
+        console.log('Redis connection reset (will auto-reconnect)');
+      } else if (err.code === 'ETIMEDOUT' || err.code === 'ENOTFOUND') {
+        console.warn('Redis connection issue:', err.code);
       } else {
         console.error('Redis error:', err.code || err.message);
       }
@@ -101,16 +106,17 @@ const initRedis = async () => {
       return null;
     }
     
-    // 定期的にpingを送信して接続を維持
+    // 定期的にpingを送信して接続を維持（Azure Redis Cacheのアイドルタイムアウト対策）
     setInterval(async () => {
       if (client && client.status === 'ready') {
         try {
           await client.ping();
         } catch (err) {
-          console.error('Redis ping failed:', err.message);
+          // pingの失敗は通常の接続エラーハンドリングで処理されるため、ログレベルを下げる
+          console.log('Redis ping failed (will auto-reconnect):', err.message);
         }
       }
-    }, 30000); // 30秒ごとにping
+    }, 15000); // 15秒ごとにping（Azure Redis Cacheのアイドルタイムアウトを防ぐ）
     
   } catch (error) {
     console.error('Failed to connect to Redis:', error.message);
