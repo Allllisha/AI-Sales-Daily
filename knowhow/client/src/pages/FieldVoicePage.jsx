@@ -764,7 +764,6 @@ const FieldVoicePage = () => {
   const sendingRef = useRef(false);
   const conversingRef = useRef(false);
   const audioRef = useRef(null);
-  const audioElRef = useRef(null); // 事前確保したAudio要素（iOS autoplay対策）
   const responseAreaRef = useRef(null);
   const speakingTextRef = useRef(''); // AIが今読み上げ中のテキスト（エコー安全ネット用）
   const audioContextRef = useRef(null);
@@ -883,12 +882,11 @@ const FieldVoicePage = () => {
           return;
         }
 
-        // SpeechRecognitionはspeakResponse開始時に既に起動済み（beginListening）
-        // エコーフィルタがAI音声を弾き、ユーザーの声だけを認識中
-        // → ここで再起動すると話し始めを逃すので呼ばない
+        // ユーザーの割り込みを検知 → SpeechRecognitionを起動
+        beginListening();
 
         // エコーフィルタ用テキストを少し残してからクリア（残響対策）
-        setTimeout(() => { speakingTextRef.current = ''; }, 1000);
+        setTimeout(() => { speakingTextRef.current = ''; }, 2000);
       }
     }, 100);
   };
@@ -910,6 +908,20 @@ const FieldVoicePage = () => {
     const normAI = normalize(aiText);
     if (!normRec || normRec.length < 2) return false;
     if (normAI.includes(normRec)) return true;
+
+    // 短いフレーズ（10文字未満）はスライディングウィンドウで部分一致チェック
+    if (normRec.length < 10 && normAI.length >= normRec.length) {
+      for (let i = 0; i <= normAI.length - normRec.length; i++) {
+        const window = normAI.slice(i, i + normRec.length);
+        let diff = 0;
+        for (let j = 0; j < normRec.length; j++) {
+          if (normRec[j] !== window[j]) diff++;
+        }
+        // 1〜2文字の違いなら同一とみなす
+        if (diff <= Math.max(1, Math.floor(normRec.length * 0.3))) return true;
+      }
+    }
+
     // 3文字n-gram類似度
     const ngram = (str, n) => {
       const grams = new Set();
@@ -921,7 +933,7 @@ const FieldVoicePage = () => {
     if (rGrams.size === 0) return false;
     let m = 0;
     for (const g of rGrams) { if (aGrams.has(g)) m++; }
-    return (m / rGrams.size) >= 0.35;
+    return (m / rGrams.size) >= 0.25;
   };
 
   // messagesが更新されたらrefも同期（stale closure対策）
@@ -1050,7 +1062,9 @@ const FieldVoicePage = () => {
     }
     if (audioRef.current) {
       audioRef.current.pause();
-      // srcをリセットせず、次回再利用時に新しいsrcを設定
+      if (audioRef.current._ctx) {
+        audioRef.current._ctx.close().catch(() => {});
+      }
       audioRef.current = null;
     }
     if ('speechSynthesis' in window) {
@@ -1111,7 +1125,7 @@ const FieldVoicePage = () => {
       // ユーザーが話し始めたらAI音声を割り込み停止
       if (currentText.trim()) {
         stopSpeaking();
-        speakingTextRef.current = ''; // 割り込み後はエコー判定をリセット
+        // speakingTextRefはクリアしない（エコーフィルタを維持、タイムアウトで自動クリア）
       }
 
       resetSilenceTimer();
@@ -1244,105 +1258,40 @@ const FieldVoicePage = () => {
     }
   };
 
-  // iOS Safari autoplay対策: ユーザージェスチャ内でAudio要素を事前確保・アンロック
-  const unlockAudio = () => {
-    if (!audioElRef.current) {
-      const el = new Audio();
-      el.setAttribute('playsinline', '');
-      audioElRef.current = el;
-    }
-    // 無音を再生してオーディオコンテキストをアンロック
-    const el = audioElRef.current;
-    el.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-    const p = el.play();
-    if (p) p.catch(() => {});
-  };
-
   // AI読み上げ（読み上げ中はVADで割り込み検知、終了後にSpeechRecognition開始）
   const speakResponse = async (plainText) => {
     setIsSpeaking(true);
     speakingTextRef.current = plainText;
 
     const onFinished = () => {
-      speakingTextRef.current = '';
       setIsSpeaking(false);
       stopVAD();
 
       // 会話終了フラグが立っている場合 → 挨拶後に自動停止
       if (shouldEndRef.current) {
         shouldEndRef.current = false;
+        speakingTextRef.current = '';
         stopConversation(true);
         return;
       }
 
-      // SpeechRecognitionはspeakResponse開始時に既に起動済み
-      // 割り込みがなかった場合でもそのまま継続（エコーフィルタは上でクリア済み）
-      // recognitionが動いていない場合のみ起動（フォールバック）
+      // speakingTextRefは遅延クリア（TTS終了直後の残響エコー対策）
+      setTimeout(() => { speakingTextRef.current = ''; }, 2000);
+
+      // VAD割り込みでrecognitionが既に動いている場合は再起動しない
       if (conversingRef.current && !sendingRef.current && !recognitionRef.current) {
         beginListening();
       }
     };
 
-    // AI読み上げ中はVADで音量監視（割り込み検知用）+ SpeechRecognitionも事前起動
-    // エコーフィルタがAI音声を弾き、ユーザーの割り込み時は既に動いているrecognitionが即座に拾う
+    // AI読み上げ中はVADで音量監視のみ（割り込み検知用）
+    // SpeechRecognitionはTTS中に起動しない（エコー防止）
+    // VADがユーザー音声を検知した場合、またはTTS終了後にbeginListeningで起動する
     if (conversingRef.current) {
       startVAD();
-      beginListening();
     }
 
-    try {
-      const audioBlob = await speechAPI.synthesize(plainText);
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      // 事前確保したAudio要素を再利用（iOS autoplay制限回避）
-      const audio = audioElRef.current || new Audio();
-      audioElRef.current = audio;
-      audioRef.current = audio;
-
-      // 前回のイベントリスナーをクリーンアップ
-      audio.onended = null;
-      audio.onerror = null;
-
-      let prevUrl = null;
-      if (audio.src && audio.src.startsWith('blob:')) {
-        prevUrl = audio.src;
-      }
-
-      audio.src = audioUrl;
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
-        audioRef.current = null;
-        onFinished();
-      };
-      audio.onerror = () => {
-        URL.revokeObjectURL(audioUrl);
-        audioRef.current = null;
-        onFinished();
-      };
-
-      if (prevUrl) URL.revokeObjectURL(prevUrl);
-
-      try {
-        await audio.play();
-      } catch (playError) {
-        console.warn('Audio.play() blocked (autoplay policy), falling back to browser TTS:', playError);
-        URL.revokeObjectURL(audioUrl);
-        audioRef.current = null;
-        // フォールバック: ブラウザ内蔵TTS
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(plainText);
-          utterance.lang = 'ja-JP';
-          utterance.rate = 0.9;
-          utterance.onend = onFinished;
-          utterance.onerror = onFinished;
-          speechSynthesis.speak(utterance);
-        } else {
-          onFinished();
-        }
-        return;
-      }
-    } catch (ttsError) {
-      console.warn('Azure TTS failed, falling back to browser TTS:', ttsError);
+    const fallbackToBrowserTTS = () => {
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(plainText);
         utterance.lang = 'ja-JP';
@@ -1353,6 +1302,29 @@ const FieldVoicePage = () => {
       } else {
         onFinished();
       }
+    };
+
+    try {
+      const audioBlob = await speechAPI.synthesize(plainText);
+      const arrayBuffer = await audioBlob.arrayBuffer();
+
+      // Web Audio APIでデコード→再生（blob: URLを使わないのでCSPに影響されない）
+      const playCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuffer = await playCtx.decodeAudioData(arrayBuffer);
+      const source = playCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(playCtx.destination);
+      audioRef.current = { pause: () => { try { source.stop(); } catch(e){} }, _ctx: playCtx };
+      source.onended = () => {
+        audioRef.current = null;
+        playCtx.close().catch(() => {});
+        onFinished();
+      };
+      source.start();
+    } catch (ttsError) {
+      console.warn('Azure TTS failed, falling back to browser TTS:', ttsError);
+      audioRef.current = null;
+      fallbackToBrowserTTS();
     }
   };
 
@@ -1474,9 +1446,6 @@ const FieldVoicePage = () => {
       toast.error('音声入力に対応していないブラウザです');
       return;
     }
-
-    // iOS Safari autoplay対策: ユーザージェスチャ内でAudioをアンロック
-    unlockAudio();
 
     await setupMicStream();
 
@@ -1744,12 +1713,6 @@ const FieldVoicePage = () => {
       }
       if (audioRef.current) {
         audioRef.current.pause();
-      }
-      // 事前確保したAudio要素も解放
-      if (audioElRef.current) {
-        audioElRef.current.pause();
-        audioElRef.current.src = '';
-        audioElRef.current = null;
       }
       if ('speechSynthesis' in window) {
         speechSynthesis.cancel();
