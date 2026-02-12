@@ -100,6 +100,10 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+    - name: Clear startup command override
+      run: |
+        az webapp config set --name ${{ secrets.AZURE_WEBAPP_NAME_API }} --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --startup-file ""
+
     - name: Deploy API to Azure Web App
       uses: azure/webapps-deploy@v3
       with:

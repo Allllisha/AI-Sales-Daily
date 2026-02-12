@@ -1,21 +1,7 @@
 -- ノウハウ共有AI音声アシスタント - データベーススキーマ
 
--- Drop existing tables if they exist
-DROP TABLE IF EXISTS usage_logs CASCADE;
-DROP TABLE IF EXISTS voice_session_messages CASCADE;
-DROP TABLE IF EXISTS voice_sessions CASCADE;
-DROP TABLE IF EXISTS checklist_execution_items CASCADE;
-DROP TABLE IF EXISTS checklist_executions CASCADE;
-DROP TABLE IF EXISTS checklist_items CASCADE;
-DROP TABLE IF EXISTS checklists CASCADE;
-DROP TABLE IF EXISTS incident_cases CASCADE;
-DROP TABLE IF EXISTS knowledge_tags CASCADE;
-DROP TABLE IF EXISTS knowledge_items CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS sites CASCADE;
-
 -- Create sites table
-CREATE TABLE sites (
+CREATE TABLE IF NOT EXISTS sites (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     location VARCHAR(500),
@@ -26,7 +12,7 @@ CREATE TABLE sites (
 );
 
 -- Create users table
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -40,7 +26,7 @@ CREATE TABLE users (
 );
 
 -- Create knowledge_items table
-CREATE TABLE knowledge_items (
+CREATE TABLE IF NOT EXISTS knowledge_items (
     id SERIAL PRIMARY KEY,
     title VARCHAR(500) NOT NULL,
     content TEXT NOT NULL,
@@ -61,7 +47,7 @@ CREATE TABLE knowledge_items (
 );
 
 -- Create knowledge_tags table
-CREATE TABLE knowledge_tags (
+CREATE TABLE IF NOT EXISTS knowledge_tags (
     id SERIAL PRIMARY KEY,
     knowledge_id INTEGER NOT NULL REFERENCES knowledge_items(id) ON DELETE CASCADE,
     tag_name VARCHAR(100) NOT NULL,
@@ -69,7 +55,7 @@ CREATE TABLE knowledge_tags (
 );
 
 -- Create incident_cases table
-CREATE TABLE incident_cases (
+CREATE TABLE IF NOT EXISTS incident_cases (
     id SERIAL PRIMARY KEY,
     title VARCHAR(500) NOT NULL,
     description TEXT NOT NULL,
@@ -85,7 +71,7 @@ CREATE TABLE incident_cases (
 );
 
 -- Create checklists table
-CREATE TABLE checklists (
+CREATE TABLE IF NOT EXISTS checklists (
     id SERIAL PRIMARY KEY,
     name VARCHAR(500) NOT NULL,
     work_type VARCHAR(255),
@@ -96,7 +82,7 @@ CREATE TABLE checklists (
 );
 
 -- Create checklist_items table
-CREATE TABLE checklist_items (
+CREATE TABLE IF NOT EXISTS checklist_items (
     id SERIAL PRIMARY KEY,
     checklist_id INTEGER NOT NULL REFERENCES checklists(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
@@ -107,7 +93,7 @@ CREATE TABLE checklist_items (
 );
 
 -- Create voice_sessions table
-CREATE TABLE voice_sessions (
+CREATE TABLE IF NOT EXISTS voice_sessions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
     mode VARCHAR(50) NOT NULL DEFAULT 'office' CHECK (mode IN ('office', 'field')),
@@ -120,7 +106,7 @@ CREATE TABLE voice_sessions (
 );
 
 -- Create voice_session_messages table
-CREATE TABLE voice_session_messages (
+CREATE TABLE IF NOT EXISTS voice_session_messages (
     id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL REFERENCES voice_sessions(id) ON DELETE CASCADE,
     role VARCHAR(50) NOT NULL CHECK (role IN ('user', 'assistant')),
@@ -133,7 +119,7 @@ CREATE TABLE voice_session_messages (
 );
 
 -- Create usage_logs table
-CREATE TABLE usage_logs (
+CREATE TABLE IF NOT EXISTS usage_logs (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
     knowledge_id INTEGER REFERENCES knowledge_items(id),
@@ -144,62 +130,8 @@ CREATE TABLE usage_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_site_id ON users(site_id);
-CREATE INDEX idx_users_manager_id ON users(manager_id);
-
-CREATE INDEX idx_knowledge_items_category ON knowledge_items(category);
-CREATE INDEX idx_knowledge_items_work_type ON knowledge_items(work_type);
-CREATE INDEX idx_knowledge_items_status ON knowledge_items(status);
-CREATE INDEX idx_knowledge_items_author_id ON knowledge_items(author_id);
-CREATE INDEX idx_knowledge_items_risk_level ON knowledge_items(risk_level);
-
-CREATE INDEX idx_knowledge_tags_knowledge_id ON knowledge_tags(knowledge_id);
-CREATE INDEX idx_knowledge_tags_tag_name ON knowledge_tags(tag_name);
-
-CREATE INDEX idx_incident_cases_work_type ON incident_cases(work_type);
-CREATE INDEX idx_incident_cases_severity ON incident_cases(severity);
-CREATE INDEX idx_incident_cases_site_id ON incident_cases(site_id);
-
-CREATE INDEX idx_checklists_work_type ON checklists(work_type);
-
-CREATE INDEX idx_voice_sessions_user_id ON voice_sessions(user_id);
-CREATE INDEX idx_voice_sessions_status ON voice_sessions(status);
-
-CREATE INDEX idx_voice_session_messages_session_id ON voice_session_messages(session_id);
-
-CREATE INDEX idx_usage_logs_user_id ON usage_logs(user_id);
-CREATE INDEX idx_usage_logs_action_type ON usage_logs(action_type);
-CREATE INDEX idx_usage_logs_created_at ON usage_logs(created_at);
-
--- Create update timestamp trigger
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_sites_updated_at BEFORE UPDATE ON sites
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_knowledge_items_updated_at BEFORE UPDATE ON knowledge_items
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_incident_cases_updated_at BEFORE UPDATE ON incident_cases
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_checklists_updated_at BEFORE UPDATE ON checklists
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 -- チェックリスト実行記録
-CREATE TABLE checklist_executions (
+CREATE TABLE IF NOT EXISTS checklist_executions (
     id SERIAL PRIMARY KEY,
     checklist_id INTEGER NOT NULL REFERENCES checklists(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id),
@@ -212,7 +144,7 @@ CREATE TABLE checklist_executions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE checklist_execution_items (
+CREATE TABLE IF NOT EXISTS checklist_execution_items (
     id SERIAL PRIMARY KEY,
     execution_id INTEGER NOT NULL REFERENCES checklist_executions(id) ON DELETE CASCADE,
     checklist_item_id INTEGER REFERENCES checklist_items(id),
@@ -222,5 +154,64 @@ CREATE TABLE checklist_execution_items (
     note TEXT
 );
 
-CREATE INDEX idx_checklist_executions_checklist_id ON checklist_executions(checklist_id);
-CREATE INDEX idx_checklist_executions_user_id ON checklist_executions(user_id);
+-- Create indexes (IF NOT EXISTS)
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_site_id ON users(site_id);
+CREATE INDEX IF NOT EXISTS idx_users_manager_id ON users(manager_id);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_items_category ON knowledge_items(category);
+CREATE INDEX IF NOT EXISTS idx_knowledge_items_work_type ON knowledge_items(work_type);
+CREATE INDEX IF NOT EXISTS idx_knowledge_items_status ON knowledge_items(status);
+CREATE INDEX IF NOT EXISTS idx_knowledge_items_author_id ON knowledge_items(author_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_items_risk_level ON knowledge_items(risk_level);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_tags_knowledge_id ON knowledge_tags(knowledge_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_tags_tag_name ON knowledge_tags(tag_name);
+
+CREATE INDEX IF NOT EXISTS idx_incident_cases_work_type ON incident_cases(work_type);
+CREATE INDEX IF NOT EXISTS idx_incident_cases_severity ON incident_cases(severity);
+CREATE INDEX IF NOT EXISTS idx_incident_cases_site_id ON incident_cases(site_id);
+
+CREATE INDEX IF NOT EXISTS idx_checklists_work_type ON checklists(work_type);
+
+CREATE INDEX IF NOT EXISTS idx_voice_sessions_user_id ON voice_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_voice_sessions_status ON voice_sessions(status);
+
+CREATE INDEX IF NOT EXISTS idx_voice_session_messages_session_id ON voice_session_messages(session_id);
+
+CREATE INDEX IF NOT EXISTS idx_usage_logs_user_id ON usage_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_action_type ON usage_logs(action_type);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_created_at ON usage_logs(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_executions_checklist_id ON checklist_executions(checklist_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_executions_user_id ON checklist_executions(user_id);
+
+-- Create update timestamp trigger
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sites_updated_at ON sites;
+CREATE TRIGGER update_sites_updated_at BEFORE UPDATE ON sites
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_knowledge_items_updated_at ON knowledge_items;
+CREATE TRIGGER update_knowledge_items_updated_at BEFORE UPDATE ON knowledge_items
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_incident_cases_updated_at ON incident_cases;
+CREATE TRIGGER update_incident_cases_updated_at BEFORE UPDATE ON incident_cases
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_checklists_updated_at ON checklists;
+CREATE TRIGGER update_checklists_updated_at BEFORE UPDATE ON checklists
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
