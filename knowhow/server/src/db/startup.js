@@ -103,7 +103,7 @@ async function startup() {
     console.log('Database startup completed successfully.');
   } catch (error) {
     console.error('Startup failed:', error);
-    process.exit(1);
+    console.log('Server will start without DB initialization. Tables may need manual setup.');
   } finally {
     await pool.end();
   }

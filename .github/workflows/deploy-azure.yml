@@ -106,11 +106,11 @@ jobs:
         app-name: ${{ secrets.AZURE_WEBAPP_NAME_API }}
         images: ${{ secrets.ACR_LOGIN_SERVER }}/knowhow-api:${{ github.sha }}
 
-    - name: Run database migrations
+    - name: Set startup command
       uses: azure/webapps-deploy@v3
       with:
         app-name: ${{ secrets.AZURE_WEBAPP_NAME_API }}
-        startup-command: 'npm run db:migrate && npm start'
+        startup-command: 'npm run db:startup && npm start'
 
   # --- Deploy Client ---
   deploy-client:

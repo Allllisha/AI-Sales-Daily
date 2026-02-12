@@ -15,7 +15,7 @@ async function migrate() {
     console.log('Database migration completed successfully!');
   } catch (error) {
     console.error('Migration failed:', error);
-    process.exit(1);
+    console.log('Migration failed but server will continue starting.');
   } finally {
     await pool.end();
   }
