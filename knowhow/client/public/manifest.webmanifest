@@ -1,0 +1,18 @@
+{
+  "name": "現場のミカタ - ナレッジ共有AIアシスタント",
+  "short_name": "現場のミカタ",
+  "description": "建設・土木現場向けAIナレッジ共有アシスタント",
+  "theme_color": "#1B5E20",
+  "background_color": "#FAFAFA",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "knowhow-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
