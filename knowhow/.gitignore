@@ -18,8 +18,6 @@ dist/
 .env.test.local
 .env.production.local
 .env.production
-knowhow/.env
-knowhow/.env.docker
 .env.docker
 
 # Logs
@@ -27,6 +25,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+server/*.log
 
 # Editor directories and files
 .idea
@@ -44,23 +43,10 @@ lerna-debug.log*
 # Temporary files
 *.tmp
 *.temp
-.cache/.env.docker
 
 # Test files with secrets
 server/test-*.js
-server/bing-raw-response.txt
 
 # Deployment logs
 webapp_logs/
-LogFiles/
-**/LogFiles/
-deployments/
-**/deployments/
-
-# Screenshots
-*.png
-
-# Deployment logs
 *.zip
-latest-logs.zip
-app-logs*.zip

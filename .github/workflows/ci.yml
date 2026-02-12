@@ -1,0 +1,66 @@
+name: Knowhow CI Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'knowhow/**'
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: |
+          knowhow/server/package-lock.json
+          knowhow/client/package-lock.json
+
+    - name: Install server dependencies
+      run: |
+        cd knowhow/server
+        npm ci
+
+    - name: Lint server
+      run: |
+        cd knowhow/server
+        npx eslint src/ --ext .js || true
+
+    - name: Install client dependencies
+      run: |
+        cd knowhow/client
+        npm ci
+
+    - name: Lint client
+      run: |
+        cd knowhow/client
+        npm run lint
+
+    - name: Build client
+      run: |
+        cd knowhow/client
+        npm run build
+
+  docker-build-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build API Docker image (check only)
+      run: |
+        docker build -f knowhow/server/Dockerfile --target development -t knowhow-api:test knowhow/server/
+
+    - name: Build Client Docker image (check only)
+      run: |
+        docker build -f knowhow/client/Dockerfile --target development -t knowhow-client:test knowhow/client/

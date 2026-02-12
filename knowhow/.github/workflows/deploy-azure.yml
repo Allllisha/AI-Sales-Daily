@@ -1,14 +1,14 @@
-name: Deploy Knowhow to Azure
+name: Deploy to Azure
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'knowhow/server/**'
-      - 'knowhow/client/**'
-      - 'knowhow/docker-compose.prod.yml'
-      - 'knowhow/nginx.conf'
+      - 'server/**'
+      - 'client/**'
+      - 'docker-compose.prod.yml'
+      - 'nginx.conf'
       - '.github/workflows/deploy-azure.yml'
   workflow_dispatch:
 
@@ -29,18 +29,18 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
         cache-dependency-path: |
-          knowhow/server/package-lock.json
-          knowhow/client/package-lock.json
+          server/package-lock.json
+          client/package-lock.json
 
     - name: Install and lint server
       run: |
-        cd knowhow/server
+        cd server
         npm ci
         npx eslint src/ --ext .js || true
 
     - name: Install, lint, and build client
       run: |
-        cd knowhow/client
+        cd client
         npm ci
         npm run lint || true
         npm run build
@@ -68,24 +68,24 @@ jobs:
     - name: Build and push API image
       run: |
         docker build \
-          -f knowhow/server/Dockerfile \
+          -f server/Dockerfile \
           --target production \
           -t ${{ secrets.ACR_LOGIN_SERVER }}/knowhow-api:${{ github.sha }} \
           -t ${{ secrets.ACR_LOGIN_SERVER }}/knowhow-api:latest \
-          knowhow/
+          .
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/knowhow-api:${{ github.sha }}
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/knowhow-api:latest
 
     - name: Build and push Client image
       run: |
         docker build \
-          -f knowhow/client/Dockerfile \
+          -f client/Dockerfile \
           --target production \
           --build-arg VITE_API_URL=${{ secrets.APP_SERVICE_API_URL }} \
           --build-arg VITE_WS_URL=${{ secrets.APP_SERVICE_WS_URL }} \
           -t ${{ secrets.ACR_LOGIN_SERVER }}/knowhow-client:${{ github.sha }} \
           -t ${{ secrets.ACR_LOGIN_SERVER }}/knowhow-client:latest \
-          knowhow/client/
+          client/
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/knowhow-client:${{ github.sha }}
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/knowhow-client:latest
 
