@@ -52,6 +52,10 @@ server/bing-raw-response.txt
 
 # Deployment logs
 webapp_logs/
+LogFiles/
+**/LogFiles/
+deployments/
+**/deployments/
 
 # Screenshots
 *.png
