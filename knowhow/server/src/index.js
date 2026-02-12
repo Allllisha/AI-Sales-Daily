@@ -105,7 +105,18 @@ app.options('*', cors());
 // Security middleware (after CORS to avoid header conflicts)
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  crossOriginOpenerPolicy: false
+  crossOriginOpenerPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      mediaSrc: ["'self'", "blob:"],
+      connectSrc: ["'self'", "https://*.microsoft.com", "https://*.azure.com", "wss:", "ws:"],
+      workerSrc: ["'self'", "blob:"],
+    }
+  }
 }));
 app.use(compression());
 

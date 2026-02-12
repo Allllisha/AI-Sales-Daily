@@ -764,6 +764,7 @@ const FieldVoicePage = () => {
   const sendingRef = useRef(false);
   const conversingRef = useRef(false);
   const audioRef = useRef(null);
+  const audioElRef = useRef(null); // 事前確保したAudio要素（iOS autoplay対策）
   const responseAreaRef = useRef(null);
   const speakingTextRef = useRef(''); // AIが今読み上げ中のテキスト（エコー安全ネット用）
   const audioContextRef = useRef(null);
@@ -1049,7 +1050,7 @@ const FieldVoicePage = () => {
     }
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      // srcをリセットせず、次回再利用時に新しいsrcを設定
       audioRef.current = null;
     }
     if ('speechSynthesis' in window) {
@@ -1243,6 +1244,20 @@ const FieldVoicePage = () => {
     }
   };
 
+  // iOS Safari autoplay対策: ユーザージェスチャ内でAudio要素を事前確保・アンロック
+  const unlockAudio = () => {
+    if (!audioElRef.current) {
+      const el = new Audio();
+      el.setAttribute('playsinline', '');
+      audioElRef.current = el;
+    }
+    // 無音を再生してオーディオコンテキストをアンロック
+    const el = audioElRef.current;
+    el.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    const p = el.play();
+    if (p) p.catch(() => {});
+  };
+
   // AI読み上げ（読み上げ中はVADで割り込み検知、終了後にSpeechRecognition開始）
   const speakResponse = async (plainText) => {
     setIsSpeaking(true);
@@ -1278,8 +1293,22 @@ const FieldVoicePage = () => {
     try {
       const audioBlob = await speechAPI.synthesize(plainText);
       const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
+
+      // 事前確保したAudio要素を再利用（iOS autoplay制限回避）
+      const audio = audioElRef.current || new Audio();
+      audioElRef.current = audio;
       audioRef.current = audio;
+
+      // 前回のイベントリスナーをクリーンアップ
+      audio.onended = null;
+      audio.onerror = null;
+
+      let prevUrl = null;
+      if (audio.src && audio.src.startsWith('blob:')) {
+        prevUrl = audio.src;
+      }
+
+      audio.src = audioUrl;
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
         audioRef.current = null;
@@ -1290,7 +1319,28 @@ const FieldVoicePage = () => {
         audioRef.current = null;
         onFinished();
       };
-      audio.play();
+
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+
+      try {
+        await audio.play();
+      } catch (playError) {
+        console.warn('Audio.play() blocked (autoplay policy), falling back to browser TTS:', playError);
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+        // フォールバック: ブラウザ内蔵TTS
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(plainText);
+          utterance.lang = 'ja-JP';
+          utterance.rate = 0.9;
+          utterance.onend = onFinished;
+          utterance.onerror = onFinished;
+          speechSynthesis.speak(utterance);
+        } else {
+          onFinished();
+        }
+        return;
+      }
     } catch (ttsError) {
       console.warn('Azure TTS failed, falling back to browser TTS:', ttsError);
       if ('speechSynthesis' in window) {
@@ -1424,6 +1474,10 @@ const FieldVoicePage = () => {
       toast.error('音声入力に対応していないブラウザです');
       return;
     }
+
+    // iOS Safari autoplay対策: ユーザージェスチャ内でAudioをアンロック
+    unlockAudio();
+
     await setupMicStream();
 
     // まず会話を開始してから、セッション作成は非同期で行う
@@ -1690,6 +1744,12 @@ const FieldVoicePage = () => {
       }
       if (audioRef.current) {
         audioRef.current.pause();
+      }
+      // 事前確保したAudio要素も解放
+      if (audioElRef.current) {
+        audioElRef.current.pause();
+        audioElRef.current.src = '';
+        audioElRef.current = null;
       }
       if ('speechSynthesis' in window) {
         speechSynthesis.cancel();
