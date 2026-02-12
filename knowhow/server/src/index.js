@@ -27,6 +27,11 @@ app.set('trust proxy', true);
 function getAllowedOrigins() {
   if (process.env.NODE_ENV === 'production') {
     const origins = [process.env.CLIENT_URL || 'https://knowhow-app.azurewebsites.net'];
+    // Also allow the API server's own origin (for embedded client)
+    const apiUrl = process.env.API_URL || 'https://knowhow-api.azurewebsites.net';
+    if (!origins.includes(apiUrl)) {
+      origins.push(apiUrl);
+    }
     if (process.env.CORS_ORIGIN && !origins.includes(process.env.CORS_ORIGIN)) {
       origins.push(process.env.CORS_ORIGIN);
     }
